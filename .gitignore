@@ -1,0 +1,13 @@
+/.env
+/.env.local
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/
+/vendor/
+/node_modules/
+/public/build/
+*.cache
+.idea/
+.vscode/
+*.log
