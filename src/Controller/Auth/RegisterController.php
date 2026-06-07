@@ -4,7 +4,6 @@ namespace App\Controller\Auth;
 
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
-use Rompetomp\InertiaBundle\Service\InertiaInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,28 +19,42 @@ class RegisterController extends AbstractController
         EntityManagerInterface $em,
         UserPasswordHasherInterface $hasher,
         ValidatorInterface $validator,
-        InertiaInterface $inertia,
     ): Response {
-        if ($request->isMethod('POST')) {
-            $data = $request->toArray();
+        if ($this->getUser()) {
+            return $this->redirectToRoute('app_dashboard');
+        }
 
+        if ($request->isMethod('POST')) {
             $user = new User();
-            $user->setEmail($data['email'] ?? '');
-            $user->setFirstName($data['firstName'] ?? null);
-            $user->setLastName($data['lastName'] ?? null);
-            $user->setPassword($hasher->hashPassword($user, $data['password'] ?? ''));
+            $user->setEmail($request->request->get('email', ''));
+            $user->setFirstName($request->request->get('firstName'));
+            $user->setLastName($request->request->get('lastName'));
+            $user->setPassword($hasher->hashPassword($user, $request->request->get('password', '')));
 
             $errors = $validator->validate($user);
+
             if (count($errors) > 0) {
-                return $this->json(['errors' => (string) $errors], 422);
+                $errorMessages = [];
+                foreach ($errors as $error) {
+                    $errorMessages[] = $error->getMessage();
+                }
+
+                return $this->render('auth/register.html.twig', [
+                    'errors'    => $errorMessages,
+                    'email'     => $request->request->get('email'),
+                    'firstName' => $request->request->get('firstName'),
+                    'lastName'  => $request->request->get('lastName'),
+                ]);
             }
 
             $em->persist($user);
             $em->flush();
 
+            $this->addFlash('success', 'Compte créé ! Tu peux maintenant te connecter.');
+
             return $this->redirectToRoute('app_login');
         }
 
-        return $inertia->render('Auth/Register');
+        return $this->render('auth/register.html.twig');
     }
 }

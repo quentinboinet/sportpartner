@@ -1,0 +1,306 @@
+# ── Navigation ──────────────────────────────
+nav:
+    dashboard: Dashboard
+    activities: Activities
+    stats: Statistics
+    calendar: Calendar
+    nutrition: Nutrition
+    settings: Settings
+
+# ── Sidebar ──────────────────────────────────
+sidebar:
+    today_label: TODAY
+    distance: distance
+    load_label: load
+    amateur_role: Amateur Competitor
+    pro_role: Pro Member
+
+# ── Topbar ───────────────────────────────────
+topbar:
+    search_placeholder: "Search an activity, a race…"
+
+# ── Page dashboard ───────────────────────────
+dashboard:
+    page_title: "Dashboard – SportPartner"
+    title: Dashboard
+    sub: Your week at a glance
+    week_label: "WEEK %week% · %month% %start%–%end%"
+    greeting: "Hello, %name%."
+    sync: Sync
+    add_activity: "+ Add Activity"
+
+# ── Carte Charge & forme ─────────────────────
+charge:
+    title: Load & Form
+    sub: "Last 12 weeks · weekly load (TSS) + physical condition"
+    toggle_charge: Load
+    toggle_forme: Form
+    current_form_label: CURRENT FORM
+    freshness_label: FRESHNESS
+    dynamic_badge: "⚡ Good momentum, ready to load"
+    no_data: No data available
+
+# ── Carte Prochaine échéance ─────────────────
+event:
+    next_label: NEXT EVENT
+    days_unit: DAYS
+    plan_label: Training plan
+    see_calendar: See prep calendar
+    no_event_title: No upcoming event
+    no_event_sub: Add a goal to see your countdown
+
+# ── Cartes statistiques ──────────────────────
+stat:
+    distance: Distance
+    time: Time
+    elevation: "Elevation +"
+    charge: Load
+
+# ── Liste activités ──────────────────────────
+activity:
+    recent_title: Recent Activities
+    see_all: See all
+    empty: "No activities yet. Connect Strava to import your workouts."
+    run: Run
+    ride: Ride
+    swim: Swim
+    hike: Hike
+    other: Activity
+    today: Today
+    yesterday: Yesterday
+
+# ── Objectifs ────────────────────────────────
+objectives:
+    title: Weekly Goals
+    distance: distance
+    charge: load
+    sessions: sessions
+
+# ── Bannière Strava ──────────────────────────
+strava:
+    connect_title: Connect your Strava account
+    connect_sub: Sync your activities automatically
+    connect_btn: Connect Strava
+
+# ── Sports (reference table) ─────────────────
+sport:
+    run: Run
+    trail: Trail
+    ride: Ride
+    swim: Swim
+    walk: Walk
+    hike: Hike
+    weight_training: Strength
+    other: Other
+
+# ── Calendar page ─────────────────────────────────────────────────────────────
+calendar:
+    page_title: "Calendar – SportPartner"
+    title: Calendar
+    sub: "Planning & races"
+    view_month: Month
+    view_week: Week
+    btn_plan: "+ Plan"
+    sessions_done: sessions this month
+    objectives_title: Upcoming Goals
+    objectives_empty: "No goals planned yet. Add a race or target event."
+    objectives_add: "+ Add a goal"
+    legend_done: Completed
+    legend_planned: Planned
+    legend_race: Race
+    toast_title: Automatically generated plan
+    toast_sub: The plan adjusts each week based on your current load and form.
+    day_mon: MON
+    day_tue: TUE
+    day_wed: WED
+    day_thu: THU
+    day_fri: FRI
+    day_sat: SAT
+    day_sun: SUN
+    month_1: January
+    month_2: February
+    month_3: March
+    month_4: April
+    month_5: May
+    month_6: June
+    month_7: July
+    month_8: August
+    month_9: September
+    month_10: October
+    month_11: November
+    month_12: December
+
+# ── Statistics page ───────────────────────────────────────────────────────────
+stats:
+    page_title: "Statistics – SportPartner"
+    title: Statistics
+    sub: Trends and records
+    export: Export
+    period_month: This month
+    period_season: "Season %year%"
+    period_all: All time
+    total_distance: Total distance
+    total_time: Moving time
+    total_elevation: Elevation gain
+    total_sessions: Sessions
+    total_calories: Calories
+    volume_title: Monthly volume by sport
+    volume_sub: cumulative distance (km)
+    donut_title: Distribution by sport
+    donut_season: season
+    pace_title: Average running pace
+    pace_sub: "12 weeks · min/km (lower = faster)"
+    pace_progress: improving
+    zones_title: Time in HR zones
+    zones_sub: season distribution
+    no_data: No data available
+    no_run_data: No running data
+    no_hr_data: No heart rate data available
+    records_title: Personal Records
+    records_new: new
+    record_new_label: New
+    records_empty: "No records yet. Sync Strava to start tracking."
+    record_longest_ride: Longest ride
+    record_max_elevation: D+ on a session
+    col_sport: DISCIPLINE
+    col_record: RECORD
+    col_value: VALUE
+    col_date: DATE
+
+# ── Activity detail page ──────────────────────────────────────────────────────
+activity_detail:
+    page_title: "Activity Detail – SportPartner"
+    back: Back to activities
+    share: Share
+    stat_distance: DISTANCE
+    stat_duration: DURATION
+    stat_pace: PACE
+    stat_speed: SPEED
+    stat_elevation: "D+"
+    stat_hr_avg: AVG HR
+    parcours_title: Route
+    no_gps: GPS trace unavailable (sync Strava)
+    gps_placeholder: GPS Trace
+    elevation_title: ELEVATION PROFILE
+    zones_title: Heart Rate Zones
+    zones_max: Max HR
+    zone1: Z1 Recovery
+    zone2: Z2 Endurance
+    zone3: Z3 Tempo
+    zone4: Z4 Threshold
+    zone5: "Z5 VO₂max"
+    hr_avg: Avg HR
+    calories_label: Calories
+    load_label: Load
+    cadence_label: Cadence
+    pace_title: Pace per kilometer
+
+# ── Activities page ───────────────────────────
+activities:
+    page_title: "Activities – SportPartner"
+    title: Activities
+    sub: Your training history
+    filter_all: All
+    btn_filters: Filters
+    btn_add: "+ Add"
+    stat_activities: ACTIVITIES
+    stat_distance: DISTANCE
+    stat_load: CUMULATIVE LOAD
+    stat_calories: CALORIES
+    duration_label: duration
+    pace_unit: /km
+    speed_unit: km/h
+    zones_label: HR zones
+    empty: "No activities yet."
+
+# ── Settings ─────────────────────────────────────────────────────────────────
+settings:
+    page_title: "Settings – SportPartner"
+    title: Settings
+    sub: "Your SportPartner account"
+    saved_flash: "Profile saved successfully."
+    cancel: Cancel
+    save: Save
+    coming_soon: "This section is coming soon."
+    nav:
+        profile: Profile
+        preferences: Preferences
+        hr_zones: HR Zones
+        devices: Devices
+        appearance: Appearance
+        account: Account
+    profile:
+        section_title: Athlete Profile
+        change_photo: Change photo
+        handle: Username
+        age: "Age (years)"
+        weight: "Weight (kg)"
+        resting_hr: "Resting HR (bpm)"
+        max_hr: "Max HR (bpm)"
+        vma: "MAS (km/h)"
+        ftp: "Cycling FTP (W)"
+
+# ── Authentification ─────────────────────────
+auth:
+    login:
+        page_title: "Login – SportPartner"
+        title: Login
+        sub: Welcome to SportPartner
+        email: Email
+        password: Password
+        email_placeholder: "you@example.com"
+        password_placeholder: "••••••••"
+        submit: Sign in
+        no_account: "No account?"
+        register_link: Sign up
+    register:
+        page_title: "Sign up – SportPartner"
+        title: Create an account
+        sub: Join the SportPartner community
+        first_name: First Name
+        last_name: Last Name
+        first_name_placeholder: John
+        last_name_placeholder: Doe
+        email: Email
+        email_placeholder: "you@example.com"
+        password: "Password (8 characters min.)"
+        password_placeholder: "••••••••"
+        submit: Create my account
+        have_account: Already have an account?
+        login_link: Sign in
+
+# ── Nutrition ─────────────────────────────────────────────────────────────────
+nutrition:
+    page_title: "Nutrition – SportPartner"
+    training_day: "Training Day"
+    rest_day: "Rest Day"
+    add_meal: "+ Add a meal"
+    energy_balance: Energy Balance
+    objective: "target"
+    kcal_consumed: kcal consumed
+    daily_goal: Daily target
+    expenditure: "Expenditure (rest + sport)"
+    remaining: Remaining
+    macros_title: Macronutrients
+    carbs: Carbs
+    proteins: Proteins
+    fats: Fats
+    hydration: Hydration
+    meals_title: Today's meals
+    meals_empty: "No meals logged yet. Add your first meal!"
+    upcoming: upcoming
+    weekly_balance_title: 7-Day Balance
+    weekly_balance_sub: "intake vs expenditure (kcal)"
+    weekly_deficit: Cumulative weekly balance
+    chart:
+        intake: Intake
+        expenditure: Expenditure
+    tip:
+        long_run: "Long run planned: consider carb-loading tonight"
+    meal_type:
+        breakfast: Breakfast
+        morning_snack: Snack
+        lunch: Lunch
+        pre_workout: Pre-workout snack
+        dinner: Dinner
+        evening_snack: Evening snack

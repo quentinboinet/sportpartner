@@ -1,0 +1,168 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'activities.page_title'|trans }}{% endblock %}
+
+{% block body %}
+
+{# ── En-tête ────────────────────────────────────── #}
+<div class="sp-page-header">
+    <div>
+        <h1 class="sp-greeting" style="font-size:24px">{{ 'activities.title'|trans }}</h1>
+        <div class="sp-week-label" style="color:var(--sp-muted);font-size:11px;font-weight:500;letter-spacing:0;text-transform:none">
+            {{ 'activities.sub'|trans }}
+        </div>
+    </div>
+</div>
+
+{# ── Barre de filtres ──────────────────────────── #}
+<div class="sp-filter-bar">
+    <div class="sp-filter-tabs">
+        <a href="{{ path('app_activities') }}"
+           class="sp-filter-tab {{ currentSport is null ? 'active' : '' }}">
+            {{ 'activities.filter_all'|trans }}
+        </a>
+        {% for sport in sports %}
+            <a href="{{ path('app_activities', {sport: sport.slug}) }}"
+               class="sp-filter-tab {{ currentSport and currentSport.slug == sport.slug ? 'active' : '' }}">
+                {% if currentSport is null or currentSport.slug != sport.slug %}
+                    <span class="sp-tab-dot" style="background:{{ sport.color }}"></span>
+                {% endif %}
+                {{ ('sport.' ~ sport.slug)|trans }}
+            </a>
+        {% endfor %}
+    </div>
+    <div class="sp-filter-actions">
+        <a href="#" class="sp-btn-ghost">
+            <i class="bi bi-sliders"></i> {{ 'activities.btn_filters'|trans }}
+        </a>
+        <a href="#" class="sp-btn sp-btn-primary">{{ 'activities.btn_add'|trans }}</a>
+    </div>
+</div>
+
+{# ── Barre de stats ─────────────────────────────── #}
+<div class="sp-stats-bar">
+    <div class="sp-stats-bar-item">
+        <div class="sp-stats-bar-label">{{ 'activities.stat_activities'|trans }}</div>
+        <div class="sp-stats-bar-val">{{ count }}</div>
+    </div>
+    <div class="sp-stats-bar-item">
+        <div class="sp-stats-bar-label">{{ 'activities.stat_distance'|trans }}</div>
+        <div class="sp-stats-bar-val">{{ totalKm > 0 ? totalKm : '--' }}{% if totalKm > 0 %}<sup> km</sup>{% endif %}</div>
+    </div>
+    <div class="sp-stats-bar-item">
+        <div class="sp-stats-bar-label">{{ 'activities.stat_load'|trans }}</div>
+        <div class="sp-stats-bar-val">{{ totalTSS > 0 ? totalTSS : '--' }}{% if totalTSS > 0 %}<sup> TSS</sup>{% endif %}</div>
+    </div>
+    <div class="sp-stats-bar-item">
+        <div class="sp-stats-bar-label">{{ 'activities.stat_calories'|trans }}</div>
+        <div class="sp-stats-bar-val">{{ totalCalories > 0 ? totalCalories : '--' }}{% if totalCalories > 0 %}<sup> kcal</sup>{% endif %}</div>
+    </div>
+</div>
+
+{# ── Liste des activités ────────────────────────── #}
+<div class="sp-card" style="padding:0;overflow:hidden">
+
+    {% if activities is empty %}
+        <p style="color:var(--sp-muted);text-align:center;padding:48px 0;margin:0;font-size:13px">
+            {{ 'activities.empty'|trans }}
+        </p>
+    {% else %}
+        {% for activity in activities %}
+            {% set sport = activity.sport %}
+            {% set slug  = sport ? sport.slug : 'other' %}
+            {% set icon  = sport ? sport.icon : 'bi-lightning-fill' %}
+            {% set color = sport ? sport.color : '#9CA3AF' %}
+
+            {% set _t  = activity.movingTimeSeconds ?? 0 %}
+            {% set _tH = (_t / 3600)|round(0, 'floor') %}
+            {% set _tM = ((_t % 3600) / 60)|round(0, 'floor') %}
+            {% set _tS = _t % 60 %}
+
+            {# Relative date label #}
+            {% set _today = 'now'|date('Y-m-d') %}
+            {% set _yesterday = '-1 day'|date('Y-m-d') %}
+            {% set _actDay = activity.startDate ? activity.startDate|date('Y-m-d') : null %}
+            {% if _actDay == _today %}
+                {% set _dayLabel = 'activity.today'|trans %}
+            {% elseif _actDay == _yesterday %}
+                {% set _dayLabel = 'activity.yesterday'|trans %}
+            {% else %}
+                {% set _dayLabel = activity.startDate ? activity.startDate|date('D.')|capitalize : '' %}
+            {% endif %}
+
+            {# Show speed for cycling, pace for running #}
+            {% set _isCycling = slug in ['ride'] %}
+            {% set _showSpeed = _isCycling and activity.speedKmh %}
+            {% set _showPace  = not _isCycling and activity.paceMinPerKm %}
+
+            <a href="{{ path('app_activity_show', {id: activity.id}) }}" class="sp-activity-row-link">
+
+                {# Icône sport #}
+                <div class="sp-activity-icon" style="background:{{ color }};color:#fff;border-radius:10px;flex-shrink:0">
+                    <i class="bi {{ icon }}"></i>
+                </div>
+
+                {# Nom + sous-titre #}
+                <div class="sp-activity-body" style="min-width:0;flex:2">
+                    <div class="sp-activity-name">
+                        {{ activity.name ?? ('sport.' ~ slug)|trans }}
+                    </div>
+                    <div class="sp-activity-sub">
+                        {{ _dayLabel }}
+                        {% if activity.startDate %}
+                            · {{ activity.startDate|date('H:i') }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Distance #}
+                {% if activity.distanceKm %}
+                    <div class="sp-act-stat" style="text-align:right;min-width:60px">
+                        <span class="sp-act-stat-val">{{ activity.distanceKm|number_format(1) }}</span>
+                        <span class="sp-act-stat-unit">km</span>
+                    </div>
+                {% endif %}
+
+                {# Durée #}
+                <div class="sp-act-stat" style="text-align:right;min-width:68px">
+                    {% if _t > 0 %}
+                        <span class="sp-act-stat-val">
+                            {% if _tH > 0 %}{{ _tH }}:{{ '%02d'|format(_tM) }}:{{ '%02d'|format(_tS) }}
+                            {% else %}{{ _tM }}:{{ '%02d'|format(_tS) }}{% endif %}
+                        </span>
+                        <span class="sp-act-stat-unit">{{ 'activities.duration_label'|trans }}</span>
+                    {% endif %}
+                </div>
+
+                {# Allure ou vitesse #}
+                <div class="sp-act-stat" style="text-align:right;min-width:52px">
+                    {% if _showSpeed %}
+                        <span class="sp-act-stat-val">{{ activity.speedKmh }}</span>
+                        <span class="sp-act-stat-unit">{{ 'activities.speed_unit'|trans }}</span>
+                    {% elseif _showPace %}
+                        <span class="sp-act-stat-val">{{ activity.paceMinPerKm }}</span>
+                        <span class="sp-act-stat-unit">{{ 'activities.pace_unit'|trans }}</span>
+                    {% else %}
+                        <span class="sp-act-stat-val" style="color:var(--sp-muted)">—</span>
+                    {% endif %}
+                </div>
+
+                {# Zones FC (visuel placeholder) #}
+                <div style="flex-shrink:0;text-align:center">
+                    <div class="sp-zone-bar" style="margin:0 auto 2px">
+                        <span style="background:#22C55E;flex:2"></span>
+                        <span style="background:#F59E0B;flex:2"></span>
+                        <span style="background:#EF4444;flex:1"></span>
+                    </div>
+                    <span class="sp-act-stat-unit">{{ 'activities.zones_label'|trans }}</span>
+                </div>
+
+                <i class="bi bi-chevron-right sp-act-chevron"></i>
+
+            </a>
+        {% endfor %}
+    {% endif %}
+
+</div>
+
+{% endblock %}

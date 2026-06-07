@@ -1,0 +1,65 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'auth.login.page_title'|trans }}{% endblock %}
+
+{% block body %}
+<div class="sp-auth-wrap">
+    <div class="sp-auth-box">
+
+        <div class="sp-auth-logo">
+            <div class="sp-auth-logo-bolt"><i class="bi bi-lightning-fill"></i></div>
+            <span class="sp-auth-logo-text">SportPartner</span>
+        </div>
+
+        {# Locale switcher #}
+        <div style="text-align:center;margin-bottom:20px">
+            <div class="sp-locale-switch" style="display:inline-flex">
+                <a href="{{ path('app_switch_locale', {locale: 'fr'}) }}"
+                   class="{{ app.request.locale == 'fr' ? 'active' }}">FR</a>
+                <a href="{{ path('app_switch_locale', {locale: 'en'}) }}"
+                   class="{{ app.request.locale == 'en' ? 'active' }}">EN</a>
+            </div>
+        </div>
+
+        <div class="sp-auth-card">
+            <h1 class="sp-auth-title">{{ 'auth.login.title'|trans }}</h1>
+            <p class="sp-auth-sub">{{ 'auth.login.sub'|trans }}</p>
+
+            {% if error %}
+                <div class="alert alert-danger" style="border-radius:8px;font-size:13px">
+                    {{ error.messageKey|trans(error.messageData, 'security') }}
+                </div>
+            {% endif %}
+
+            <form method="post" action="{{ path('app_login') }}">
+                <div class="sp-field">
+                    <label for="email">{{ 'auth.login.email'|trans }}</label>
+                    <input type="email" id="email" name="_username"
+                           value="{{ last_username }}"
+                           placeholder="{{ 'auth.login.email_placeholder'|trans }}"
+                           autocomplete="email" required autofocus>
+                </div>
+
+                <div class="sp-field">
+                    <label for="password">{{ 'auth.login.password'|trans }}</label>
+                    <input type="password" id="password" name="_password"
+                           placeholder="{{ 'auth.login.password_placeholder'|trans }}"
+                           autocomplete="current-password" required>
+                </div>
+
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+                <button type="submit" class="sp-auth-submit">
+                    {{ 'auth.login.submit'|trans }}
+                </button>
+            </form>
+        </div>
+
+        <p class="sp-auth-footer">
+            {{ 'auth.login.no_account'|trans }}
+            <a href="{{ path('app_register') }}">{{ 'auth.login.register_link'|trans }}</a>
+        </p>
+
+    </div>
+</div>
+{% endblock %}

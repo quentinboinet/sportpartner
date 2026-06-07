@@ -7,7 +7,7 @@ doctrine:
     orm:
         auto_generate_proxy_classes: true
         enable_lazy_ghost_objects: true
-        naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+        naming_strategy: doctrine.orm.naming_strategy.default
         auto_mapping: true
         mappings:
             App:
@@ -16,6 +16,10 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Entity'
                 prefix: 'App\Entity'
                 alias: App
+        dql:
+            datetime_functions:
+                year: DoctrineExtensions\Query\Mysql\Year
+                week: DoctrineExtensions\Query\Mysql\Week
 
 doctrine_migrations:
     migrations_paths:

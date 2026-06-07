@@ -1,0 +1,405 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'dashboard.page_title'|trans }}{% endblock %}
+
+{% block body %}
+
+{# ── Calculs hebdomadaires ─────────────────────────────── #}
+{% set wAll  = weeklyVolume %}
+{% set wLast = wAll|last %}
+{% set wPrev = wAll|length > 1 ? wAll[wAll|length - 2] : null %}
+
+{% set distKm     = wLast ? (wLast.totalDistance / 1000)|round(1) : 0 %}
+{% set prevDistKm = wPrev ? (wPrev.totalDistance / 1000)|round(1) : 0 %}
+{% set distTrend  = prevDistKm > 0 ? ((distKm - prevDistKm) / prevDistKm * 100)|round(0) : null %}
+
+{% set totalSecs = wLast ? wLast.totalTime : 0 %}
+{% set timeH     = (totalSecs / 3600)|round(0, 'floor') %}
+{% set timeM     = ((totalSecs % 3600) / 60)|round(0, 'floor') %}
+{% set prevSecs  = wPrev ? wPrev.totalTime : 0 %}
+{% set timeTrend = prevSecs > 0 ? ((totalSecs - prevSecs) / prevSecs * 100)|round(0) : null %}
+
+{% set sessCount     = wLast ? wLast.count : 0 %}
+{% set prevSessCount = wPrev ? wPrev.count : 0 %}
+{% set sessTrend     = prevSessCount > 0 ? ((sessCount - prevSessCount) / prevSessCount * 100)|round(0) : null %}
+
+{# TSS estimé : ~60 TSS/heure (approximation endurance) #}
+{% set estTSS  = (totalSecs / 3600 * 60)|round(0) %}
+{% set prevTSS = (prevSecs / 3600 * 60)|round(0) %}
+{% set tssTrend = prevTSS > 0 ? ((estTSS - prevTSS) / prevTSS * 100)|round(0) : null %}
+
+{# Forme : dist courante / moyenne dist toutes semaines → normalisé 35–90 #}
+{% set _sumDist = 0 %}
+{% for w in wAll %}{% set _sumDist = _sumDist + w.totalDistance %}{% endfor %}
+{% set avgDist = wAll|length > 0 ? _sumDist / wAll|length : 0 %}
+{% if avgDist > 0 and wLast %}
+    {% set _formeRaw = (wLast.totalDistance / avgDist * 60 + 35)|round(0) %}
+    {% set formeScore = _formeRaw > 100 ? 100 : _formeRaw %}
+{% else %}
+    {% set formeScore = null %}
+{% endif %}
+
+{# Objectifs (cibles : 150 km, 600 TSS, 7 séances) #}
+{% set circ     = 213.63 %}
+{% set distPct  = distKm > 0 ? (distKm / 150 * 100)|round(0) : 0 %}
+{% if distPct  > 100 %}{% set distPct  = 100 %}{% endif %}
+{% set tssPct   = estTSS > 0 ? (estTSS / 600 * 100)|round(0) : 0 %}
+{% if tssPct   > 100 %}{% set tssPct   = 100 %}{% endif %}
+{% set sessPct  = sessCount > 0 ? (sessCount / 7 * 100)|round(0) : 0 %}
+{% if sessPct  > 100 %}{% set sessPct  = 100 %}{% endif %}
+
+{# Élévation totale (approx. depuis activités récentes) #}
+{% set _elevSum = 0 %}
+{% for a in recentActivities %}{% set _elevSum = _elevSum + (a.elevationGain|default(0)) %}{% endfor %}
+
+{# Label semaine #}
+{% set _weekNum   = 'now'|date('W') %}
+{% set _weekStart = 'monday this week'|date('j') %}
+{% set _weekEnd   = 'sunday this week'|date('j') %}
+{% set _month     = 'now'|date('F')|upper %}
+
+{# ── Bannière Strava ──────────────────────────────────── #}
+{% if not stravaConnected %}
+<div class="sp-strava-alert">
+    <div>
+        <div style="font-size:13px;font-weight:700">{{ 'strava.connect_title'|trans }}</div>
+        <div style="font-size:12px;color:#92400E;margin-top:2px">{{ 'strava.connect_sub'|trans }}</div>
+    </div>
+    <a href="{{ path('app_oauth_strava') }}" class="sp-btn sp-btn-primary" style="padding:7px 14px;font-size:12px">
+        {{ 'strava.connect_btn'|trans }}
+    </a>
+</div>
+{% endif %}
+
+{# ── En-tête page ─────────────────────────────────────── #}
+<div class="sp-page-header">
+    <div>
+        <div class="sp-week-label">
+            {{ 'dashboard.week_label'|trans({
+                '%week%': _weekNum,
+                '%start%': _weekStart,
+                '%end%': _weekEnd,
+                '%month%': _month
+            }) }}
+        </div>
+        <h1 class="sp-greeting">
+            {{ 'dashboard.greeting'|trans({
+                '%name%': app.user.firstName ?: app.user.email|split('@')|first
+            }) }}
+        </h1>
+    </div>
+    <div class="sp-header-btns">
+        <a href="{{ app.user.stravaAccessToken ? path('app_strava_sync') : path('app_oauth_strava') }}" class="sp-btn sp-btn-outline">
+            <i class="bi bi-arrow-repeat"></i>
+            {{ 'dashboard.sync'|trans }}
+        </a>
+        <a href="#" class="sp-btn sp-btn-primary">{{ 'dashboard.add_activity'|trans }}</a>
+    </div>
+</div>
+
+{# ── Ligne 1 : Charge & forme  +  Prochaine échéance ── #}
+<div class="row g-3 mb-3">
+
+    {# ── Charge & forme ── #}
+    <div class="col-lg-8">
+        <div class="sp-card h-100">
+
+            <div class="sp-charge-header">
+                <div>
+                    <p class="sp-card-title">{{ 'charge.title'|trans }}</p>
+                    <span class="sp-card-sub">{{ 'charge.sub'|trans }}</span>
+                </div>
+                <div class="sp-toggle-group">
+                    <button class="sp-toggle-btn on">{{ 'charge.toggle_charge'|trans }}</button>
+                    <button class="sp-toggle-btn off">
+                        <span class="sp-toggle-dot"></span>{{ 'charge.toggle_forme'|trans }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="sp-chart-meta">
+                <div>
+                    <div class="sp-metric-label">{{ 'charge.current_form_label'|trans }}</div>
+                    <div class="sp-metric-val c-orange">{{ formeScore ?? '--' }}</div>
+                </div>
+                <div>
+                    <div class="sp-metric-label">{{ 'charge.freshness_label'|trans }}</div>
+                    <div class="sp-metric-val c-teal">
+                        {% if distTrend is not null %}
+                            {{ distTrend >= 0 ? '+' : '' }}{{ distTrend }}
+                        {% else %}--{% endif %}
+                    </div>
+                </div>
+                {% if formeScore is not null and formeScore >= 60 %}
+                    <div class="sp-dynamic-badge">{{ 'charge.dynamic_badge'|trans }}</div>
+                {% endif %}
+            </div>
+
+            <div class="sp-chart-canvas-wrap">
+                <canvas data-controller="weekly-chart"
+                        data-weekly-chart-data-value="{{ wAll|json_encode }}">
+                </canvas>
+            </div>
+
+        </div>
+    </div>
+
+    {# ── Prochaine échéance (placeholder) ── #}
+    <div class="col-lg-4">
+        <div class="sp-card-dark h-100" style="display:flex;flex-direction:column">
+
+            <div class="sp-event-top">
+                <div class="sp-event-icon-box">🚴</div>
+                <div>
+                    <div class="sp-event-badge-label">{{ 'event.next_label'|trans }}</div>
+                    <div class="sp-event-title">Cyclo Ardéchoise</div>
+                </div>
+            </div>
+
+            <div class="sp-countdown">
+                <div class="sp-countdown-num">14</div>
+                <div class="sp-countdown-unit">{{ 'event.days_unit'|trans }}</div>
+            </div>
+
+            <div class="sp-event-detail-row">
+                <span class="sp-event-dist-info">120 km · D+1800</span>
+                <span class="sp-event-type-pill">Bloc volume</span>
+            </div>
+
+            <div>
+                <div class="sp-plan-row">
+                    <span>{{ 'event.plan_label'|trans }}</span>
+                    <span class="sp-plan-pct">88%</span>
+                </div>
+                <div class="sp-progress">
+                    <div class="sp-progress-fill" style="width:88%"></div>
+                </div>
+            </div>
+
+            <a href="#" class="sp-event-link" style="margin-top:auto">
+                {{ 'event.see_calendar'|trans }}
+                <i class="bi bi-arrow-right"></i>
+            </a>
+
+        </div>
+    </div>
+
+</div>
+
+{# ── Ligne 2 : 4 cartes stats ─────────────────────────── #}
+<div class="row g-3 mb-3">
+
+    <div class="col-6 col-lg-3">
+        <div class="sp-stat-card">
+            <div class="sp-stat-header">
+                <i class="bi bi-signpost-2"></i>
+                <span class="sp-stat-lbl">{{ 'stat.distance'|trans }}</span>
+            </div>
+            <div class="sp-stat-val">
+                {{ distKm > 0 ? distKm : '--' }}{% if distKm > 0 %}<sup> km</sup>{% endif %}
+            </div>
+            {% if distTrend is not null %}
+                <span class="sp-trend {{ distTrend >= 0 ? 'up' : 'down' }}">
+                    <i class="bi bi-arrow-{{ distTrend >= 0 ? 'up' : 'down' }}-right"></i>
+                    {{ distTrend > 0 ? '+' : '' }}{{ distTrend }}%
+                </span>
+            {% else %}
+                <span class="sp-trend flat">—</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="sp-stat-card">
+            <div class="sp-stat-header">
+                <i class="bi bi-stopwatch"></i>
+                <span class="sp-stat-lbl">{{ 'stat.time'|trans }}</span>
+            </div>
+            <div class="sp-stat-val">
+                {% if totalSecs > 0 %}
+                    {{ timeH }}:{{ '%02d'|format(timeM) }}<sup> h</sup>
+                {% else %}--{% endif %}
+            </div>
+            {% if timeTrend is not null %}
+                <span class="sp-trend {{ timeTrend >= 0 ? 'up' : 'down' }}">
+                    <i class="bi bi-arrow-{{ timeTrend >= 0 ? 'up' : 'down' }}-right"></i>
+                    {{ timeTrend > 0 ? '+' : '' }}{{ timeTrend }}%
+                </span>
+            {% else %}
+                <span class="sp-trend flat">—</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="sp-stat-card">
+            <div class="sp-stat-header">
+                <i class="bi bi-mountain"></i>
+                <span class="sp-stat-lbl">{{ 'stat.elevation'|trans }}</span>
+            </div>
+            <div class="sp-stat-val">
+                {{ _elevSum > 0 ? _elevSum|round(0) : '--' }}{% if _elevSum > 0 %}<sup> m</sup>{% endif %}
+            </div>
+            <span class="sp-trend flat">—</span>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="sp-stat-card">
+            <div class="sp-stat-header">
+                <i class="bi bi-lightning-charge"></i>
+                <span class="sp-stat-lbl">{{ 'stat.charge'|trans }}</span>
+            </div>
+            <div class="sp-stat-val">
+                {{ estTSS > 0 ? estTSS : '--' }}{% if estTSS > 0 %}<sup> TSS</sup>{% endif %}
+            </div>
+            {% if tssTrend is not null %}
+                <span class="sp-trend {{ tssTrend >= 0 ? 'up' : 'down' }}">
+                    <i class="bi bi-arrow-{{ tssTrend >= 0 ? 'up' : 'down' }}-right"></i>
+                    {{ tssTrend > 0 ? '+' : '' }}{{ tssTrend }}%
+                </span>
+            {% else %}
+                <span class="sp-trend flat">—</span>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+{# ── Ligne 3 : Activités + Objectifs ─────────────────── #}
+<div class="row g-3">
+
+    {# ── Dernières activités ── #}
+    <div class="col-lg-8">
+        <div class="sp-card">
+            <div class="sp-section-hd">
+                <h2 class="sp-section-title">{{ 'activity.recent_title'|trans }}</h2>
+                <a href="#" class="sp-see-all">
+                    {{ 'activity.see_all'|trans }} <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+
+            {% if recentActivities is empty %}
+                <p style="color:var(--sp-muted);text-align:center;padding:28px 0;margin:0;font-size:13px">
+                    {{ 'activity.empty'|trans }}
+                </p>
+            {% else %}
+                {% for activity in recentActivities %}
+                    {% set _type      = activity.type|lower %}
+                    {% set _typeClass = _type in ['run','ride','swim','hike'] ? _type : 'other' %}
+                    {% set _icons     = {'run':'bi-person-walking','ride':'bi-bicycle','swim':'bi-water','hike':'bi-tree','other':'bi-lightning-fill'} %}
+                    {% set _typeIcon  = _icons[_typeClass] %}
+
+                    {% set _t  = activity.movingTime %}
+                    {% set _tH = (_t / 3600)|round(0, 'floor') %}
+                    {% set _tM = ((_t % 3600) / 60)|round(0, 'floor') %}
+                    {% set _tS = _t % 60 %}
+
+                    <div class="sp-activity">
+                        <div class="sp-activity-icon {{ _typeClass }}">
+                            <i class="bi {{ _typeIcon }}"></i>
+                        </div>
+                        <div class="sp-activity-body">
+                            <div class="sp-activity-name">{{ activity.name }}</div>
+                            <div class="sp-activity-sub">
+                                {{ ('activity.' ~ _typeClass)|trans }}
+                                · {{ activity.startDate|date('d/m/Y') }}
+                            </div>
+                        </div>
+                        <div class="sp-activity-stats">
+                            <div class="sp-act-stat">
+                                <span class="sp-act-stat-val">{{ activity.distanceKm|number_format(1) }}</span>
+                                <span class="sp-act-stat-unit">km</span>
+                            </div>
+                            <div class="sp-act-stat" style="min-width:52px">
+                                <span class="sp-act-stat-val">
+                                    {% if _tH > 0 %}
+                                        {{ _tH }}:{{ '%02d'|format(_tM) }}:{{ '%02d'|format(_tS) }}
+                                    {% else %}
+                                        {{ _tM }}:{{ '%02d'|format(_tS) }}
+                                    {% endif %}
+                                </span>
+                                <span class="sp-act-stat-unit">durée</span>
+                            </div>
+                            {% if activity.pace is defined and activity.pace is not null %}
+                                <div class="sp-act-stat">
+                                    <span class="sp-act-stat-val">{{ activity.pace }}</span>
+                                    <span class="sp-act-stat-unit">/km</span>
+                                </div>
+                            {% endif %}
+                            <div class="sp-zone-bar">
+                                <span style="background:#22C55E"></span>
+                                <span style="background:#F59E0B"></span>
+                                <span style="background:#EF4444"></span>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Objectifs de la semaine ── #}
+    <div class="col-lg-4">
+        <div class="sp-card h-100">
+            <div class="sp-section-hd">
+                <h2 class="sp-section-title">{{ 'objectives.title'|trans }}</h2>
+            </div>
+            <div class="sp-objectives">
+
+                {# Distance #}
+                <div class="sp-donut-wrap">
+                    <div class="sp-donut">
+                        <svg width="90" height="90" viewBox="0 0 90 90">
+                            <circle cx="45" cy="45" r="34" fill="none" stroke="#F3F4F6" stroke-width="7"/>
+                            <circle cx="45" cy="45" r="34" fill="none" stroke="#E8400C" stroke-width="7"
+                                    stroke-dasharray="{{ (distPct / 100 * circ)|round(1) }} {{ circ }}"
+                                    stroke-linecap="round"/>
+                        </svg>
+                        <div class="sp-donut-inner">
+                            <span class="sp-donut-val">{{ distPct }}%</span>
+                        </div>
+                    </div>
+                    <span class="sp-donut-label">{{ 'objectives.distance'|trans }}</span>
+                </div>
+
+                {# Charge #}
+                <div class="sp-donut-wrap">
+                    <div class="sp-donut">
+                        <svg width="90" height="90" viewBox="0 0 90 90">
+                            <circle cx="45" cy="45" r="34" fill="none" stroke="#F3F4F6" stroke-width="7"/>
+                            <circle cx="45" cy="45" r="34" fill="none" stroke="#06B6D4" stroke-width="7"
+                                    stroke-dasharray="{{ (tssPct / 100 * circ)|round(1) }} {{ circ }}"
+                                    stroke-linecap="round"/>
+                        </svg>
+                        <div class="sp-donut-inner">
+                            <span class="sp-donut-val sm">{{ estTSS > 0 ? estTSS : '--' }}</span>
+                            {% if estTSS > 0 %}<span class="sp-donut-unit">TSS</span>{% endif %}
+                        </div>
+                    </div>
+                    <span class="sp-donut-label">{{ 'objectives.charge'|trans }}</span>
+                </div>
+
+                {# Séances #}
+                <div class="sp-donut-wrap">
+                    <div class="sp-donut">
+                        <svg width="90" height="90" viewBox="0 0 90 90">
+                            <circle cx="45" cy="45" r="34" fill="none" stroke="#F3F4F6" stroke-width="7"/>
+                            <circle cx="45" cy="45" r="34" fill="none" stroke="#F59E0B" stroke-width="7"
+                                    stroke-dasharray="{{ (sessPct / 100 * circ)|round(1) }} {{ circ }}"
+                                    stroke-linecap="round"/>
+                        </svg>
+                        <div class="sp-donut-inner">
+                            <span class="sp-donut-val">{{ sessCount > 0 ? sessCount : '--' }}</span>
+                        </div>
+                    </div>
+                    <span class="sp-donut-label">{{ 'objectives.sessions'|trans }}</span>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

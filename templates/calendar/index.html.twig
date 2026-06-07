@@ -1,0 +1,158 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'calendar.page_title'|trans }}{% endblock %}
+
+{% block body %}
+
+<div class="sp-cal-layout">
+
+    {# ── Zone principale ──────────────────────── #}
+    <div class="sp-cal-main">
+
+        {# Navigation mois #}
+        <div class="sp-cal-nav">
+            <div style="display:flex;align-items:center;gap:12px">
+                <div class="sp-cal-arrows">
+                    <a href="{{ path('app_calendar', {year: prevYear, month: prevMonth}) }}"
+                       class="sp-cal-arrow"><i class="bi bi-chevron-left"></i></a>
+                    <a href="{{ path('app_calendar', {year: nextYear, month: nextMonth}) }}"
+                       class="sp-cal-arrow"><i class="bi bi-chevron-right"></i></a>
+                </div>
+                <h2 class="sp-cal-month-title">
+                    {{ ('calendar.month_' ~ month)|trans }} {{ year }}
+                </h2>
+                {% if totalCompleted > 0 %}
+                    <span class="sp-cal-sessions-badge">
+                        <i class="bi bi-check-circle-fill"></i>
+                        {{ totalCompleted }} {{ 'calendar.sessions_done'|trans }}
+                    </span>
+                {% endif %}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <div class="sp-cal-view-toggle">
+                    <span class="sp-cal-view-btn active">{{ 'calendar.view_month'|trans }}</span>
+                    <span class="sp-cal-view-btn">{{ 'calendar.view_week'|trans }}</span>
+                </div>
+                <button class="sp-btn sp-btn-primary" style="padding:8px 18px">
+                    <i class="bi bi-plus-lg"></i> {{ 'calendar.btn_plan'|trans }}
+                </button>
+            </div>
+        </div>
+
+        {# Grille calendrier #}
+        <div class="sp-card sp-cal-card">
+
+            {# En-têtes jours #}
+            <div class="sp-cal-grid sp-cal-header-row">
+                {% for day in ['calendar.day_mon', 'calendar.day_tue', 'calendar.day_wed',
+                               'calendar.day_thu', 'calendar.day_fri', 'calendar.day_sat', 'calendar.day_sun'] %}
+                    <div class="sp-cal-header-cell">{{ day|trans }}</div>
+                {% endfor %}
+            </div>
+
+            {# Semaines #}
+            {% for week in weeks %}
+                <div class="sp-cal-grid sp-cal-week-row">
+                    {% for day in week %}
+                        <div class="sp-cal-day
+                                    {{ not day.inMonth ? 'sp-cal-day-out' : '' }}
+                                    {{ day.isToday    ? 'sp-cal-day-today' : '' }}">
+
+                            {# Numéro du jour #}
+                            <div class="sp-cal-day-num {{ day.isToday ? 'sp-cal-day-num-today' : '' }}">
+                                {{ day.num }}
+                            </div>
+
+                            {# Activités du jour #}
+                            {% if day.inMonth %}
+                                {% for activity in day.activities %}
+                                    {% set sport = activity.sport %}
+                                    {% set color = sport ? sport.color : '#9CA3AF' %}
+                                    {% set slug  = sport ? sport.slug  : 'other' %}
+                                    {% set dist  = activity.distanceKm %}
+
+                                    <div class="sp-cal-pill"
+                                         title="{{ activity.name ?? ('sport.' ~ slug)|trans }}{% if dist %} · {{ dist|number_format(1) }} km{% endif %}"
+                                         style="background:{{ color }}1A;border-color:{{ color }}33">
+                                        <i class="bi bi-check2" style="color:{{ color }};font-size:9px;flex-shrink:0"></i>
+                                        <span class="sp-cal-pill-text">
+                                            {%- set _name = activity.name ?? ('sport.' ~ slug)|trans -%}
+                                            {%- if dist -%}
+                                                {{ _name }} {{ dist|round }}km
+                                            {%- else -%}
+                                                {{ _name }}
+                                            {%- endif -%}
+                                        </span>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            {# Légende #}
+            <div class="sp-cal-legend">
+                <span class="sp-cal-legend-item">
+                    <span class="sp-cal-legend-dot" style="background:var(--sp-orange)"></span>
+                    {{ 'calendar.legend_done'|trans }}
+                </span>
+                <span class="sp-cal-legend-item">
+                    <span class="sp-cal-legend-dot" style="background:transparent;border:1.5px dashed #9CA3AF"></span>
+                    {{ 'calendar.legend_planned'|trans }}
+                </span>
+                <span class="sp-cal-legend-item">
+                    <span class="sp-cal-legend-dot" style="background:var(--sp-orange)"></span>
+                    {{ 'calendar.legend_race'|trans }}
+                </span>
+            </div>
+
+        </div>
+    </div>
+
+    {# ── Sidebar Objectifs ───────────────────── #}
+    <div class="sp-cal-sidebar">
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <h3 class="sp-card-title" style="font-size:15px;margin:0">
+                {{ 'calendar.objectives_title'|trans }}
+            </h3>
+            <span style="background:rgba(0,0,0,.07);color:var(--sp-muted);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px">
+                0
+            </span>
+        </div>
+
+        {# État vide #}
+        <div class="sp-cal-obj-empty">
+            <div class="sp-cal-obj-empty-icon">
+                <i class="bi bi-trophy"></i>
+            </div>
+            <p style="font-size:13px;color:var(--sp-muted);text-align:center;margin:0 0 14px">
+                {{ 'calendar.objectives_empty'|trans }}
+            </p>
+            <button class="sp-btn sp-btn-primary" style="width:100%;justify-content:center">
+                <i class="bi bi-plus-lg"></i> {{ 'calendar.objectives_add'|trans }}
+            </button>
+        </div>
+
+        {# Toast en bas #}
+        <div class="sp-cal-toast">
+            <div class="sp-cal-toast-icon">
+                <i class="bi bi-lightning-fill"></i>
+            </div>
+            <div>
+                <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:2px">
+                    {{ 'calendar.toast_title'|trans }}
+                </div>
+                <div style="font-size:11px;color:rgba(255,255,255,.55)">
+                    {{ 'calendar.toast_sub'|trans }}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

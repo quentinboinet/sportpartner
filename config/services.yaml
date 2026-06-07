@@ -1,0 +1,20 @@
+parameters:
+    strava.redirect_uri: '%env(APP_URL)%/oauth/strava/callback'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    App\Service\Strava\StravaService:
+        arguments:
+            $clientId: '%env(STRAVA_CLIENT_ID)%'
+            $clientSecret: '%env(STRAVA_CLIENT_SECRET)%'
+            $redirectUri: '%strava.redirect_uri%'

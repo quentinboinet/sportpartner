@@ -35,6 +35,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $lastName = null;
 
+    // ── Athlete profile (1:1) ──────────────────────────────────────────────────
+    #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
+    private ?AthleteProfile $profile = null;
+
     #[ORM\Column(nullable: true)]
     private ?string $stravaAccessToken = null;
 
@@ -56,7 +60,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 20, options: ['default' => 'free'])]
     private string $subscriptionPlan = 'free';
 
-    #[ORM\Column(default: false)]
+    #[ORM\Column]
     private bool $emailVerified = false;
 
     #[ORM\Column(nullable: true)]
@@ -115,4 +119,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getEmailVerificationToken(): ?string { return $this->emailVerificationToken; }
     public function setEmailVerificationToken(?string $token): static { $this->emailVerificationToken = $token; return $this; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
+
+    public function getProfile(): ?AthleteProfile { return $this->profile; }
+    public function setProfile(?AthleteProfile $profile): static
+    {
+        if ($profile !== null && $profile->getUser() !== $this) {
+            $profile->setUser($this);
+        }
+        $this->profile = $profile;
+        return $this;
+    }
 }

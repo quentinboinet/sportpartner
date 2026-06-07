@@ -12,8 +12,6 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      redis:
-        condition: service_started
     networks:
       - sport_health
 
@@ -46,13 +44,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    networks:
-      - sport_health
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
     networks:
       - sport_health
 

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="{{ app.request.locale }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}SportPartner{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+    {{ importmap('app') }}
+</head>
+<body>
+
+{% if app.user %}
+{% set _route = app.request.attributes.get('_route') %}
+<div class="sp-layout">
+
+    {# ─── Sidebar ───────────────────────────────────── #}
+    <aside class="sp-sidebar">
+
+        <div class="sp-logo">
+            <div class="sp-logo-bolt"><i class="bi bi-lightning-fill"></i></div>
+            <div>
+                <div class="sp-logo-name">SportPartner</div>
+                <span class="sp-logo-sub">Performance Tracker</span>
+            </div>
+        </div>
+
+        <nav class="sp-nav">
+            <a href="{{ path('app_dashboard') }}" class="{{ _route == 'app_dashboard' ? 'active' }}">
+                <i class="bi bi-grid-fill"></i>
+                {{ 'nav.dashboard'|trans }}
+            </a>
+            <a href="{{ path('app_activities') }}" class="{{ _route starts with 'app_activities' ? 'active' }}">
+                <i class="bi bi-lightning-fill"></i>
+                {{ 'nav.activities'|trans }}
+            </a>
+            <a href="{{ path('app_stats') }}" class="{{ _route starts with 'app_stats' ? 'active' }}">
+                <i class="bi bi-graph-up"></i>
+                {{ 'nav.stats'|trans }}
+            </a>
+            <a href="{{ path('app_calendar') }}" class="{{ _route starts with 'app_calendar' ? 'active' }}">
+                <i class="bi bi-calendar3"></i>
+                {{ 'nav.calendar'|trans }}
+            </a>
+            <a href="{{ path('app_nutrition') }}" class="{{ _route starts with 'app_nutrition' ? 'active' }}">
+                <i class="bi bi-egg-fried"></i>
+                {{ 'nav.nutrition'|trans }}
+            </a>
+            <a href="{{ path('app_settings') }}" class="{{ _route starts with 'app_settings' ? 'active' }}">
+                <i class="bi bi-gear"></i>
+                {{ 'nav.settings'|trans }}
+            </a>
+        </nav>
+
+        <div class="sp-sidebar-today">
+            <div class="sp-today-label">{{ 'sidebar.today_label'|trans }}</div>
+            <div class="sp-today-row">
+                <div>
+                    <span class="sp-today-stat-val">-- <span>km</span></span>
+                    <span class="sp-today-stat-lbl">{{ 'sidebar.distance'|trans }}</span>
+                </div>
+                <div>
+                    <span class="sp-today-stat-val">-- <span>TSS</span></span>
+                    <span class="sp-today-stat-lbl">{{ 'sidebar.load_label'|trans }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sp-sidebar-user">
+            <div class="sp-avatar">
+                {{ app.user.firstName
+                    ? (app.user.firstName|slice(0,1) ~ (app.user.lastName ? app.user.lastName|slice(0,1) : ''))
+                    : app.user.email|slice(0,2)|upper }}
+            </div>
+            <div style="flex:1;min-width:0">
+                <div class="sp-user-name">
+                    {{ app.user.firstName
+                        ? app.user.firstName ~ ' ' ~ app.user.lastName
+                        : app.user.email }}
+                </div>
+                <div class="sp-user-role">
+                    {{ app.user.isPro()
+                        ? 'sidebar.pro_role'|trans
+                        : 'sidebar.amateur_role'|trans }}
+                </div>
+            </div>
+            <i class="bi bi-chevron-right" style="color:rgba(255,255,255,.22);font-size:11px;flex-shrink:0"></i>
+        </div>
+
+    </aside>
+
+    {# ─── Main ──────────────────────────────────────── #}
+    <div class="sp-main">
+
+        <header class="sp-topbar">
+            <div class="sp-search">
+                <i class="bi bi-search sp-search-icon"></i>
+                <input type="text" class="sp-search-input"
+                       placeholder="{{ 'topbar.search_placeholder'|trans }}">
+            </div>
+            <div class="sp-topbar-icons">
+                <div class="sp-locale-switch">
+                    <a href="{{ path('app_switch_locale', {locale: 'fr'}) }}"
+                       class="{{ app.request.locale == 'fr' ? 'active' }}">FR</a>
+                    <a href="{{ path('app_switch_locale', {locale: 'en'}) }}"
+                       class="{{ app.request.locale == 'en' ? 'active' }}">EN</a>
+                </div>
+                <button class="sp-icon-btn">
+                    <i class="bi bi-bell"></i>
+                    <span class="sp-notif-dot"></span>
+                </button>
+                <a href="#" class="sp-icon-btn"><i class="bi bi-gear"></i></a>
+            </div>
+        </header>
+
+        <div class="sp-content">
+            {% for type, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ type == 'error' ? 'danger' : type }} alert-dismissible fade show mb-3"
+                         role="alert" style="border-radius:10px">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+
+{% else %}
+
+{# ─── Pages publiques (login, register…) — sans sidebar ─ #}
+{% for type, messages in app.flashes %}
+    {% for message in messages %}
+        <div class="alert alert-{{ type == 'error' ? 'danger' : type }} alert-dismissible fade show"
+             style="position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;width:400px;border-radius:10px"
+             role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endfor %}
+
+{% endif %}
+
+{# ─── Contenu de la page (override dans les templates enfants) ─ #}
+{% block body %}{% endblock %}
+
+{% if app.user %}
+        </div>{# /.sp-content #}
+    </div>{# /.sp-main #}
+</div>{# /.sp-layout #}
+{% endif %}
+
+</body>
+</html>

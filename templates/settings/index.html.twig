@@ -1,0 +1,164 @@
+{% extends 'base.html.twig' %}
+
+{% set profile = app.user.profile %}
+
+{% block title %}{{ 'settings.page_title'|trans }}{% endblock %}
+
+{% block body %}
+
+<div class="sp-page-header">
+    <div>
+        <h1 class="sp-page-title">{{ 'settings.title'|trans }}</h1>
+        <p class="sp-page-sub">{{ 'settings.sub'|trans }}</p>
+    </div>
+</div>
+
+<div class="sp-settings-layout">
+
+    {# ── Left nav ───────────────────────────────────────────────────────── #}
+    <aside class="sp-settings-nav-card">
+        <nav class="sp-settings-nav">
+            <a href="{{ path('app_settings', {tab: 'profile'}) }}"
+               class="{{ tab == 'profile' ? 'active' }}">
+                <i class="bi bi-person"></i>
+                {{ 'settings.nav.profile'|trans }}
+            </a>
+            <a href="{{ path('app_settings', {tab: 'preferences'}) }}"
+               class="{{ tab == 'preferences' ? 'active' }}">
+                <i class="bi bi-sliders2"></i>
+                {{ 'settings.nav.preferences'|trans }}
+            </a>
+            <a href="{{ path('app_settings', {tab: 'hr_zones'}) }}"
+               class="{{ tab == 'hr_zones' ? 'active' }}">
+                <i class="bi bi-heart-pulse"></i>
+                {{ 'settings.nav.hr_zones'|trans }}
+            </a>
+            <a href="{{ path('app_settings', {tab: 'devices'}) }}"
+               class="{{ tab == 'devices' ? 'active' }}">
+                <i class="bi bi-phone"></i>
+                {{ 'settings.nav.devices'|trans }}
+            </a>
+            <a href="{{ path('app_settings', {tab: 'appearance'}) }}"
+               class="{{ tab == 'appearance' ? 'active' }}">
+                <i class="bi bi-palette"></i>
+                {{ 'settings.nav.appearance'|trans }}
+            </a>
+            <a href="{{ path('app_settings', {tab: 'account'}) }}"
+               class="{{ tab == 'account' ? 'active' }}">
+                <i class="bi bi-shield"></i>
+                {{ 'settings.nav.account'|trans }}
+            </a>
+        </nav>
+    </aside>
+
+    {# ── Content ────────────────────────────────────────────────────────── #}
+    <div class="sp-settings-content-card">
+
+        {% if tab == 'profile' %}
+
+        <div class="sp-settings-section-title">{{ 'settings.profile.section_title'|trans }}</div>
+
+        {# Avatar row #}
+        <div class="sp-settings-avatar-row">
+            <div class="sp-settings-avatar-circle">
+                <i class="bi bi-person-fill"></i>
+            </div>
+            <div class="sp-settings-avatar-info">
+                <div class="sp-settings-display-name">
+                    {{ app.user.fullName ?: app.user.email }}
+                </div>
+                <div class="sp-settings-display-meta">
+                    {% if profile and profile.handle %}@{{ profile.handle }} · {% endif %}
+                    {{ app.user.isPro() ? 'sidebar.pro_role'|trans : 'sidebar.amateur_role'|trans }}
+                </div>
+            </div>
+            <button type="button" class="sp-settings-photo-btn" disabled>
+                <i class="bi bi-camera"></i>
+                {{ 'settings.profile.change_photo'|trans }}
+            </button>
+        </div>
+
+        {# Symfony Form #}
+        {{ form_start(form, {attr: {class: 'sp-settings-form'}}) }}
+
+        <div class="sp-settings-form-grid">
+
+            {# Handle (with @ prefix) #}
+            <div class="sp-settings-field">
+                {{ form_label(form.handle, 'settings.profile.handle'|trans) }}
+                <div class="sp-settings-input-wrap">
+                    <span class="sp-settings-input-prefix">@</span>
+                    {{ form_widget(form.handle, {attr: {class: 'sp-settings-input sp-settings-input-prefixed'}}) }}
+                </div>
+                {{ form_errors(form.handle) }}
+            </div>
+
+            {# Age #}
+            <div class="sp-settings-field">
+                {{ form_label(form.age, 'settings.profile.age'|trans) }}
+                {{ form_widget(form.age, {attr: {class: 'sp-settings-input'}}) }}
+                {{ form_errors(form.age) }}
+            </div>
+
+            {# Weight #}
+            <div class="sp-settings-field">
+                {{ form_label(form.weight, 'settings.profile.weight'|trans) }}
+                {{ form_widget(form.weight, {attr: {class: 'sp-settings-input'}}) }}
+                {{ form_errors(form.weight) }}
+            </div>
+
+            {# Resting HR #}
+            <div class="sp-settings-field">
+                {{ form_label(form.restingHr, 'settings.profile.resting_hr'|trans) }}
+                {{ form_widget(form.restingHr, {attr: {class: 'sp-settings-input'}}) }}
+                {{ form_errors(form.restingHr) }}
+            </div>
+
+            {# Max HR #}
+            <div class="sp-settings-field">
+                {{ form_label(form.maxHr, 'settings.profile.max_hr'|trans) }}
+                {{ form_widget(form.maxHr, {attr: {class: 'sp-settings-input'}}) }}
+                {{ form_errors(form.maxHr) }}
+            </div>
+
+            {# VMA #}
+            <div class="sp-settings-field">
+                {{ form_label(form.vma, 'settings.profile.vma'|trans) }}
+                {{ form_widget(form.vma, {attr: {class: 'sp-settings-input'}}) }}
+                {{ form_errors(form.vma) }}
+            </div>
+
+            {# FTP #}
+            <div class="sp-settings-field">
+                {{ form_label(form.ftp, 'settings.profile.ftp'|trans) }}
+                {{ form_widget(form.ftp, {attr: {class: 'sp-settings-input'}}) }}
+                {{ form_errors(form.ftp) }}
+            </div>
+
+        </div>
+
+        <div class="sp-settings-actions">
+            <a href="{{ path('app_settings', {tab: 'profile'}) }}" class="sp-btn sp-btn-outline">
+                {{ 'settings.cancel'|trans }}
+            </a>
+            <button type="submit" class="sp-btn sp-btn-primary">
+                {{ 'settings.save'|trans }}
+            </button>
+        </div>
+
+        {{ form_end(form) }}
+
+        {% else %}
+
+        <div class="sp-settings-coming-soon">
+            <i class="bi bi-tools"></i>
+            <p>{{ 'settings.coming_soon'|trans }}</p>
+        </div>
+
+        {% endif %}
+
+    </div>{# /.sp-settings-content-card #}
+
+</div>{# /.sp-settings-layout #}
+
+{% endblock %}

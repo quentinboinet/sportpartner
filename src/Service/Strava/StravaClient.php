@@ -11,7 +11,7 @@ class StravaClient
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
-        private readonly StravaOAuthService $oauthService,
+        private readonly StravaService $oauthService,
     ) {}
 
     public function getActivities(User $user, int $page = 1, int $perPage = 30): array

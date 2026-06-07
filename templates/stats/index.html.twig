@@ -1,0 +1,274 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'stats.page_title'|trans }}{% endblock %}
+
+{% block body %}
+
+{# ── En-tête ──────────────────────────────────── #}
+<div class="sp-page-header">
+    <div>
+        <h1 class="sp-greeting" style="font-size:24px">{{ 'stats.title'|trans }}</h1>
+        <div style="color:var(--sp-muted);font-size:11px;font-weight:500">{{ 'stats.sub'|trans }}</div>
+    </div>
+    <div>
+        <button class="sp-btn sp-btn-outline">
+            <i class="bi bi-download"></i> {{ 'stats.export'|trans }}
+        </button>
+    </div>
+</div>
+
+{# ── Filtre de période ────────────────────────── #}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div class="sp-stats-period-tabs">
+        <a href="{{ path('app_stats', {period: 'month'}) }}"
+           class="sp-stats-period-tab {{ period == 'month' ? 'active' : '' }}">
+            {{ 'stats.period_month'|trans }}
+        </a>
+        <a href="{{ path('app_stats', {period: 'season'}) }}"
+           class="sp-stats-period-tab {{ period == 'season' ? 'active' : '' }}">
+            {{ 'stats.period_season'|trans({'%year%': year}) }}
+        </a>
+        <a href="{{ path('app_stats', {period: 'all'}) }}"
+           class="sp-stats-period-tab {{ period == 'all' ? 'active' : '' }}">
+            {{ 'stats.period_all'|trans }}
+        </a>
+    </div>
+</div>
+
+{# ── Barre 5 totaux ───────────────────────────── #}
+{% set _km   = totals.total_distance ? (totals.total_distance / 1000) : 0 %}
+{% set _h    = totals.total_time     ? (totals.total_time / 3600)|round : 0 %}
+{% set _elev = totals.total_elevation ? totals.total_elevation|round : 0 %}
+{% set _cal  = _km > 0 ? (_km * 70 / 1000)|round(1) : 0 %}
+
+<div class="sp-stats-totals-bar">
+
+    <div class="sp-stats-total-item">
+        <div class="sp-stats-total-icon" style="color:var(--sp-orange)"><i class="bi bi-map-fill"></i></div>
+        <div>
+            <div class="sp-stats-total-label">{{ 'stats.total_distance'|trans }}</div>
+            <div class="sp-stats-total-val">{{ _km|number_format(0, '.', ' ') }} <sup>km</sup></div>
+        </div>
+    </div>
+
+    <div class="sp-stats-total-item">
+        <div class="sp-stats-total-icon" style="color:var(--sp-orange)"><i class="bi bi-fire"></i></div>
+        <div>
+            <div class="sp-stats-total-label">{{ 'stats.total_time'|trans }}</div>
+            <div class="sp-stats-total-val">{{ _h }} <sup>h</sup></div>
+        </div>
+    </div>
+
+    <div class="sp-stats-total-item">
+        <div class="sp-stats-total-icon" style="color:var(--sp-yellow)"><i class="bi bi-triangle-fill"></i></div>
+        <div>
+            <div class="sp-stats-total-label">{{ 'stats.total_elevation'|trans }}</div>
+            <div class="sp-stats-total-val">{{ _elev|number_format(0, '.', ' ') }} <sup>m</sup></div>
+        </div>
+    </div>
+
+    <div class="sp-stats-total-item">
+        <div class="sp-stats-total-icon" style="color:var(--sp-teal)"><i class="bi bi-list-ul"></i></div>
+        <div>
+            <div class="sp-stats-total-label">{{ 'stats.total_sessions'|trans }}</div>
+            <div class="sp-stats-total-val">{{ totals.cnt }}</div>
+        </div>
+    </div>
+
+    <div class="sp-stats-total-item" style="border-right:none">
+        <div class="sp-stats-total-icon" style="color:#FB923C"><i class="bi bi-fire"></i></div>
+        <div>
+            <div class="sp-stats-total-label">{{ 'stats.total_calories'|trans }}</div>
+            <div class="sp-stats-total-val">{{ _cal }} <sup>k</sup></div>
+        </div>
+    </div>
+
+</div>
+
+{# ── 1ère rangée : volume mensuel + donut ─────── #}
+<div class="sp-stats-charts-row">
+
+    {# Volume mensuel par discipline #}
+    <div class="sp-card sp-stats-chart-main">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+            <div>
+                <div class="sp-card-title">{{ 'stats.volume_title'|trans }}</div>
+                <div class="sp-card-sub">{{ 'stats.volume_sub'|trans }}</div>
+            </div>
+            <div class="sp-stats-legend">
+                {% for ds in chartVolume.datasets ?? [] %}
+                    <span class="sp-stats-legend-item">
+                        <span class="sp-stats-legend-dot" style="background:{{ ds.color }}"></span>
+                        {{ ('sport.' ~ ds.slug)|trans }}
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+        <div style="height:220px;position:relative">
+            {% if chartVolume.datasets is defined and chartVolume.datasets is not empty %}
+                <canvas data-controller="volume-chart"
+                        data-volume-chart-locale-value="{{ app.request.locale }}"
+                        data-volume-chart-data-value="{{ chartVolume|json_encode }}"
+                        style="width:100%;height:100%"></canvas>
+            {% else %}
+                <div class="sp-chart-placeholder">{{ 'stats.no_data'|trans }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Répartition par sport (donut) #}
+    <div class="sp-card sp-stats-chart-side">
+        <div class="sp-card-title" style="margin-bottom:16px">{{ 'stats.donut_title'|trans }}</div>
+        {% if donutData is not empty %}
+            {% set _totalKm = 0 %}
+            {% for d in donutData %}{% set _totalKm = _totalKm + d.km %}{% endfor %}
+            <div class="sp-stats-donut-wrap">
+                <div style="position:relative;width:150px;height:150px;flex-shrink:0">
+                    <canvas data-controller="donut-chart"
+                            data-donut-chart-data-value="{{ donutData|json_encode }}"
+                            style="width:100%;height:100%"></canvas>
+                    <div class="sp-stats-donut-center">
+                        <div class="sp-stats-donut-val">{{ _totalKm|number_format(0, '.', ' ') }}</div>
+                        <div class="sp-stats-donut-sub">km {{ 'stats.donut_season'|trans }}</div>
+                    </div>
+                </div>
+                <div class="sp-stats-donut-legend">
+                    {% for d in donutData %}
+                        <div class="sp-stats-donut-legend-row">
+                            <span class="sp-zone-dot" style="background:{{ d.color }};width:10px;height:10px;border-radius:3px"></span>
+                            <span class="sp-stats-donut-legend-label">{{ ('sport.' ~ d.slug)|trans }}</span>
+                            <span class="sp-stats-donut-legend-pct">{{ d.pct }}%</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <div class="sp-chart-placeholder" style="height:180px">{{ 'stats.no_data'|trans }}</div>
+        {% endif %}
+    </div>
+
+</div>
+
+{# ── 2ème rangée : allure moyenne + zones FC ──── #}
+<div class="sp-stats-charts-row" style="margin-top:16px">
+
+    {# Allure moyenne en course #}
+    <div class="sp-card" style="flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+            <div>
+                <div class="sp-card-title">{{ 'stats.pace_title'|trans }}</div>
+                <div class="sp-card-sub">{{ 'stats.pace_sub'|trans }}</div>
+            </div>
+            {% if chartPace|length > 2 %}
+                <span class="sp-dynamic-badge">↘ {{ 'stats.pace_progress'|trans }}</span>
+            {% endif %}
+        </div>
+        <div style="height:180px;margin-top:14px;position:relative">
+            {% if chartPace is not empty %}
+                <canvas data-controller="pace-trend"
+                        data-pace-trend-data-value="{{ chartPace|json_encode }}"
+                        style="width:100%;height:100%"></canvas>
+            {% else %}
+                <div class="sp-chart-placeholder">{{ 'stats.no_run_data'|trans }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Temps par zone cardiaque #}
+    <div class="sp-card" style="flex:1">
+        <div class="sp-card-title">{{ 'stats.zones_title'|trans }}</div>
+        <div class="sp-card-sub" style="margin-bottom:20px">{{ 'stats.zones_sub'|trans }}</div>
+        {% if zones %}
+            <div class="sp-zones-bar" style="height:14px;border-radius:7px;margin-bottom:16px">
+                <div style="flex:{{ zones[0] }};background:#93C5FD;border-radius:6px 0 0 6px"></div>
+                <div style="flex:{{ zones[1] }};background:#22C55E"></div>
+                <div style="flex:{{ zones[2] }};background:#F59E0B"></div>
+                <div style="flex:{{ zones[3] }};background:#FB923C"></div>
+                <div style="flex:{{ zones[4] }};background:#EF4444;border-radius:0 6px 6px 0"></div>
+            </div>
+            <div class="sp-zones-legend">
+                <span class="sp-zone-item"><span class="sp-zone-dot" style="background:#93C5FD"></span>{{ 'activity_detail.zone1'|trans }} {{ zones[0] }}%</span>
+                <span class="sp-zone-item"><span class="sp-zone-dot" style="background:#22C55E"></span>{{ 'activity_detail.zone2'|trans }} {{ zones[1] }}%</span>
+                <span class="sp-zone-item"><span class="sp-zone-dot" style="background:#F59E0B"></span>{{ 'activity_detail.zone3'|trans }} {{ zones[2] }}%</span>
+                <span class="sp-zone-item"><span class="sp-zone-dot" style="background:#FB923C"></span>{{ 'activity_detail.zone4'|trans }} {{ zones[3] }}%</span>
+                <span class="sp-zone-item"><span class="sp-zone-dot" style="background:#EF4444"></span>{{ 'activity_detail.zone5'|trans }} {{ zones[4] }}%</span>
+            </div>
+        {% else %}
+            <div class="sp-chart-placeholder" style="height:100px">{{ 'stats.no_hr_data'|trans }}</div>
+        {% endif %}
+    </div>
+
+</div>
+
+{# ── Records personnels ───────────────────────── #}
+<div class="sp-card" style="margin-top:16px">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px">
+        <span class="sp-card-title" style="font-size:16px">{{ 'stats.records_title'|trans }}</span>
+        {% set _newCount = records|filter(r => r.is_new)|length %}
+        {% if _newCount > 0 %}
+            <span style="background:var(--sp-orange);color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:20px">
+                🏆 {{ _newCount }} {{ 'stats.records_new'|trans }}
+            </span>
+        {% endif %}
+    </div>
+
+    {# En-tête de tableau #}
+    <div class="sp-records-header">
+        <span>{{ 'stats.col_sport'|trans }}</span>
+        <span>{{ 'stats.col_record'|trans }}</span>
+        <span style="text-align:right">{{ 'stats.col_value'|trans }}</span>
+        <span>{{ 'stats.col_date'|trans }}</span>
+        <span></span>
+    </div>
+
+    {% if records is empty %}
+        <p style="text-align:center;color:var(--sp-muted);padding:36px 0;font-size:13px;margin:0">
+            {{ 'stats.records_empty'|trans }}
+        </p>
+    {% else %}
+        {% for record in records %}
+            <div class="sp-record-row">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span style="display:inline-block;width:10px;height:10px;border-radius:2px;flex-shrink:0;background:{{ record.color }}"></span>
+                    <span style="font-size:13px;color:var(--sp-muted)">{{ ('sport.' ~ record.slug)|trans }}</span>
+                </div>
+
+                <div style="font-size:14px;font-weight:600;color:var(--sp-text)">
+                    {{ record.label starts with 'stats.' ? (record.label|trans) : record.label }}
+                </div>
+
+                <div style="text-align:right;font-size:15px;font-weight:900;letter-spacing:-.02em">
+                    {% if record.format == 'time' %}
+                        {% set _h = (record.val / 3600)|round(0, 'floor') %}
+                        {% set _m = ((record.val % 3600) / 60)|round(0, 'floor') %}
+                        {% set _s = record.val % 60 %}
+                        {% if _h > 0 %}{{ _h }}:{{ '%02d'|format(_m) }}:{{ '%02d'|format(_s) }}
+                        {% else %}{{ _m }}:{{ '%02d'|format(_s) }}{% endif %}
+                    {% elseif record.format == 'km' %}
+                        {{ record.val|number_format(0, '.', ' ') }} <span style="font-size:12px;font-weight:600">km</span>
+                    {% else %}
+                        {{ record.val|number_format(0, '.', ' ') }} <span style="font-size:12px;font-weight:600">m</span>
+                    {% endif %}
+                </div>
+
+                <div style="font-size:12px;color:var(--sp-muted)">
+                    {% if record.start_date %}
+                        {{ record.start_date|date('d M Y') }}
+                    {% endif %}
+                </div>
+
+                <div>
+                    {% if record.is_new %}
+                        <span class="sp-pr-badge" style="font-size:11px;padding:4px 10px;border-radius:7px">
+                            ⚡ {{ 'stats.record_new_label'|trans }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+</div>
+
+{% endblock %}

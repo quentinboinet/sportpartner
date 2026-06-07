@@ -1,0 +1,87 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'auth.register.page_title'|trans }}{% endblock %}
+
+{% block body %}
+<div class="sp-auth-wrap">
+    <div class="sp-auth-box">
+
+        <div class="sp-auth-logo">
+            <div class="sp-auth-logo-bolt"><i class="bi bi-lightning-fill"></i></div>
+            <span class="sp-auth-logo-text">SportPartner</span>
+        </div>
+
+        {# Locale switcher #}
+        <div style="text-align:center;margin-bottom:20px">
+            <div class="sp-locale-switch" style="display:inline-flex">
+                <a href="{{ path('app_switch_locale', {locale: 'fr'}) }}"
+                   class="{{ app.request.locale == 'fr' ? 'active' }}">FR</a>
+                <a href="{{ path('app_switch_locale', {locale: 'en'}) }}"
+                   class="{{ app.request.locale == 'en' ? 'active' }}">EN</a>
+            </div>
+        </div>
+
+        <div class="sp-auth-card">
+            <h1 class="sp-auth-title">{{ 'auth.register.title'|trans }}</h1>
+            <p class="sp-auth-sub">{{ 'auth.register.sub'|trans }}</p>
+
+            {% if errors is defined and errors %}
+                <div class="alert alert-danger" style="border-radius:8px;font-size:13px">
+                    <ul class="mb-0 ps-3">
+                        {% for error in errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+            <form method="post" action="{{ path('app_register') }}">
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="mb-0">
+                    <div class="sp-field" style="margin-bottom:0">
+                        <label for="firstName">{{ 'auth.register.first_name'|trans }}</label>
+                        <input type="text" id="firstName" name="firstName"
+                               value="{{ firstName ?? '' }}"
+                               placeholder="{{ 'auth.register.first_name_placeholder'|trans }}">
+                    </div>
+                    <div class="sp-field" style="margin-bottom:0">
+                        <label for="lastName">{{ 'auth.register.last_name'|trans }}</label>
+                        <input type="text" id="lastName" name="lastName"
+                               value="{{ lastName ?? '' }}"
+                               placeholder="{{ 'auth.register.last_name_placeholder'|trans }}">
+                    </div>
+                </div>
+                <div style="height:13px"></div>
+
+                <div class="sp-field">
+                    <label for="email">{{ 'auth.register.email'|trans }}</label>
+                    <input type="email" id="email" name="email"
+                           value="{{ email ?? '' }}"
+                           placeholder="{{ 'auth.register.email_placeholder'|trans }}"
+                           required>
+                </div>
+
+                <div class="sp-field">
+                    <label for="password">{{ 'auth.register.password'|trans }}</label>
+                    <input type="password" id="password" name="password"
+                           placeholder="{{ 'auth.register.password_placeholder'|trans }}"
+                           minlength="8" required>
+                </div>
+
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('register') }}">
+
+                <button type="submit" class="sp-auth-submit">
+                    {{ 'auth.register.submit'|trans }}
+                </button>
+
+            </form>
+        </div>
+
+        <p class="sp-auth-footer">
+            {{ 'auth.register.have_account'|trans }}
+            <a href="{{ path('app_login') }}">{{ 'auth.register.login_link'|trans }}</a>
+        </p>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,283 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ activity.name ?? 'Activité' }} – SportPartner{% endblock %}
+
+{% block body %}
+
+{# ── Variables locales ────────────────────────── #}
+{% set sport = activity.sport %}
+{% set icon  = sport ? sport.icon : 'bi-lightning-fill' %}
+{% set color = sport ? sport.color : '#9CA3AF' %}
+{% set slug  = sport ? sport.slug : 'other' %}
+
+{% set _t  = activity.movingTimeSeconds ?? 0 %}
+{% set _tH = (_t / 3600)|round(0, 'floor') %}
+{% set _tM = ((_t % 3600) / 60)|round(0, 'floor') %}
+{% set _tS = _t % 60 %}
+
+{% set _today     = 'now'|date('Y-m-d') %}
+{% set _yesterday = '-1 day'|date('Y-m-d') %}
+{% set _actDay    = activity.startDate ? activity.startDate|date('Y-m-d') : null %}
+{% if _actDay == _today %}
+    {% set _dayLabel = 'activity.today'|trans %}
+{% elseif _actDay == _yesterday %}
+    {% set _dayLabel = 'activity.yesterday'|trans %}
+{% else %}
+    {% set _dayLabel = activity.startDate ? activity.startDate|date('d/m/Y') : '' %}
+{% endif %}
+
+{# ── Fil d'Ariane ─────────────────────────────── #}
+<a href="{{ path('app_activities') }}" class="sp-back-link">
+    <i class="bi bi-arrow-left"></i> {{ 'activity_detail.back'|trans }}
+</a>
+
+{# ── En-tête ──────────────────────────────────── #}
+<div class="sp-act-detail-header">
+
+    <div class="sp-activity-icon sp-activity-icon-lg" style="background:{{ color }};color:#fff">
+        <i class="bi {{ icon }}"></i>
+    </div>
+
+    <div class="sp-act-detail-info">
+        <h1 class="sp-act-detail-title">
+            {{ activity.name ?? ('sport.' ~ slug)|trans }}
+        </h1>
+        <div class="sp-act-detail-sub">
+            {{ _dayLabel }}
+            {% if activity.startDate %} · {{ activity.startDate|date('H:i') }}{% endif %}
+            {% if sport %}
+                · <span style="color:{{ color }};font-weight:600">{{ ('sport.' ~ slug)|trans }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="sp-act-detail-actions">
+        <button class="sp-btn sp-btn-outline">
+            <i class="bi bi-share"></i> {{ 'activity_detail.share'|trans }}
+        </button>
+    </div>
+
+</div>
+
+{# ── Barre 5 statistiques ─────────────────────── #}
+<div class="sp-act-detail-statbar">
+
+    {% if activity.distanceKm %}
+    <div class="sp-act-detail-statbar-item">
+        <div class="sp-act-detail-statbar-label">{{ 'activity_detail.stat_distance'|trans }}</div>
+        <div class="sp-act-detail-statbar-val">
+            {{ activity.distanceKm|number_format(1) }} <span>km</span>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if _t > 0 %}
+    <div class="sp-act-detail-statbar-item">
+        <div class="sp-act-detail-statbar-label">{{ 'activity_detail.stat_duration'|trans }}</div>
+        <div class="sp-act-detail-statbar-val">
+            {% if _tH > 0 %}{{ _tH }}:{{ '%02d'|format(_tM) }}:{{ '%02d'|format(_tS) }}
+            {% else %}{{ _tM }}:{{ '%02d'|format(_tS) }}{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if slug in ['ride'] and activity.speedKmh %}
+    <div class="sp-act-detail-statbar-item">
+        <div class="sp-act-detail-statbar-label">{{ 'activity_detail.stat_speed'|trans }}</div>
+        <div class="sp-act-detail-statbar-val">{{ activity.speedKmh }} <span>km/h</span></div>
+    </div>
+    {% elseif activity.paceMinPerKm %}
+    <div class="sp-act-detail-statbar-item">
+        <div class="sp-act-detail-statbar-label">{{ 'activity_detail.stat_pace'|trans }}</div>
+        <div class="sp-act-detail-statbar-val">{{ activity.paceMinPerKm }} <span>/km</span></div>
+    </div>
+    {% endif %}
+
+    {% if activity.totalElevationGain %}
+    <div class="sp-act-detail-statbar-item">
+        <div class="sp-act-detail-statbar-label">{{ 'activity_detail.stat_elevation'|trans }}</div>
+        <div class="sp-act-detail-statbar-val">{{ activity.totalElevationGain|round }} <span>m</span></div>
+    </div>
+    {% endif %}
+
+    {% if activity.averageHeartrate %}
+    <div class="sp-act-detail-statbar-item">
+        <div class="sp-act-detail-statbar-label">{{ 'activity_detail.stat_hr_avg'|trans }}</div>
+        <div class="sp-act-detail-statbar-val">{{ activity.averageHeartrate|round }} <span>bpm</span></div>
+    </div>
+    {% endif %}
+
+</div>
+
+{# ── Grille principale 2 colonnes ─────────────── #}
+<div class="sp-act-detail-grid">
+
+    {# ── Colonne gauche : carte + altimétrie ──── #}
+    <div class="sp-act-detail-left">
+
+        {# Carte / Parcours #}
+        <div class="sp-card" style="padding:0;overflow:hidden;margin-bottom:16px">
+            <div class="sp-act-map-header">
+                <span class="sp-card-title">{{ 'activity_detail.parcours_title'|trans }}</span>
+                {% if activity.distanceKm %}
+                    <span style="color:var(--sp-muted);font-size:12px">
+                        {{ activity.distanceKm|number_format(1) }} km
+                    </span>
+                {% endif %}
+            </div>
+            <div class="sp-act-map-placeholder">
+                <i class="bi bi-geo-alt"></i>
+                <span>{{ 'activity_detail.no_gps'|trans }}</span>
+            </div>
+            <div class="sp-act-map-footer">
+                <i class="bi bi-pin-map"></i> {{ 'activity_detail.gps_placeholder'|trans }}
+            </div>
+        </div>
+
+        {# Profil altimétrique #}
+        <div class="sp-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                <span style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sp-muted)">
+                    {{ 'activity_detail.elevation_title'|trans }}
+                </span>
+                {% if activity.totalElevationGain %}
+                    <span style="color:var(--sp-muted);font-size:12px;font-weight:600">
+                        D+ {{ activity.totalElevationGain|round }} m
+                    </span>
+                {% endif %}
+            </div>
+            <div style="height:110px;position:relative">
+                <canvas data-controller="elevation-chart"
+                        data-elevation-chart-values-value="[]"
+                        style="width:100%;height:100%"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    {# ── Colonne droite : zones FC + métriques ── #}
+    <div class="sp-act-detail-right">
+        <div class="sp-card">
+
+            {# Zones cardiaques #}
+            {% if zones %}
+            <div class="sp-act-zones-header">
+                <span class="sp-card-title">{{ 'activity_detail.zones_title'|trans }}</span>
+                {% if activity.maxHeartrate %}
+                    <span style="color:var(--sp-muted);font-size:12px">
+                        {{ 'activity_detail.zones_max'|trans }} {{ activity.maxHeartrate|round }}
+                    </span>
+                {% endif %}
+            </div>
+
+            <div class="sp-zones-bar">
+                <div style="flex:{{ zones[0] }};background:#93C5FD;border-radius:4px 0 0 4px"></div>
+                <div style="flex:{{ zones[1] }};background:#22C55E"></div>
+                <div style="flex:{{ zones[2] }};background:#F59E0B"></div>
+                <div style="flex:{{ zones[3] }};background:#FB923C"></div>
+                <div style="flex:{{ zones[4] }};background:#EF4444;border-radius:0 4px 4px 0"></div>
+            </div>
+
+            <div class="sp-zones-legend">
+                <span class="sp-zone-item">
+                    <span class="sp-zone-dot" style="background:#93C5FD"></span>
+                    {{ 'activity_detail.zone1'|trans }} {{ zones[0] }}%
+                </span>
+                <span class="sp-zone-item">
+                    <span class="sp-zone-dot" style="background:#22C55E"></span>
+                    {{ 'activity_detail.zone2'|trans }} {{ zones[1] }}%
+                </span>
+                <span class="sp-zone-item">
+                    <span class="sp-zone-dot" style="background:#F59E0B"></span>
+                    {{ 'activity_detail.zone3'|trans }} {{ zones[2] }}%
+                </span>
+                <span class="sp-zone-item">
+                    <span class="sp-zone-dot" style="background:#FB923C"></span>
+                    {{ 'activity_detail.zone4'|trans }} {{ zones[3] }}%
+                </span>
+                <span class="sp-zone-item">
+                    <span class="sp-zone-dot" style="background:#EF4444"></span>
+                    {{ 'activity_detail.zone5'|trans }} {{ zones[4] }}%
+                </span>
+            </div>
+
+            <hr style="border:none;border-top:1px solid rgba(0,0,0,.06);margin:18px 0">
+            {% endif %}
+
+            {# Métriques 2×2 #}
+            <div class="sp-act-metrics-grid">
+
+                {% if activity.averageHeartrate %}
+                <div class="sp-act-metric-item">
+                    <div class="sp-act-metric-icon" style="background:rgba(239,68,68,.10)">
+                        <i class="bi bi-heart-pulse-fill" style="color:#EF4444"></i>
+                    </div>
+                    <div>
+                        <div class="sp-act-metric-lbl">{{ 'activity_detail.hr_avg'|trans }}</div>
+                        <div class="sp-act-metric-val">
+                            {{ activity.averageHeartrate|round }} <span>bpm</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% set _distKm    = activity.distanceKm ?? 0 %}
+                {% set _calories  = _distKm > 0 ? (_distKm * 70)|round : null %}
+                {% if _calories %}
+                <div class="sp-act-metric-item">
+                    <div class="sp-act-metric-icon" style="background:rgba(251,146,60,.10)">
+                        <i class="bi bi-fire" style="color:#FB923C"></i>
+                    </div>
+                    <div>
+                        <div class="sp-act-metric-lbl">{{ 'activity_detail.calories_label'|trans }}</div>
+                        <div class="sp-act-metric-val">{{ _calories }} <span>kcal</span></div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% set _tss = _t > 0 ? (_t / 3600 * 60)|round : null %}
+                {% if _tss %}
+                <div class="sp-act-metric-item">
+                    <div class="sp-act-metric-icon" style="background:rgba(232,64,12,.10)">
+                        <i class="bi bi-activity" style="color:var(--sp-orange)"></i>
+                    </div>
+                    <div>
+                        <div class="sp-act-metric-lbl">{{ 'activity_detail.load_label'|trans }}</div>
+                        <div class="sp-act-metric-val">{{ _tss }} <span>TSS</span></div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if activity.averageCadence %}
+                <div class="sp-act-metric-item">
+                    <div class="sp-act-metric-icon" style="background:rgba(6,182,212,.10)">
+                        <i class="bi bi-person-walking" style="color:var(--sp-teal)"></i>
+                    </div>
+                    <div>
+                        <div class="sp-act-metric-lbl">{{ 'activity_detail.cadence_label'|trans }}</div>
+                        <div class="sp-act-metric-val">
+                            {{ (activity.averageCadence * 2)|round }} <span>ppm</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{# ── Allure par kilomètre ──────────────────────── #}
+<div class="sp-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <span class="sp-card-title">{{ 'activity_detail.pace_title'|trans }}</span>
+    </div>
+    <div style="height:120px;position:relative">
+        <canvas data-controller="pace-chart"
+                data-pace-chart-splits-value="[]"
+                style="width:100%;height:100%"></canvas>
+    </div>
+</div>
+
+{% endblock %}

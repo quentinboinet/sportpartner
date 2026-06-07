@@ -6,12 +6,6 @@ Un starter kit production-ready pour lancer une application SaaS dans le domaine
 
 ---
 
-## Démo
-
-> [sport-health-demo.hunimalis.dev](https://sport-health-demo.hunimalis.dev) — compte démo : `demo@example.com` / `demo1234`
-
----
-
 ## Ce qui est inclus
 
 ### Authentification

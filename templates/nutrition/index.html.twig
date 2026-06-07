@@ -1,0 +1,245 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'nutrition.page_title'|trans }}{% endblock %}
+
+{% block body %}
+
+{# ── Page header ──────────────────────────────────────────────────────────── #}
+<div class="sp-page-header" style="align-items:flex-start">
+    <div>
+        <div class="sp-nutrition-date-badge">
+            {{ date|date('l d F')|upper }}
+        </div>
+        <h1 class="sp-page-title" style="margin-top:4px">
+            {{ isTrainingDay ? 'nutrition.training_day'|trans : 'nutrition.rest_day'|trans }}
+        </h1>
+    </div>
+    <a href="#" class="sp-btn sp-btn-primary" style="margin-left:auto;align-self:center">
+        <i class="bi bi-plus-lg"></i>
+        {{ 'nutrition.add_meal'|trans }}
+    </a>
+</div>
+
+{# ── Top row ──────────────────────────────────────────────────────────────── #}
+<div class="sp-nutrition-top-row">
+
+    {# Bilan énergétique #}
+    <div class="sp-card sp-nutrition-bilan-card">
+        <div class="sp-nutrition-card-header">
+            <span class="sp-card-title">{{ 'nutrition.energy_balance'|trans }}</span>
+            <span class="sp-nutrition-goal-label">{{ 'nutrition.objective'|trans }} {{ goals.kcal|number_format(0, ',', ' ') }} kcal</span>
+        </div>
+
+        <div class="sp-nutrition-bilan-body">
+            <div class="sp-nutrition-donut-wrap">
+                <canvas data-controller="energy-donut"
+                        data-energy-donut-consumed-value="{{ totals.kcal }}"
+                        data-energy-donut-goal-value="{{ goals.kcal }}"
+                        width="160" height="160"></canvas>
+                <div class="sp-nutrition-donut-center">
+                    <span class="sp-nutrition-donut-val">{{ totals.kcal|number_format(0, ',', ' ') }}</span>
+                    <span class="sp-nutrition-donut-lbl">{{ 'nutrition.kcal_consumed'|trans }}</span>
+                </div>
+            </div>
+
+            <div class="sp-nutrition-bilan-stats">
+                <div class="sp-nutrition-bilan-row">
+                    <span class="sp-nutrition-bilan-icon sp-nutrition-bilan-icon--goal">
+                        <i class="bi bi-bullseye"></i>
+                    </span>
+                    <span class="sp-nutrition-bilan-label">{{ 'nutrition.daily_goal'|trans }}</span>
+                    <span class="sp-nutrition-bilan-value">{{ goals.kcal|number_format(0, ',', ' ') }}</span>
+                </div>
+                <div class="sp-nutrition-bilan-row">
+                    <span class="sp-nutrition-bilan-icon sp-nutrition-bilan-icon--exp">
+                        <i class="bi bi-fire"></i>
+                    </span>
+                    <span class="sp-nutrition-bilan-label">{{ 'nutrition.expenditure'|trans }}</span>
+                    <span class="sp-nutrition-bilan-value">{{ expenditure.total|number_format(0, ',', ' ') }}</span>
+                </div>
+                <div class="sp-nutrition-bilan-row">
+                    <span class="sp-nutrition-bilan-icon sp-nutrition-bilan-icon--left">
+                        <i class="bi bi-cup-straw"></i>
+                    </span>
+                    <span class="sp-nutrition-bilan-label">{{ 'nutrition.remaining'|trans }}</span>
+                    <span class="sp-nutrition-bilan-value {% if goals.kcal - totals.kcal < 0 %}sp-nutrition-negative{% endif %}">
+                        {{ (goals.kcal - totals.kcal)|number_format(0, ',', ' ') }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        {% if hasLongRun %}
+        <div class="sp-nutrition-tip">
+            <i class="bi bi-info-circle-fill"></i>
+            {{ 'nutrition.tip.long_run'|trans }}
+        </div>
+        {% endif %}
+    </div>
+
+    {# Macronutriments #}
+    <div class="sp-card sp-nutrition-macro-card">
+        <div class="sp-nutrition-card-header">
+            <span class="sp-card-title">{{ 'nutrition.macros_title'|trans }}</span>
+        </div>
+
+        {# Glucides #}
+        <div class="sp-nutrition-macro-row">
+            <div class="sp-nutrition-macro-label-row">
+                <span class="sp-nutrition-macro-name">{{ 'nutrition.carbs'|trans }}</span>
+                <span class="sp-nutrition-macro-values">
+                    <strong>{{ totals.carbs }}</strong> / {{ goals.carbs }} g
+                </span>
+            </div>
+            <div class="sp-nutrition-bar-track">
+                <div class="sp-nutrition-bar sp-nutrition-bar--carbs"
+                     style="width:{{ min(100, (totals.carbs / goals.carbs * 100)|round) }}%"></div>
+            </div>
+        </div>
+
+        {# Protéines #}
+        <div class="sp-nutrition-macro-row">
+            <div class="sp-nutrition-macro-label-row">
+                <span class="sp-nutrition-macro-name">{{ 'nutrition.proteins'|trans }}</span>
+                <span class="sp-nutrition-macro-values">
+                    <strong>{{ totals.proteins }}</strong> / {{ goals.proteins }} g
+                </span>
+            </div>
+            <div class="sp-nutrition-bar-track">
+                <div class="sp-nutrition-bar sp-nutrition-bar--proteins"
+                     style="width:{{ min(100, (totals.proteins / goals.proteins * 100)|round) }}%"></div>
+            </div>
+        </div>
+
+        {# Lipides #}
+        <div class="sp-nutrition-macro-row">
+            <div class="sp-nutrition-macro-label-row">
+                <span class="sp-nutrition-macro-name">{{ 'nutrition.fats'|trans }}</span>
+                <span class="sp-nutrition-macro-values">
+                    <strong>{{ totals.fats }}</strong> / {{ goals.fats }} g
+                </span>
+            </div>
+            <div class="sp-nutrition-bar-track">
+                <div class="sp-nutrition-bar sp-nutrition-bar--fats"
+                     style="width:{{ min(100, (totals.fats / goals.fats * 100)|round) }}%"></div>
+            </div>
+        </div>
+
+        {# Hydratation #}
+        <div class="sp-nutrition-macro-row" style="margin-top:8px">
+            <div class="sp-nutrition-macro-label-row">
+                <span class="sp-nutrition-macro-name">
+                    <i class="bi bi-droplet-fill" style="color:#3B82F6;font-size:13px"></i>
+                    {{ 'nutrition.hydration'|trans }}
+                </span>
+                <span class="sp-nutrition-macro-values">
+                    <strong>0</strong> / {{ goals.water }} L
+                </span>
+            </div>
+            <div class="sp-nutrition-water-tiles">
+                {% set totalTiles = 8 %}
+                {% set filledTiles = 0 %}
+                {% for i in 1..totalTiles %}
+                    <div class="sp-nutrition-water-tile {{ i <= filledTiles ? 'sp-nutrition-water-tile--filled' }}"></div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+</div>{# /.sp-nutrition-top-row #}
+
+{# ── Bottom row ───────────────────────────────────────────────────────────── #}
+<div class="sp-nutrition-bottom-row">
+
+    {# Repas du jour #}
+    <div class="sp-card sp-nutrition-meals-card">
+        <div class="sp-nutrition-card-header">
+            <span class="sp-card-title">{{ 'nutrition.meals_title'|trans }}</span>
+            <span class="sp-nutrition-meals-total">{{ totals.kcal|number_format(0, ',', ' ') }} <span>kcal</span></span>
+        </div>
+
+        {% if meals is empty %}
+        <div class="sp-nutrition-empty">
+            <i class="bi bi-egg-fried"></i>
+            <p>{{ 'nutrition.meals_empty'|trans }}</p>
+        </div>
+        {% else %}
+        <div class="sp-nutrition-meals-list">
+            {% set currentTime = "now"|date('H:i') %}
+            {% for meal in meals %}
+            {% set isUpcoming = meal.mealTime is not null and meal.mealTime > currentTime %}
+            <div class="sp-nutrition-meal-row {{ isUpcoming ? 'sp-nutrition-meal-row--upcoming' }}">
+                <div class="sp-nutrition-meal-time">
+                    {{ meal.mealTime ?? '--:--' }}
+                </div>
+                <div class="sp-nutrition-meal-info">
+                    <div class="sp-nutrition-meal-name">
+                        {{ ('nutrition.meal_type.' ~ meal.mealType.value)|trans }}
+                        {% if isUpcoming %}
+                            <span class="sp-nutrition-upcoming-badge">{{ 'nutrition.upcoming'|trans }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="sp-nutrition-meal-desc">{{ meal.name }}{% if meal.description %} — {{ meal.description }}{% endif %}</div>
+                </div>
+                <div class="sp-nutrition-meal-macros">
+                    {% if meal.carbsG is not null %}
+                    <span class="sp-nutrition-macro-pill sp-nutrition-macro-pill--g">
+                        {{ meal.carbsG|round }}<sub>G</sub>
+                    </span>
+                    {% endif %}
+                    {% if meal.proteinsG is not null %}
+                    <span class="sp-nutrition-macro-pill sp-nutrition-macro-pill--p">
+                        {{ meal.proteinsG|round }}<sub>P</sub>
+                    </span>
+                    {% endif %}
+                    {% if meal.fatsG is not null %}
+                    <span class="sp-nutrition-macro-pill sp-nutrition-macro-pill--l">
+                        {{ meal.fatsG|round }}<sub>L</sub>
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="sp-nutrition-meal-kcal">
+                    {{ meal.effectiveKcal|number_format(0, ',', ' ') }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    {# Balance sur 7 jours #}
+    <div class="sp-card sp-nutrition-balance-card">
+        <div class="sp-nutrition-card-header">
+            <div>
+                <span class="sp-card-title">{{ 'nutrition.weekly_balance_title'|trans }}</span>
+                <div class="sp-card-sub">{{ 'nutrition.weekly_balance_sub'|trans }}</div>
+            </div>
+        </div>
+
+        <div class="sp-nutrition-chart-legend">
+            <span class="sp-nutrition-legend-item">
+                <span class="sp-nutrition-legend-dot" style="background:#22C55E"></span>
+                {{ 'nutrition.chart.intake'|trans }}
+            </span>
+            <span class="sp-nutrition-legend-item">
+                <span class="sp-nutrition-legend-dot" style="background:#EF4444"></span>
+                {{ 'nutrition.chart.expenditure'|trans }}
+            </span>
+        </div>
+
+        <div style="flex:1;min-height:160px;position:relative">
+            <canvas data-controller="balance-chart"
+                    data-balance-chart-data-value="{{ weeklyChartData|json_encode }}"></canvas>
+        </div>
+
+        <div class="sp-nutrition-weekly-deficit">
+            <span>{{ 'nutrition.weekly_deficit'|trans }}</span>
+            <span class="sp-nutrition-deficit-value {{ weeklyNet >= 0 ? 'sp-nutrition-surplus' : 'sp-nutrition-deficit' }}">
+                {{ weeklyNet >= 0 ? '+' : '' }}{{ weeklyNet|number_format(0, ',', ' ') }} kcal
+            </span>
+        </div>
+    </div>
+
+</div>{# /.sp-nutrition-bottom-row #}
+
+{% endblock %}
