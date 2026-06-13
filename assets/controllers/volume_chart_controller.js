@@ -10,25 +10,17 @@ Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
 export default class extends Controller {
     static values = {
-        data:   Object,  // { months: [{yr, mo}], datasets: [{slug, color, data[]}] }
-        locale: String,
+        data: Object,  // { labels: string[], granularity: string, datasets: [{slug, color, data[]}] }
     };
 
     connect() {
-        const { months, datasets } = this.dataValue;
-        if (!months || months.length === 0) {
+        const { labels, datasets } = this.dataValue;
+        if (!labels || labels.length === 0) {
             this.element.insertAdjacentHTML('afterend',
                 '<div class="sp-chart-placeholder">Aucune donnée</div>');
             this.element.style.display = 'none';
             return;
         }
-
-        const locale = this.localeValue || 'fr';
-        const labels = months.map(m => {
-            const raw = new Intl.DateTimeFormat(locale, { month: 'short' })
-                .format(new Date(m.yr, m.mo - 1, 1));
-            return raw.replace(/\.$/, '').replace(/^./, c => c.toUpperCase());
-        });
 
         new Chart(this.element, {
             type: 'bar',

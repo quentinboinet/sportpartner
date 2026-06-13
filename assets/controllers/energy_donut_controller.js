@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
-import Chart from "chart.js/auto";
+import { Chart, DoughnutController, ArcElement, Tooltip } from 'chart.js';
+Chart.register(DoughnutController, ArcElement, Tooltip);
 
 export default class extends Controller {
     static values = { consumed: Number, goal: Number };

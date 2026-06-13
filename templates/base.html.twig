@@ -6,6 +6,7 @@
     <title>{% block title %}SportPartner{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/leaflet/dist/leaflet.min.css') }}">
     {{ importmap('app') }}
 </head>
 <body>
@@ -38,29 +39,30 @@
                 <i class="bi bi-graph-up"></i>
                 {{ 'nav.stats'|trans }}
             </a>
-            <a href="{{ path('app_calendar') }}" class="{{ _route starts with 'app_calendar' ? 'active' }}">
+            {# <a href="{{ path('app_calendar') }}" class="{{ _route starts with 'app_calendar' ? 'active' }}">
                 <i class="bi bi-calendar3"></i>
                 {{ 'nav.calendar'|trans }}
             </a>
             <a href="{{ path('app_nutrition') }}" class="{{ _route starts with 'app_nutrition' ? 'active' }}">
                 <i class="bi bi-egg-fried"></i>
                 {{ 'nav.nutrition'|trans }}
-            </a>
+            </a> #}
             <a href="{{ path('app_settings') }}" class="{{ _route starts with 'app_settings' ? 'active' }}">
                 <i class="bi bi-gear"></i>
                 {{ 'nav.settings'|trans }}
             </a>
         </nav>
 
+        {% set _today = sidebar_today_stats() %}
         <div class="sp-sidebar-today">
             <div class="sp-today-label">{{ 'sidebar.today_label'|trans }}</div>
             <div class="sp-today-row">
                 <div>
-                    <span class="sp-today-stat-val">-- <span>km</span></span>
+                    <span class="sp-today-stat-val">{{ _today.distanceKm is not null ? _today.distanceKm : '--' }} <span>km</span></span>
                     <span class="sp-today-stat-lbl">{{ 'sidebar.distance'|trans }}</span>
                 </div>
                 <div>
-                    <span class="sp-today-stat-val">-- <span>TSS</span></span>
+                    <span class="sp-today-stat-val">{{ _today.tss is not null ? _today.tss : '--' }} <span>TSS</span></span>
                     <span class="sp-today-stat-lbl">{{ 'sidebar.load_label'|trans }}</span>
                 </div>
             </div>

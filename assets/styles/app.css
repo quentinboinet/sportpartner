@@ -388,6 +388,24 @@ body {
 
 .sp-tab-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
+.sp-filter-sep { width: 1px; height: 18px; background: rgba(0,0,0,.12); margin: 0 4px; flex-shrink: 0; }
+
+.sp-daterange-form { display: inline-flex; align-items: center; gap: 4px; }
+.sp-date-input {
+  padding: 5px 8px; border-radius: 20px;
+  border: 1.5px solid rgba(0,0,0,.12);
+  font-size: 12px; font-weight: 500;
+  background: #fff; color: var(--sp-text); outline: none;
+  cursor: pointer;
+}
+.sp-date-input:focus { border-color: var(--sp-orange); }
+.sp-date-arrow { font-size: 12px; color: var(--sp-muted); }
+.sp-daterange-form .sp-stats-period-tab { padding: 6px 10px; }
+.sp-daterange-form .sp-stats-period-tab.active { background: var(--sp-orange); border-color: var(--sp-orange); color: #fff; }
+
+.sp-filter-tab--period { padding: 6px 11px; font-size: 12px; }
+.sp-filter-tab--period.active { background: var(--sp-orange); border-color: var(--sp-orange); color: #fff; }
+
 .sp-filter-actions { display: flex; align-items: center; gap: 8px; }
 
 .sp-btn-ghost {
@@ -437,6 +455,49 @@ body {
 .sp-activity-row-link:hover { background: rgba(0,0,0,.015); }
 
 .sp-act-chevron { color: rgba(0,0,0,.2); font-size: 14px; flex-shrink: 0; margin-left: auto; }
+
+/* ── Pagination ──────────────────────────────────────────── */
+.sp-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 24px 0 8px;
+}
+.sp-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sp-text);
+  text-decoration: none;
+  background: var(--sp-card);
+  border: 1px solid var(--sp-border);
+  transition: background .15s, color .15s;
+}
+.sp-page-btn:hover { background: var(--sp-hover); }
+.sp-page-btn--active {
+  background: var(--sp-orange);
+  color: #fff;
+  border-color: var(--sp-orange);
+}
+.sp-page-btn--active:hover { background: var(--sp-orange); }
+.sp-page-btn--disabled {
+  color: var(--sp-muted);
+  cursor: not-allowed;
+  opacity: .45;
+}
+.sp-page-dots {
+  font-size: 13px;
+  color: var(--sp-muted);
+  padding: 0 4px;
+  line-height: 36px;
+}
 
 /* Locale switcher */
 .sp-locale-switch { display: flex; gap: 2px; }
@@ -730,6 +791,7 @@ body {
   gap: 16px; margin-bottom: 16px; align-items: start;
 }
 .sp-act-detail-left, .sp-act-detail-right { min-width: 0; }
+.sp-act-detail-grid--single { grid-template-columns: 1fr; }
 
 /* Map card */
 .sp-act-map-header {
@@ -1250,3 +1312,323 @@ body {
 .sp-nutrition-deficit-value { font-size: 18px; font-weight: 700; }
 .sp-nutrition-deficit { color: #EF4444; }
 .sp-nutrition-surplus { color: #22C55E; }
+
+/* ===================================
+   Weather widget
+=================================== */
+.sp-weather-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.sp-weather-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 120px;
+}
+
+@keyframes sp-weather-pulse {
+  0%, 100% { opacity: .35; }
+  50%       { opacity: 1; }
+}
+
+.sp-weather-loader-icon {
+  font-size: 2.5rem;
+  color: var(--sp-muted);
+  animation: sp-weather-pulse 1.6s ease-in-out infinite;
+}
+
+.sp-weather-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--sp-muted);
+  font-size: 13px;
+  min-height: 120px;
+  text-align: center;
+}
+
+.sp-weather-error i { font-size: 18px; }
+
+.sp-weather-retry {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 14px; border-radius: 20px;
+  border: 1.5px solid rgba(0,0,0,.12); background: #fff;
+  font-size: 12px; font-weight: 600; color: var(--sp-text);
+  cursor: pointer; transition: border-color .15s;
+}
+.sp-weather-retry:hover { border-color: var(--sp-orange); color: var(--sp-orange); }
+
+.sp-weather-current {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 4px;
+}
+
+.sp-weather-icon {
+  font-size: 2.4rem;
+  color: var(--sp-orange);
+  line-height: 1;
+}
+
+.sp-weather-temp {
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: var(--sp-text);
+  line-height: 1;
+}
+
+.sp-weather-details {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--sp-muted);
+}
+
+.sp-weather-hint {
+  font-size: 11px;
+  color: var(--sp-muted);
+  font-style: italic;
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+/* Forecast modal rows */
+.sp-forecast-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--sp-border);
+}
+
+.sp-forecast-row:last-child { border-bottom: none; }
+
+.sp-forecast-day {
+  width: 34px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sp-text);
+  flex-shrink: 0;
+}
+
+.sp-forecast-icon {
+  font-size: 20px;
+  color: var(--sp-orange);
+  flex-shrink: 0;
+}
+
+.sp-forecast-desc {
+  flex: 1;
+  font-size: 13px;
+  color: var(--sp-muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-forecast-temp {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sp-text);
+  flex-shrink: 0;
+}
+
+.sp-forecast-min {
+  color: var(--sp-muted);
+  font-weight: 400;
+}
+
+.sp-forecast-rain {
+  font-size: 12px;
+  color: var(--sp-teal);
+  flex-shrink: 0;
+}
+
+/* ===================================
+   Activity weather strip
+=================================== */
+.sp-act-wx {
+  margin-bottom: 16px;
+}
+
+.sp-act-wx-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--sp-card);
+  border: 1px solid var(--sp-border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.sp-act-wx-icon {
+  font-size: 15px;
+  color: var(--sp-orange);
+}
+
+.sp-act-wx-temp {
+  font-weight: 600;
+  color: var(--sp-text);
+}
+
+.sp-act-wx-desc {
+  color: var(--sp-muted);
+}
+
+.sp-act-wx-sep {
+  color: var(--sp-border);
+}
+
+.sp-act-wx-muted {
+  color: var(--sp-muted);
+  font-size: 12px;
+}
+
+.sp-act-wx-rain {
+  color: var(--sp-teal);
+  font-size: 12px;
+}
+
+/* 24h precipitation chart */
+.sp-precip-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--sp-border);
+}
+
+.sp-precip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.sp-precip-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sp-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sp-precip-title .bi {
+  color: var(--sp-teal);
+  font-size: 14px;
+}
+
+.sp-precip-total {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sp-teal);
+}
+
+.sp-precip-none {
+  font-size: 13px;
+  color: var(--sp-muted);
+  margin: 0;
+  padding: 8px 0;
+}
+
+.sp-precip-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.sp-precip-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: default;
+}
+
+.sp-precip-col:hover .sp-precip-bar { opacity: 1; }
+
+.sp-precip-bar-wrap {
+  width: 100%;
+  height: 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.sp-precip-bar {
+  width: 100%;
+  background: var(--sp-teal);
+  border-radius: 2px 2px 0 0;
+  opacity: 0.75;
+  transition: opacity .15s;
+}
+
+.sp-precip-lbl {
+  font-size: 9px;
+  color: var(--sp-muted);
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Modal */
+.sp-modal .modal-content {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 20px 60px rgba(0,0,0,.15);
+}
+
+.sp-modal .modal-header {
+  border-bottom: 1px solid var(--sp-border);
+  padding: 20px 24px 16px;
+}
+
+.sp-modal .modal-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sp-modal .modal-body {
+  padding: 8px 24px 16px;
+}
+
+/* ===================================
+   Activity map (Leaflet)
+=================================== */
+.sp-act-map-canvas {
+  height: 300px;
+  width: 100%;
+}
+
+/* Leaflet: ensure container is a positioning context and tiles are unconstrained */
+.leaflet-container {
+  font-family: inherit;
+  position: relative;
+  overflow: hidden;
+}
+
+.leaflet-container img {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.sp-map-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.sp-map-dot-start { background: #22C55E; }
+.sp-map-dot-end   { background: #EF4444; }

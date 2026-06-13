@@ -39,13 +39,13 @@
     {% set formeScore = null %}
 {% endif %}
 
-{# Objectifs (cibles : 150 km, 600 TSS, 7 séances) #}
+{# Objectifs (cibles depuis les paramètres, sinon valeurs par défaut) #}
 {% set circ     = 213.63 %}
-{% set distPct  = distKm > 0 ? (distKm / 150 * 100)|round(0) : 0 %}
+{% set distPct  = distKm > 0 ? (distKm / weeklyGoals.distanceKm * 100)|round(0) : 0 %}
 {% if distPct  > 100 %}{% set distPct  = 100 %}{% endif %}
 {% set tssPct   = estTSS > 0 ? (estTSS / 600 * 100)|round(0) : 0 %}
 {% if tssPct   > 100 %}{% set tssPct   = 100 %}{% endif %}
-{% set sessPct  = sessCount > 0 ? (sessCount / 7 * 100)|round(0) : 0 %}
+{% set sessPct  = sessCount > 0 ? (sessCount / weeklyGoals.sessions * 100)|round(0) : 0 %}
 {% if sessPct  > 100 %}{% set sessPct  = 100 %}{% endif %}
 
 {# Élévation totale (approx. depuis activités récentes) #}
@@ -56,7 +56,7 @@
 {% set _weekNum   = 'now'|date('W') %}
 {% set _weekStart = 'monday this week'|date('j') %}
 {% set _weekEnd   = 'sunday this week'|date('j') %}
-{% set _month     = 'now'|date('F')|upper %}
+{% set _month     = ('calendar.month_' ~ 'now'|date('n'))|trans|upper %}
 
 {# ── Bannière Strava ──────────────────────────────────── #}
 {% if not stravaConnected %}
@@ -144,42 +144,39 @@
         </div>
     </div>
 
-    {# ── Prochaine échéance (placeholder) ── #}
+    {# ── Widget météo ── #}
     <div class="col-lg-4">
-        <div class="sp-card-dark h-100" style="display:flex;flex-direction:column">
+        <div class="sp-card sp-weather-card h-100"
+             data-controller="weather"
+             data-weather-locale-value="{{ app.request.locale }}">
 
-            <div class="sp-event-top">
-                <div class="sp-event-icon-box">🚴</div>
-                <div>
-                    <div class="sp-event-badge-label">{{ 'event.next_label'|trans }}</div>
-                    <div class="sp-event-title">Cyclo Ardéchoise</div>
+            <div data-weather-target="loading" class="sp-weather-loading">
+                <i class="bi bi-cloud sp-weather-loader-icon"></i>
+            </div>
+
+            <div data-weather-target="error" class="sp-weather-error" hidden>
+                <i class="bi bi-geo-alt-slash"></i>
+                <span data-weather-target="errorMsg">{{ 'weather.location_denied'|trans }}</span>
+                <button class="sp-weather-retry"
+                        data-action="click->weather#retry">
+                    <i class="bi bi-arrow-clockwise"></i> {{ 'weather.retry'|trans }}
+                </button>
+            </div>
+
+            <div data-weather-target="content" hidden
+                 data-action="click->weather#openForecast"
+                 style="cursor:pointer">
+                <p class="sp-card-title" style="margin-bottom:4px" data-weather-target="city"></p>
+                <div class="sp-weather-current">
+                    <i data-weather-target="icon" class="bi sp-weather-icon"></i>
+                    <span data-weather-target="temp" class="sp-weather-temp"></span>
                 </div>
-            </div>
-
-            <div class="sp-countdown">
-                <div class="sp-countdown-num">14</div>
-                <div class="sp-countdown-unit">{{ 'event.days_unit'|trans }}</div>
-            </div>
-
-            <div class="sp-event-detail-row">
-                <span class="sp-event-dist-info">120 km · D+1800</span>
-                <span class="sp-event-type-pill">Bloc volume</span>
-            </div>
-
-            <div>
-                <div class="sp-plan-row">
-                    <span>{{ 'event.plan_label'|trans }}</span>
-                    <span class="sp-plan-pct">88%</span>
+                <div class="sp-weather-details">
+                    <span data-weather-target="desc"></span>
+                    <span>· <i class="bi bi-wind"></i> <span data-weather-target="wind"></span> km/h</span>
                 </div>
-                <div class="sp-progress">
-                    <div class="sp-progress-fill" style="width:88%"></div>
-                </div>
+                <div class="sp-weather-hint">{{ 'weather.click_forecast'|trans }}</div>
             </div>
-
-            <a href="#" class="sp-event-link" style="margin-top:auto">
-                {{ 'event.see_calendar'|trans }}
-                <i class="bi bi-arrow-right"></i>
-            </a>
 
         </div>
     </div>
@@ -295,7 +292,7 @@
                     {% set _tM = ((_t % 3600) / 60)|round(0, 'floor') %}
                     {% set _tS = _t % 60 %}
 
-                    <div class="sp-activity">
+                    <a href="{{ path('app_activity_show', {id: activity.id}) }}" class="sp-activity sp-activity-row-link">
                         <div class="sp-activity-icon {{ _typeClass }}">
                             <i class="bi {{ _typeIcon }}"></i>
                         </div>
@@ -333,7 +330,7 @@
                                 <span style="background:#EF4444"></span>
                             </div>
                         </div>
-                    </div>
+                    </a>
                 {% endfor %}
             {% endif %}
         </div>
@@ -400,6 +397,22 @@
         </div>
     </div>
 
+</div>
+
+{# ── Modal prévisions 7 jours ── #}
+<div class="modal fade" id="weatherModal" tabindex="-1" aria-labelledby="weatherModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content sp-modal">
+            <div class="modal-header">
+                <h5 class="modal-title" id="weatherModalLabel">{{ 'weather.forecast_title'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div data-weather-forecast></div>
+                <div data-weather-precip class="sp-precip-section"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}

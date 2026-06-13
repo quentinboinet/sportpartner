@@ -20,6 +20,10 @@
 {# ── Filtre de période ────────────────────────── #}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
     <div class="sp-stats-period-tabs">
+        <a href="{{ path('app_stats', {period: '7d'}) }}"
+           class="sp-stats-period-tab {{ period == '7d' ? 'active' : '' }}">
+            {{ 'stats.period_7d'|trans }}
+        </a>
         <a href="{{ path('app_stats', {period: 'month'}) }}"
            class="sp-stats-period-tab {{ period == 'month' ? 'active' : '' }}">
             {{ 'stats.period_month'|trans }}
@@ -32,6 +36,25 @@
            class="sp-stats-period-tab {{ period == 'all' ? 'active' : '' }}">
             {{ 'stats.period_all'|trans }}
         </a>
+
+        <span class="sp-filter-sep"></span>
+
+        {# Sélecteur de période personnalisée #}
+        <form method="get" action="{{ path('app_stats') }}" class="sp-daterange-form">
+            <input type="date" name="from"
+                   value="{{ customFrom ?? '' }}"
+                   max="{{ 'now'|date('Y-m-d') }}"
+                   class="sp-date-input">
+            <span class="sp-date-arrow">→</span>
+            <input type="date" name="to"
+                   value="{{ customTo ?? 'now'|date('Y-m-d') }}"
+                   max="{{ 'now'|date('Y-m-d') }}"
+                   class="sp-date-input">
+            <button type="submit" class="sp-stats-period-tab {{ period == 'custom' ? 'active' : '' }}"
+                    title="{{ 'stats.period_custom_apply'|trans }}">
+                <i class="bi bi-calendar-range"></i>
+            </button>
+        </form>
     </div>
 </div>
 
@@ -92,7 +115,11 @@
     <div class="sp-card sp-stats-chart-main">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
             <div>
-                <div class="sp-card-title">{{ 'stats.volume_title'|trans }}</div>
+                <div class="sp-card-title">
+                    {% if granularity == 'day' %}{{ 'stats.volume_title_day'|trans }}
+                    {% elseif granularity == 'week' %}{{ 'stats.volume_title_week'|trans }}
+                    {% else %}{{ 'stats.volume_title'|trans }}{% endif %}
+                </div>
                 <div class="sp-card-sub">{{ 'stats.volume_sub'|trans }}</div>
             </div>
             <div class="sp-stats-legend">
@@ -107,7 +134,6 @@
         <div style="height:220px;position:relative">
             {% if chartVolume.datasets is defined and chartVolume.datasets is not empty %}
                 <canvas data-controller="volume-chart"
-                        data-volume-chart-locale-value="{{ app.request.locale }}"
                         data-volume-chart-data-value="{{ chartVolume|json_encode }}"
                         style="width:100%;height:100%"></canvas>
             {% else %}

@@ -24,7 +24,7 @@ dashboard:
     page_title: "Dashboard – SportPartner"
     title: Dashboard
     sub: Your week at a glance
-    week_label: "WEEK %week% · %month% %start%–%end%"
+    week_label: "WEEK %week% · %month% %start% - %end%"
     greeting: "Hello, %name%."
     sync: Sync
     add_activity: "+ Add Activity"
@@ -39,6 +39,13 @@ charge:
     freshness_label: FRESHNESS
     dynamic_badge: "⚡ Good momentum, ready to load"
     no_data: No data available
+
+# ── Weather widget ───────────────────────────
+weather:
+    location_denied: "Location access denied"
+    retry: "Retry"
+    click_forecast: "Click for 7-day forecast →"
+    forecast_title: "7-Day Forecast"
 
 # ── Carte Prochaine échéance ─────────────────
 event:
@@ -136,6 +143,10 @@ stats:
     title: Statistics
     sub: Trends and records
     export: Export
+    period_7d: Last 7 days
+    period_custom_apply: Apply period
+    volume_title_day: Daily volume
+    volume_title_week: Weekly volume
     period_month: This month
     period_season: "Season %year%"
     period_all: All time
@@ -193,6 +204,7 @@ activity_detail:
     calories_label: Calories
     load_label: Load
     cadence_label: Cadence
+    hr_chart_title: Heart Rate
     pace_title: Pace per kilometer
 
 # ── Activities page ───────────────────────────
@@ -229,6 +241,10 @@ settings:
         devices: Devices
         appearance: Appearance
         account: Account
+    goals:
+        section_title: Weekly Goals
+        weekly_distance: "Target distance (km)"
+        weekly_sessions: "Target sessions"
     profile:
         section_title: Athlete Profile
         change_photo: Change photo

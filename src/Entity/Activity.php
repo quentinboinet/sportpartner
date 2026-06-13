@@ -59,6 +59,21 @@ class Activity
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $timezone = null;
 
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $summaryPolyline = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $elevationProfile = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $splitsMetric = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $heartrateStream = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $weatherData = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -148,6 +163,21 @@ class Activity
 
     public function getTimezone(): ?string { return $this->timezone; }
     public function setTimezone(?string $tz): static { $this->timezone = $tz; return $this; }
+
+    public function getSummaryPolyline(): ?string { return $this->summaryPolyline; }
+    public function setSummaryPolyline(?string $p): static { $this->summaryPolyline = $p; return $this; }
+
+    public function getElevationProfile(): ?string { return $this->elevationProfile; }
+    public function setElevationProfile(?string $json): static { $this->elevationProfile = $json; return $this; }
+
+    public function getSplitsMetric(): ?string { return $this->splitsMetric; }
+    public function setSplitsMetric(?string $json): static { $this->splitsMetric = $json; return $this; }
+
+    public function getHeartrateStream(): ?string { return $this->heartrateStream; }
+    public function setHeartrateStream(?string $json): static { $this->heartrateStream = $json; return $this; }
+
+    public function getWeatherData(): ?string { return $this->weatherData; }
+    public function setWeatherData(?string $json): static { $this->weatherData = $json; return $this; }
 
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
 }

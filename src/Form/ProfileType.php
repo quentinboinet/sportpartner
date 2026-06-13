@@ -53,6 +53,16 @@ class ProfileType extends AbstractType
                 'required' => false,
                 'constraints' => [new Range(['min' => 50, 'max' => 600])],
                 'attr' => ['placeholder' => '—', 'min' => 50, 'max' => 600],
+            ])
+            ->add('weeklyDistanceGoalKm', IntegerType::class, [
+                'required' => false,
+                'constraints' => [new Range(['min' => 1, 'max' => 1000])],
+                'attr' => ['placeholder' => '150', 'min' => 1, 'max' => 1000],
+            ])
+            ->add('weeklySessionsGoal', IntegerType::class, [
+                'required' => false,
+                'constraints' => [new Range(['min' => 1, 'max' => 30])],
+                'attr' => ['placeholder' => '7', 'min' => 1, 'max' => 30],
             ]);
     }
 

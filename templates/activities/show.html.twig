@@ -51,12 +51,6 @@
         </div>
     </div>
 
-    <div class="sp-act-detail-actions">
-        <button class="sp-btn sp-btn-outline">
-            <i class="bi bi-share"></i> {{ 'activity_detail.share'|trans }}
-        </button>
-    </div>
-
 </div>
 
 {# ── Barre 5 statistiques ─────────────────────── #}
@@ -109,10 +103,29 @@
 
 </div>
 
-{# ── Grille principale 2 colonnes ─────────────── #}
-<div class="sp-act-detail-grid">
+{# ── Conditions météo au moment de l'activité ─── #}
+{% if wxDisplay is not null %}
+<div class="sp-act-wx">
+    <div class="sp-act-wx-inner">
+        <i class="bi {{ wxDisplay.icon }} sp-act-wx-icon"></i>
+        <span class="sp-act-wx-temp">{{ wxDisplay.temperature }}°C</span>
+        <span class="sp-act-wx-desc">{{ wxDisplay.description }}</span>
+        <span class="sp-act-wx-sep">·</span>
+        <i class="bi bi-wind sp-act-wx-muted"></i>
+        <span class="sp-act-wx-muted">{{ wxDisplay.wind_speed }} km/h</span>
+        {% if wxDisplay.precipitation > 0 %}
+            <span class="sp-act-wx-rain">· {{ wxDisplay.precipitation|number_format(1) }} mm</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
-    {# ── Colonne gauche : carte + altimétrie ──── #}
+{# ── Grille principale 2 colonnes ─────────────── #}
+{% set _hasMap = slug != 'weight_training' %}
+<div class="sp-act-detail-grid{{ _hasMap ? '' : ' sp-act-detail-grid--single' }}">
+
+    {# ── Colonne gauche : carte (masquée pour la musculation) ── #}
+    {% if _hasMap %}
     <div class="sp-act-detail-left">
 
         {# Carte / Parcours #}
@@ -125,35 +138,24 @@
                     </span>
                 {% endif %}
             </div>
-            <div class="sp-act-map-placeholder">
-                <i class="bi bi-geo-alt"></i>
-                <span>{{ 'activity_detail.no_gps'|trans }}</span>
-            </div>
+            {% if activity.summaryPolyline %}
+                <div class="sp-act-map-canvas"
+                     data-controller="map"
+                     data-map-polyline-value="{{ activity.summaryPolyline }}">
+                </div>
+            {% else %}
+                <div class="sp-act-map-placeholder">
+                    <i class="bi bi-geo-alt"></i>
+                    <span>{{ 'activity_detail.no_gps'|trans }}</span>
+                </div>
+            {% endif %}
             <div class="sp-act-map-footer">
                 <i class="bi bi-pin-map"></i> {{ 'activity_detail.gps_placeholder'|trans }}
             </div>
         </div>
 
-        {# Profil altimétrique #}
-        <div class="sp-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-                <span style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sp-muted)">
-                    {{ 'activity_detail.elevation_title'|trans }}
-                </span>
-                {% if activity.totalElevationGain %}
-                    <span style="color:var(--sp-muted);font-size:12px;font-weight:600">
-                        D+ {{ activity.totalElevationGain|round }} m
-                    </span>
-                {% endif %}
-            </div>
-            <div style="height:110px;position:relative">
-                <canvas data-controller="elevation-chart"
-                        data-elevation-chart-values-value="[]"
-                        style="width:100%;height:100%"></canvas>
-            </div>
-        </div>
-
     </div>
+    {% endif %}
 
     {# ── Colonne droite : zones FC + métriques ── #}
     <div class="sp-act-detail-right">
@@ -268,16 +270,60 @@
 
 </div>
 
-{# ── Allure par kilomètre ──────────────────────── #}
+{# ── Profil altimétrique (hors musculation) ──────── #}
+{% if slug != 'weight_training' %}
+<div class="sp-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <span class="sp-card-title">{{ 'activity_detail.elevation_title'|trans }}</span>
+        {% if activity.totalElevationGain %}
+            <span style="color:var(--sp-muted);font-size:12px;font-weight:600">
+                D+ {{ activity.totalElevationGain|round }} m
+            </span>
+        {% endif %}
+    </div>
+    <div style="height:150px;position:relative">
+        <canvas data-controller="elevation-chart"
+                data-elevation-chart-values-value="{{ activity.elevationProfile ?? '[]' }}"
+                data-elevation-chart-distance-value="{{ activity.distanceMeters ?? 0 }}"
+                style="width:100%;height:100%"></canvas>
+    </div>
+</div>
+{% endif %}
+
+{# ── Fréquence cardiaque ──────────────────────── #}
+{% if hrData is not empty %}
+<div class="sp-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <span class="sp-card-title">{{ 'activity_detail.hr_chart_title'|trans }}</span>
+        {% if activity.averageHeartrate %}
+            <span style="color:var(--sp-muted);font-size:12px;font-weight:600">
+                <i class="bi bi-heart-pulse-fill" style="color:#EF4444"></i>
+                {{ 'activity_detail.hr_avg'|trans }} {{ activity.averageHeartrate|round }} bpm
+            </span>
+        {% endif %}
+    </div>
+    <div style="height:150px;position:relative">
+        <canvas data-controller="heartrate-chart"
+                data-heartrate-chart-data-value="{{ hrData|json_encode }}"
+                data-heartrate-chart-distance-value="{{ activity.distanceMeters ?? 0 }}"
+                data-heartrate-chart-max-hr-value="{{ activity.maxHeartrate ?? 0 }}"
+                style="width:100%;height:100%"></canvas>
+    </div>
+</div>
+{% endif %}
+
+{# ── Allure par kilomètre (hors cyclisme) ─────── #}
+{% if slug not in ['ride', 'weight_training'] %}
 <div class="sp-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <span class="sp-card-title">{{ 'activity_detail.pace_title'|trans }}</span>
     </div>
-    <div style="height:120px;position:relative">
+    <div style="height:150px;position:relative">
         <canvas data-controller="pace-chart"
-                data-pace-chart-splits-value="[]"
+                data-pace-chart-splits-value="{{ splits|json_encode }}"
                 style="width:100%;height:100%"></canvas>
     </div>
 </div>
+{% endif %}
 
 {% endblock %}

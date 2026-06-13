@@ -24,7 +24,7 @@ dashboard:
     page_title: "Tableau de bord – SportPartner"
     title: Tableau de bord
     sub: "Vue d'ensemble de ta semaine"
-    week_label: "SEMAINE %week% · %start% — %end% %month%"
+    week_label: "SEMAINE %week% · %start% - %end% %month%"
     greeting: "Bonjour, %name%."
     sync: Synchroniser
     add_activity: "+ Ajouter une activité"
@@ -39,6 +39,13 @@ charge:
     freshness_label: FRAÎCHEUR
     dynamic_badge: "⚡ Bonne dynamique, prêt à charger"
     no_data: Aucune donnée disponible
+
+# ── Widget météo ─────────────────────────────
+weather:
+    location_denied: "Géolocalisation refusée"
+    retry: "Réessayer"
+    click_forecast: "Cliquer pour les prévisions 7j →"
+    forecast_title: "Prévisions 7 jours"
 
 # ── Carte Prochaine échéance ─────────────────
 event:
@@ -136,6 +143,10 @@ stats:
     title: Statistiques
     sub: Tendances et records
     export: Exporter
+    period_7d: 7 jours glissants
+    period_custom_apply: Appliquer la période
+    volume_title_day: Volume quotidien
+    volume_title_week: Volume hebdomadaire
     period_month: Ce mois
     period_season: "Saison %year%"
     period_all: "Tout l'historique"
@@ -193,6 +204,7 @@ activity_detail:
     calories_label: Calories
     load_label: Charge
     cadence_label: Cadence
+    hr_chart_title: Fréquence cardiaque
     pace_title: Allure par kilomètre
 
 # ── Page Activités ────────────────────────────
@@ -229,6 +241,10 @@ settings:
         devices: Appareils
         appearance: Apparence
         account: Compte
+    goals:
+        section_title: Objectifs hebdomadaires
+        weekly_distance: "Distance cible (km)"
+        weekly_sessions: "Séances cibles"
     profile:
         section_title: Profil athlète
         change_photo: Changer la photo

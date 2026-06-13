@@ -29,21 +29,30 @@ class ActivityRepository extends ServiceEntityRepository
     public function findWeeklyVolume(User $user, int $weeks = 12): array
     {
         $since = new \DateTimeImmutable("-{$weeks} weeks");
+        $conn  = $this->getEntityManager()->getConnection();
 
-        return $this->createQueryBuilder('a')
-            ->select('YEAR(a.startDate) as year, WEEK(a.startDate) as week, SUM(a.distanceMeters) as totalDistance, SUM(a.movingTimeSeconds) as totalTime, SUM(a.totalElevationGain) as totalElevation, COUNT(a.id) as count')
-            ->where('a.user = :user')
-            ->andWhere('a.startDate >= :since')
-            ->setParameter('user', $user)
-            ->setParameter('since', $since)
-            ->groupBy('year, week')
-            ->orderBy('year', 'ASC')
-            ->addOrderBy('week', 'ASC')
-            ->getQuery()
-            ->getArrayResult();
+        // WEEK(..., 1) = mode ISO : semaine lundi→dimanche.
+        // YEARWEEK(..., 1) pour le GROUP BY évite le bug de fin d'année
+        // (ex: 30 déc. est semaine 1 de l'année suivante en ISO).
+        return $conn->fetchAllAssociative(
+            'SELECT YEARWEEK(startDate, 1)              AS yearweek,
+                    WEEK(startDate, 1)                   AS week,
+                    YEAR(DATE_ADD(startDate,
+                        INTERVAL (8 - DAYOFWEEK(startDate)) % 7 DAY)) AS year,
+                    COALESCE(SUM(distanceMeters), 0)     AS totalDistance,
+                    COALESCE(SUM(movingTimeSeconds), 0)  AS totalTime,
+                    COALESCE(SUM(totalElevationGain), 0) AS totalElevation,
+                    COUNT(*)                             AS count
+             FROM activities
+             WHERE user_id = :userId
+               AND startDate >= :since
+             GROUP BY YEARWEEK(startDate, 1)
+             ORDER BY YEARWEEK(startDate, 1) ASC',
+            ['userId' => $user->getId(), 'since' => $since->format('Y-m-d')]
+        );
     }
 
-    public function findByUserFiltered(User $user, ?string $sportSlug = null, int $page = 1, int $perPage = 50): array
+    public function findByUserFiltered(User $user, ?string $sportSlug = null, int $page = 1, int $perPage = 50, ?\DateTimeImmutable $since = null): array
     {
         $qb = $this->createQueryBuilder('a')
             ->where('a.user = :user')
@@ -58,10 +67,15 @@ class ActivityRepository extends ServiceEntityRepository
                ->setParameter('slug', $sportSlug);
         }
 
+        if ($since !== null) {
+            $qb->andWhere('a.startDate >= :since')
+               ->setParameter('since', $since);
+        }
+
         return $qb->getQuery()->getResult();
     }
 
-    public function getAggregateStats(User $user, ?string $sportSlug = null): array
+    public function getAggregateStats(User $user, ?string $sportSlug = null, ?\DateTimeImmutable $since = null): array
     {
         $qb = $this->createQueryBuilder('a')
             ->select('COUNT(a.id) as count, SUM(a.distanceMeters) as totalDistance, SUM(a.movingTimeSeconds) as totalTime, SUM(a.totalElevationGain) as totalElevation')
@@ -72,6 +86,11 @@ class ActivityRepository extends ServiceEntityRepository
             $qb->join('a.sport', 's')
                ->andWhere('s.slug = :slug')
                ->setParameter('slug', $sportSlug);
+        }
+
+        if ($since !== null) {
+            $qb->andWhere('a.startDate >= :since')
+               ->setParameter('since', $since);
         }
 
         return $qb->getQuery()->getArrayResult()[0] ?? [];
@@ -90,6 +109,18 @@ class ActivityRepository extends ServiceEntityRepository
             ->orderBy('a.startDate', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    public function findTodayStatsForSidebar(User $user): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
+        return $conn->fetchAllAssociative(
+            'SELECT distanceMeters, movingTimeSeconds, averageHeartrate
+             FROM activities
+             WHERE user_id = :userId
+               AND DATE(startDate) = :today',
+            ['userId' => $user->getId(), 'today' => (new \DateTimeImmutable())->format('Y-m-d')]
+        );
     }
 
     public function findByStravaId(int $stravaId): ?Activity
@@ -127,6 +158,44 @@ class ActivityRepository extends ServiceEntityRepository
             ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]
         );
         return $row ?: ['cnt' => 0, 'total_distance' => 0, 'total_time' => 0, 'total_elevation' => 0];
+    }
+
+    public function getDailyVolumeBySport(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
+        return $conn->fetchAllAssociative(
+            'SELECT DATE(a.startDate)                          AS day,
+                    COALESCE(s.slug, \'other\')                AS sport,
+                    COALESCE(s.color, \'#9CA3AF\')             AS color,
+                    ROUND(SUM(a.distanceMeters) / 1000, 1)    AS km
+             FROM activities a
+             LEFT JOIN sports s ON a.sport_id = s.id
+             WHERE a.user_id = :userId
+               AND a.startDate BETWEEN :from AND :to
+               AND a.distanceMeters IS NOT NULL
+             GROUP BY day, sport, color
+             ORDER BY day ASC',
+            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]
+        );
+    }
+
+    public function getWeeklyVolumeBySport(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
+        return $conn->fetchAllAssociative(
+            'SELECT DATE_SUB(DATE(a.startDate), INTERVAL WEEKDAY(a.startDate) DAY) AS week_start,
+                    COALESCE(s.slug, \'other\')                                     AS sport,
+                    COALESCE(s.color, \'#9CA3AF\')                                  AS color,
+                    ROUND(SUM(a.distanceMeters) / 1000, 1)                         AS km
+             FROM activities a
+             LEFT JOIN sports s ON a.sport_id = s.id
+             WHERE a.user_id = :userId
+               AND a.startDate BETWEEN :from AND :to
+               AND a.distanceMeters IS NOT NULL
+             GROUP BY week_start, sport, color
+             ORDER BY week_start ASC',
+            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]
+        );
     }
 
     public function getMonthlyVolumeBySport(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array

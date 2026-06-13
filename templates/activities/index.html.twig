@@ -17,12 +17,13 @@
 {# ── Barre de filtres ──────────────────────────── #}
 <div class="sp-filter-bar">
     <div class="sp-filter-tabs">
-        <a href="{{ path('app_activities') }}"
+        {# Filtre par sport #}
+        <a href="{{ path('app_activities', {period: currentPeriod}) }}"
            class="sp-filter-tab {{ currentSport is null ? 'active' : '' }}">
             {{ 'activities.filter_all'|trans }}
         </a>
         {% for sport in sports %}
-            <a href="{{ path('app_activities', {sport: sport.slug}) }}"
+            <a href="{{ path('app_activities', {sport: sport.slug, period: currentPeriod}) }}"
                class="sp-filter-tab {{ currentSport and currentSport.slug == sport.slug ? 'active' : '' }}">
                 {% if currentSport is null or currentSport.slug != sport.slug %}
                     <span class="sp-tab-dot" style="background:{{ sport.color }}"></span>
@@ -30,11 +31,23 @@
                 {{ ('sport.' ~ sport.slug)|trans }}
             </a>
         {% endfor %}
+
+        {# Séparateur #}
+        <span class="sp-filter-sep"></span>
+
+        {# Filtre par période #}
+        {% set _p7  = currentPeriod == '7d'  ? null : '7d' %}
+        {% set _p30 = currentPeriod == '30d' ? null : '30d' %}
+        <a href="{{ path('app_activities', {sport: currentSport ? currentSport.slug : null, period: _p7}) }}"
+           class="sp-filter-tab sp-filter-tab--period {{ currentPeriod == '7d' ? 'active' : '' }}">
+            7 j
+        </a>
+        <a href="{{ path('app_activities', {sport: currentSport ? currentSport.slug : null, period: _p30}) }}"
+           class="sp-filter-tab sp-filter-tab--period {{ currentPeriod == '30d' ? 'active' : '' }}">
+            30 j
+        </a>
     </div>
     <div class="sp-filter-actions">
-        <a href="#" class="sp-btn-ghost">
-            <i class="bi bi-sliders"></i> {{ 'activities.btn_filters'|trans }}
-        </a>
         <a href="#" class="sp-btn sp-btn-primary">{{ 'activities.btn_add'|trans }}</a>
     </div>
 </div>
@@ -164,5 +177,54 @@
     {% endif %}
 
 </div>
+
+{# ── Pagination ─────────────────────────────────── #}
+{% if totalPages > 1 %}
+<div class="sp-pagination">
+
+    {# Précédent #}
+    {% if page > 1 %}
+        <a href="{{ path('app_activities', {sport: currentSport ? currentSport.slug : null, period: currentPeriod, page: page - 1}) }}"
+           class="sp-page-btn" aria-label="Page précédente">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+    {% else %}
+        <span class="sp-page-btn sp-page-btn--disabled"><i class="bi bi-chevron-left"></i></span>
+    {% endif %}
+
+    {# Première page + "…" #}
+    {% if showFirst %}
+        <a href="{{ path('app_activities', {sport: currentSport ? currentSport.slug : null, period: currentPeriod, page: 1}) }}"
+           class="sp-page-btn">1</a>
+        {% if dotsBefore %}<span class="sp-page-dots">…</span>{% endif %}
+    {% endif %}
+
+    {# Fenêtre autour de la page courante #}
+    {% for p in window %}
+        <a href="{{ path('app_activities', {sport: currentSport ? currentSport.slug : null, period: currentPeriod, page: p}) }}"
+           class="sp-page-btn {{ p == page ? 'sp-page-btn--active' : '' }}">
+            {{ p }}
+        </a>
+    {% endfor %}
+
+    {# "…" + Dernière page #}
+    {% if showLast %}
+        {% if dotsAfter %}<span class="sp-page-dots">…</span>{% endif %}
+        <a href="{{ path('app_activities', {sport: currentSport ? currentSport.slug : null, period: currentPeriod, page: totalPages}) }}"
+           class="sp-page-btn">{{ totalPages }}</a>
+    {% endif %}
+
+    {# Suivant #}
+    {% if page < totalPages %}
+        <a href="{{ path('app_activities', {sport: currentSport ? currentSport.slug : null, period: currentPeriod, page: page + 1}) }}"
+           class="sp-page-btn" aria-label="Page suivante">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+    {% else %}
+        <span class="sp-page-btn sp-page-btn--disabled"><i class="bi bi-chevron-right"></i></span>
+    {% endif %}
+
+</div>
+{% endif %}
 
 {% endblock %}

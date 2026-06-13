@@ -19,6 +19,8 @@ class DashboardController extends AbstractController
         $recentActivities = $activityRepo->findByUserPaginated($user, 1, 10);
         $weeklyVolume = $activityRepo->findWeeklyVolume($user, 12);
 
+        $profile = $user->getProfile();
+
         return $this->render('dashboard/index.html.twig', [
             'recentActivities' => array_map(fn ($a) => [
                 'id'            => $a->getId(),
@@ -33,6 +35,10 @@ class DashboardController extends AbstractController
             'weeklyVolume'    => $weeklyVolume,
             'stravaConnected' => $user->isStravaConnected(),
             'isPro'           => $user->isPro(),
+            'weeklyGoals'     => [
+                'distanceKm' => $profile?->getWeeklyDistanceGoalKm() ?? 150,
+                'sessions'   => $profile?->getWeeklySessionsGoal() ?? 7,
+            ],
         ]);
     }
 }

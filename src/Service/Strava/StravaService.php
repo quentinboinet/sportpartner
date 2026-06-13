@@ -146,7 +146,8 @@ class StravaService
                     ->setMaxHeartrate($data['max_heartrate'] ?? null)
                     ->setAverageCadence($data['average_cadence'] ?? null)
                     ->setAverageSpeed($data['average_speed'] ?? null)
-                    ->setTimezone($data['timezone'] ?? null);
+                    ->setTimezone($data['timezone'] ?? null)
+                    ->setSummaryPolyline($data['map']['summary_polyline'] ?? null);
 
                 if (!empty($data['start_date'])) {
                     $activity->setStartDate(new \DateTimeImmutable($data['start_date']));
@@ -165,6 +166,115 @@ class StravaService
         } while (count($raw) === self::PAGE_SIZE);
 
         return $imported;
+    }
+
+    /**
+     * Fetches the altitude stream for one activity from Strava and stores it as JSON.
+     * Sets an empty array when the activity has no GPS data (indoor).
+     * No-ops if the elevation profile is already stored.
+     */
+    public function fetchAltitudeStream(User $user, Activity $activity): void
+    {
+        if ($activity->getElevationProfile() !== null || !$activity->getStravaId()) {
+            return;
+        }
+
+        if ($this->isTokenExpired($user)) {
+            $this->refreshAccessToken($user);
+        }
+
+        try {
+            $streams = $this->httpClient->request('GET',
+                self::API_BASE.'/activities/'.$activity->getStravaId().'/streams',
+                [
+                    'headers' => ['Authorization' => 'Bearer '.$user->getStravaAccessToken()],
+                    'query'   => ['keys' => 'altitude', 'resolution' => 'low', 'series_type' => 'distance'],
+                ]
+            )->toArray();
+
+            $data = [];
+            foreach ($streams as $stream) {
+                if ($stream['type'] === 'altitude') {
+                    $data = $stream['data'];
+                    break;
+                }
+            }
+
+            $activity->setElevationProfile(json_encode($data));
+        } catch (\Throwable) {
+            // Strava unavailable or activity has no GPS — store empty so we don't retry every view.
+            $activity->setElevationProfile('[]');
+        }
+
+        $this->em->flush();
+    }
+
+    /**
+     * Fetches the heart-rate stream for one activity and stores it as JSON.
+     * Same pattern as fetchAltitudeStream — no-ops if already stored.
+     */
+    public function fetchHeartrateStream(User $user, Activity $activity): void
+    {
+        if ($activity->getHeartrateStream() !== null || !$activity->getStravaId()) {
+            return;
+        }
+
+        if ($this->isTokenExpired($user)) {
+            $this->refreshAccessToken($user);
+        }
+
+        try {
+            $streams = $this->httpClient->request('GET',
+                self::API_BASE.'/activities/'.$activity->getStravaId().'/streams',
+                [
+                    'headers' => ['Authorization' => 'Bearer '.$user->getStravaAccessToken()],
+                    'query'   => ['keys' => 'heartrate', 'resolution' => 'low', 'series_type' => 'distance'],
+                ]
+            )->toArray();
+
+            $data = [];
+            foreach ($streams as $stream) {
+                if ($stream['type'] === 'heartrate') {
+                    $data = $stream['data'];
+                    break;
+                }
+            }
+
+            $activity->setHeartrateStream(json_encode($data));
+        } catch (\Throwable) {
+            $activity->setHeartrateStream('[]');
+        }
+
+        $this->em->flush();
+    }
+
+    /**
+     * Fetches splits_metric from the Strava detailed activity endpoint and stores it as JSON.
+     * No-ops if already stored or no stravaId.
+     */
+    public function fetchSplitsMetric(User $user, Activity $activity): void
+    {
+        if ($activity->getSplitsMetric() !== null || !$activity->getStravaId()) {
+            return;
+        }
+
+        if ($this->isTokenExpired($user)) {
+            $this->refreshAccessToken($user);
+        }
+
+        try {
+            $data = $this->httpClient->request('GET',
+                self::API_BASE.'/activities/'.$activity->getStravaId(),
+                ['headers' => ['Authorization' => 'Bearer '.$user->getStravaAccessToken()]]
+            )->toArray();
+
+            $splits = $data['splits_metric'] ?? [];
+            $activity->setSplitsMetric(json_encode($splits));
+        } catch (\Throwable) {
+            $activity->setSplitsMetric('[]');
+        }
+
+        $this->em->flush();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

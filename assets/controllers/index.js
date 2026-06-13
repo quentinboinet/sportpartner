@@ -1,7 +1,10 @@
 import { application } from './application.js';
+import WeatherController from './weather_controller.js';
+import MapController          from './map_controller.js';
 import WeeklyChartController    from './weekly_chart_controller.js';
 import ElevationChartController from './elevation_chart_controller.js';
 import PaceChartController      from './pace_chart_controller.js';
+import HeartrateChartController from './heartrate_chart_controller.js';
 import VolumeChartController    from './volume_chart_controller.js';
 import DonutChartController     from './donut_chart_controller.js';
 import PaceTrendController      from './pace_trend_controller.js';
@@ -16,3 +19,6 @@ application.register('donut-chart',     DonutChartController);
 application.register('pace-trend',      PaceTrendController);
 application.register('energy-donut',    EnergyDonutController);
 application.register('balance-chart',   BalanceChartController);
+application.register('weather', WeatherController);
+application.register('map',             MapController);
+application.register('heartrate-chart', HeartrateChartController);

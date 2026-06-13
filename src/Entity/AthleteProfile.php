@@ -37,6 +37,12 @@ class AthleteProfile
     #[ORM\Column(nullable: true)]
     private ?int $ftp = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $weeklyDistanceGoalKm = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $weeklySessionsGoal = null;
+
     public function getId(): ?int { return $this->id; }
 
     public function getUser(): User { return $this->user; }
@@ -62,4 +68,10 @@ class AthleteProfile
 
     public function getFtp(): ?int { return $this->ftp; }
     public function setFtp(?int $ftp): static { $this->ftp = $ftp; return $this; }
+
+    public function getWeeklyDistanceGoalKm(): ?int { return $this->weeklyDistanceGoalKm; }
+    public function setWeeklyDistanceGoalKm(?int $v): static { $this->weeklyDistanceGoalKm = $v; return $this; }
+
+    public function getWeeklySessionsGoal(): ?int { return $this->weeklySessionsGoal; }
+    public function setWeeklySessionsGoal(?int $v): static { $this->weeklySessionsGoal = $v; return $this; }
 }

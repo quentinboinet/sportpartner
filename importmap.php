@@ -35,4 +35,11 @@ return [
     '@hotwired/stimulus' => [
         'version' => '3.2.2',
     ],
+    'leaflet' => [
+        'version' => '1.9.4',
+    ],
+    'leaflet/dist/leaflet.min.css' => [
+        'version' => '1.9.4',
+        'type' => 'css',
+    ],
 ];
