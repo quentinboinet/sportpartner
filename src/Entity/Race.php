@@ -5,6 +5,7 @@ use App\Repository\RaceRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: RaceRepository::class)]
+#[ORM\Table(name: 'race')]
 class Race
 {
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]
