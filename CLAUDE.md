@@ -79,6 +79,40 @@ Pour attacher un controller Stimulus à un élément :
 ### Webhooks
 Routes Strava et Stripe déclarées en `PUBLIC_ACCESS` dans [config/packages/security.yaml](config/packages/security.yaml). Ne pas les mettre derrière `ROLE_USER`.
 
+## Conventions base de données
+
+### Nommage des tables — camelCase obligatoire
+
+Toutes les tables utilisent le **camelCase** (ex: `athleteProfile`, `raceIntent`).  
+MySQL sur Linux est **sensible à la casse** : `Race` ≠ `race`. Sans annotation explicite, Doctrine utilise le nom de la classe PHP comme nom de table (PascalCase), ce qui peut diverger de la migration.
+
+**Règle : toujours déclarer `#[ORM\Table(name: '...')]` sur chaque entité.**
+
+```php
+#[ORM\Entity(repositoryClass: RaceRepository::class)]
+#[ORM\Table(name: 'race')]          // <-- toujours explicite
+class Race { ... }
+```
+
+**Checklist à chaque nouvelle entité :**
+1. Ajouter `#[ORM\Table(name: 'nomEnCamelCase')]` sur la classe
+2. Utiliser le même nom dans le `CREATE TABLE` de la migration
+3. Vérifier la cohérence casse migration ↔ entité (Linux ≠ Windows)
+
+**État actuel des tables :**
+
+| Entité | Table |
+|---|---|
+| `User` | `users` |
+| `Activity` | `activities` |
+| `Sport` | `sports` |
+| `AthleteProfile` | `AthleteProfile` |
+| `Meal` | `Meal` |
+| `Race` | `race` |
+
+> `AthleteProfile` et `Meal` correspondent car la migration crée la table en PascalCase et Doctrine aussi.  
+> Si tu renommes ces tables un jour, pense à mettre à jour l'annotation ET la migration.
+
 ## Environment
 
 Copier `.env.example` vers `.env` et renseigner :
