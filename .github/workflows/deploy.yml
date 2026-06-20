@@ -23,6 +23,9 @@ jobs:
             echo "==> Pull"
             git pull origin main
 
+            echo "==> Var directories"
+            mkdir -p var/log var/cache
+
             echo "==> Composer"
             composer install --no-dev --optimize-autoloader --no-interaction
 
