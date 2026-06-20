@@ -99,6 +99,10 @@
     <div class="sp-main">
 
         <header class="sp-topbar">
+            <div class="sp-topbar-brand">
+                <div class="sp-logo-bolt"><i class="bi bi-lightning-fill"></i></div>
+                <span class="sp-logo-name">SportPartner</span>
+            </div>
             <div class="sp-search">
                 <i class="bi bi-search sp-search-icon"></i>
                 <input type="text" class="sp-search-input"
@@ -153,6 +157,29 @@
         </div>{# /.sp-content #}
     </div>{# /.sp-main #}
 </div>{# /.sp-layout #}
+
+<nav class="sp-bottom-nav">
+    <a href="{{ path('app_dashboard') }}" class="{{ _route == 'app_dashboard' ? 'active' }}">
+        <i class="bi bi-grid-fill"></i>
+        <span>{{ 'nav.dashboard'|trans }}</span>
+    </a>
+    <a href="{{ path('app_activities') }}" class="{{ _route starts with 'app_activities' ? 'active' }}">
+        <i class="bi bi-lightning-fill"></i>
+        <span>{{ 'nav.activities'|trans }}</span>
+    </a>
+    <a href="{{ path('app_stats') }}" class="{{ _route starts with 'app_stats' ? 'active' }}">
+        <i class="bi bi-graph-up"></i>
+        <span>{{ 'nav.stats'|trans }}</span>
+    </a>
+    <a href="{{ path('app_races') }}" class="{{ _route starts with 'app_races' ? 'active' }}">
+        <i class="bi bi-flag-fill"></i>
+        <span>{{ 'nav.races'|trans }}</span>
+    </a>
+    <a href="{{ path('app_settings') }}" class="{{ _route starts with 'app_settings' ? 'active' }}">
+        <i class="bi bi-gear"></i>
+        <span>{{ 'nav.settings'|trans }}</span>
+    </a>
+</nav>
 {% endif %}
 
 </body>

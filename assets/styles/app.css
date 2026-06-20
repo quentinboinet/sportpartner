@@ -852,10 +852,145 @@ body {
   color: var(--sp-muted); font-size: 12px;
 }
 
+/* ===================================
+   Mobile brand (topbar, no sidebar)
+=================================== */
+.sp-topbar-brand {
+  display: none;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.sp-topbar-brand .sp-logo-bolt {
+  width: 30px; height: 30px;
+  background: var(--sp-orange);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 14px;
+}
+
+.sp-topbar-brand .sp-logo-name {
+  font-size: 15px; font-weight: 800;
+  letter-spacing: -.02em; color: var(--sp-text);
+}
+
+/* ===================================
+   Bottom navigation (mobile)
+=================================== */
+.sp-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 60px;
+  background: var(--sp-dark);
+  border-top: 1px solid rgba(255,255,255,.08);
+  z-index: 300;
+  padding: 0 4px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.sp-bottom-nav a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: rgba(255,255,255,.40);
+  text-decoration: none;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  transition: color .15s;
+  padding: 6px 0;
+}
+
+.sp-bottom-nav a i { font-size: 18px; }
+.sp-bottom-nav a.active { color: var(--sp-orange); }
+.sp-bottom-nav a:not(.active):hover { color: rgba(255,255,255,.70); }
+
+/* ===================================
+   Responsive — tablette + mobile (≤ 992px)
+=================================== */
 @media (max-width: 992px) {
   .sp-sidebar { display: none; }
   .sp-main { margin-left: 0; }
   .sp-act-detail-grid { grid-template-columns: 1fr; }
+
+  /* Afficher la barre de navigation en bas */
+  .sp-bottom-nav { display: flex; }
+
+  /* Topbar : montrer le logo, cacher la recherche */
+  .sp-topbar { padding: 0 16px; }
+  .sp-topbar-brand { display: flex; }
+  .sp-search { display: none; }
+
+  /* Espace pour la barre du bas */
+  .sp-content { padding: 16px 16px 76px; }
+}
+
+/* ===================================
+   Responsive — mobile (≤ 768px)
+=================================== */
+@media (max-width: 768px) {
+  /* Typographie */
+  .sp-greeting { font-size: 20px; }
+  .sp-metric-val { font-size: 26px; }
+  .sp-stat-val { font-size: 22px; }
+  .sp-countdown-num { font-size: 40px; }
+  .sp-stats-bar-val { font-size: 20px; }
+
+  /* En-tête de page : empiler titre et boutons */
+  .sp-page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .sp-header-btns { padding-top: 0; }
+
+  /* Cards */
+  .sp-card { padding: 16px; }
+  .sp-card-dark { padding: 16px; }
+
+  /* Stats bar : scroll horizontal */
+  .sp-stats-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sp-stats-bar-item { min-width: 120px; padding: 12px 14px; flex-shrink: 0; }
+
+  /* Stats totals bar : scroll horizontal */
+  .sp-stats-totals-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sp-stats-total-item { min-width: 140px; flex-shrink: 0; padding: 14px 16px; }
+
+  /* Records table : scroll horizontal */
+  .sp-records-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sp-records-header,
+  .sp-record-row { min-width: 540px; }
+
+  /* Stat bar de détail d'activité */
+  .sp-act-detail-statbar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sp-act-detail-statbar-item { min-width: 110px; flex-shrink: 0; padding: 12px 14px; }
+
+  /* Objectifs donuts : réduire la taille */
+  .sp-donut { width: 72px; height: 72px; }
+  .sp-donut-val { font-size: 14px; }
+
+  /* Onglets de filtre : scroll horizontal */
+  .sp-filter-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .sp-filter-tab { white-space: nowrap; }
+
+  /* Settings : empiler la nav et le contenu */
+  .sp-settings-layout { grid-template-columns: 1fr; }
+  .sp-settings-content-card { padding: 20px 16px 24px; }
+  .sp-settings-form-grid { grid-template-columns: 1fr; gap: 16px; }
+
+  /* Stats : empiler les graphiques */
+  .sp-stats-charts-row { flex-direction: column; }
+
+  /* Calendrier : empiler la sidebar */
+  .sp-cal-layout { flex-direction: column; }
+  .sp-cal-sidebar { width: 100%; }
+
+  /* Nutrition : empiler les grilles */
+  .sp-nutrition-top-row,
+  .sp-nutrition-bottom-row { grid-template-columns: 1fr; }
+  .sp-nutrition-bilan-body { flex-direction: column; align-items: flex-start; }
+  .sp-nutrition-donut-wrap { width: 120px; height: 120px; }
 }
 
 /* ===================================
