@@ -853,15 +853,30 @@ body {
 }
 
 /* ===================================
-   Mobile brand (topbar, no sidebar)
+   Hamburger button (mobile only)
 =================================== */
+.sp-hamburger {
+  display: none;
+  align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: rgba(0,0,0,.06);
+  border: none;
+  color: var(--sp-text);
+  font-size: 20px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.sp-hamburger:hover { background: rgba(0,0,0,.10); }
+
+/* Mobile brand in topbar */
 .sp-topbar-brand {
   display: none;
   align-items: center;
   gap: 9px;
   flex-shrink: 0;
 }
-
 .sp-topbar-brand .sp-logo-bolt {
   width: 30px; height: 30px;
   background: var(--sp-orange);
@@ -869,46 +884,62 @@ body {
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 14px;
 }
-
 .sp-topbar-brand .sp-logo-name {
   font-size: 15px; font-weight: 800;
   letter-spacing: -.02em; color: var(--sp-text);
 }
 
 /* ===================================
-   Bottom navigation (mobile)
+   Offcanvas sidebar (mobile)
 =================================== */
-.sp-bottom-nav {
-  display: none;
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 60px;
-  background: var(--sp-dark);
-  border-top: 1px solid rgba(255,255,255,.08);
-  z-index: 300;
-  padding: 0 4px;
-  padding-bottom: env(safe-area-inset-bottom);
+.sp-offcanvas {
+  width: 260px !important;
+  background: var(--sp-dark) !important;
+  border-right: none !important;
 }
-
-.sp-bottom-nav a {
+.sp-offcanvas-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 0 0 !important;
+  border-bottom: 1px solid rgba(255,255,255,.06) !important;
+}
+.sp-offcanvas-header .sp-logo {
+  border-bottom: none;
   flex: 1;
+}
+.sp-offcanvas-close {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.08);
+  border: none;
+  color: rgba(255,255,255,.6);
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  margin-right: 14px;
+  transition: background .15s;
+}
+.sp-offcanvas-close:hover { background: rgba(255,255,255,.15); color: #fff; }
+.sp-offcanvas-body {
+  padding: 0 !important;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  color: rgba(255,255,255,.40);
-  text-decoration: none;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: .03em;
-  transition: color .15s;
-  padding: 6px 0;
+  overflow-y: auto;
 }
+.sp-offcanvas-body .sp-nav { flex: 1; }
+.sp-offcanvas-body .sp-sidebar-user { border-top: 1px solid rgba(255,255,255,.06); }
 
-.sp-bottom-nav a i { font-size: 18px; }
-.sp-bottom-nav a.active { color: var(--sp-orange); }
-.sp-bottom-nav a:not(.active):hover { color: rgba(255,255,255,.70); }
+/* Canvas responsive (Chart.js) */
+canvas { max-width: 100%; }
+
+/* Filtre période stats */
+.sp-stats-filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
 
 /* ===================================
    Responsive — tablette + mobile (≤ 992px)
@@ -918,16 +949,17 @@ body {
   .sp-main { margin-left: 0; }
   .sp-act-detail-grid { grid-template-columns: 1fr; }
 
-  /* Afficher la barre de navigation en bas */
-  .sp-bottom-nav { display: flex; }
-
-  /* Topbar : montrer le logo, cacher la recherche */
-  .sp-topbar { padding: 0 16px; }
+  /* Topbar : hamburger + logo, cacher la recherche */
+  .sp-topbar { padding: 0 16px; gap: 12px; }
+  .sp-hamburger { display: flex; }
   .sp-topbar-brand { display: flex; }
   .sp-search { display: none; }
 
-  /* Espace pour la barre du bas */
-  .sp-content { padding: 16px 16px 76px; }
+  .sp-content { padding: 16px 16px 32px; }
+
+  /* Layout ne déborde jamais de la fenêtre */
+  .sp-layout { overflow-x: hidden; }
+  .sp-main { max-width: 100%; }
 }
 
 /* ===================================
@@ -953,14 +985,32 @@ body {
   .sp-stats-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .sp-stats-bar-item { min-width: 120px; padding: 12px 14px; flex-shrink: 0; }
 
-  /* Stats totals bar : scroll horizontal */
-  .sp-stats-totals-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .sp-stats-total-item { min-width: 140px; flex-shrink: 0; padding: 14px 16px; }
+  /* Stats KPI bar : grille 2 colonnes qui wrappe */
+  .sp-stats-totals-bar { flex-wrap: wrap; overflow-x: visible; border-radius: 14px; }
+  .sp-stats-total-item {
+    flex: 1 1 calc(50% - 1px);
+    min-width: 0;
+    border-bottom: 1px solid rgba(0,0,0,.06);
+    padding: 14px 16px;
+  }
+  .sp-stats-total-item:nth-child(even) { border-right: none; }
+  .sp-stats-total-item:nth-last-child(-n+2) { border-bottom: none; }
 
-  /* Records table : scroll horizontal */
-  .sp-records-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .sp-records-header,
-  .sp-record-row { min-width: 540px; }
+  /* Records : layout 3 colonnes, sans scroll */
+  .sp-records-scroll { overflow-x: visible; }
+  .sp-records-header { display: none; }
+  .sp-record-row {
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 3px 8px;
+    padding: 12px 6px;
+    min-width: 0;
+  }
+  .sp-record-row > div:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .sp-record-row > div:nth-child(2) { grid-column: 2; grid-row: 1; font-size: 13px; }
+  .sp-record-row > div:nth-child(3) { grid-column: 3; grid-row: 1; }
+  .sp-record-row > div:nth-child(4) { grid-column: 1 / 3; grid-row: 2; font-size: 11px; }
+  .sp-record-row > div:nth-child(5) { grid-column: 3; grid-row: 2; display: flex; justify-content: flex-end; }
 
   /* Stat bar de détail d'activité */
   .sp-act-detail-statbar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -979,6 +1029,12 @@ body {
   .sp-settings-content-card { padding: 20px 16px 24px; }
   .sp-settings-form-grid { grid-template-columns: 1fr; gap: 16px; }
 
+  /* Filtre période stats : passer en colonne */
+  .sp-stats-filter-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .sp-stats-period-tabs { flex-wrap: wrap; gap: 4px; }
+  .sp-daterange-form { width: 100%; flex-wrap: wrap; }
+  .sp-date-input { flex: 1; min-width: 0; }
+
   /* Stats : empiler les graphiques */
   .sp-stats-charts-row { flex-direction: column; }
 
@@ -991,6 +1047,38 @@ body {
   .sp-nutrition-bottom-row { grid-template-columns: 1fr; }
   .sp-nutrition-bilan-body { flex-direction: column; align-items: flex-start; }
   .sp-nutrition-donut-wrap { width: 120px; height: 120px; }
+}
+
+/* ===================================
+   Responsive — petit mobile (≤ 576px)
+=================================== */
+@media (max-width: 576px) {
+  /* Activity rows (page activités) :
+     - override les min-width inline
+     - cacher allure et zone bar */
+  .sp-activity-row-link { gap: 8px; padding: 10px 14px; }
+  .sp-activity-row-link .sp-act-stat { min-width: 0 !important; }
+  .sp-act-zone-col { display: none; }
+  .sp-act-chevron { display: none; }
+
+  /* Activity rows (dashboard) :
+     - masquer zone bar et dernier stat */
+  .sp-activity-stats { gap: 8px; }
+  .sp-activity-stats .sp-zone-bar { display: none; }
+  .sp-activity-stats .sp-act-stat:last-child { display: none; }
+
+  /* Stats bar activités : scroll interne, pas de débordement page */
+  .sp-stats-bar { border-radius: 12px; }
+  .sp-stats-bar-item { min-width: 100px; padding: 10px 12px; }
+  .sp-stats-bar-val { font-size: 18px; }
+
+  /* Card sans padding excessif */
+  .sp-card { padding: 14px; }
+
+  /* Charge card : empiler le header */
+  .sp-charge-header { flex-direction: column; gap: 10px; }
+  .sp-chart-meta { gap: 14px; }
+  .sp-metric-val { font-size: 22px; }
 }
 
 /* ===================================

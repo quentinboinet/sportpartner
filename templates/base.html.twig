@@ -99,6 +99,10 @@
     <div class="sp-main">
 
         <header class="sp-topbar">
+            <button class="sp-hamburger" type="button"
+                    data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar">
+                <i class="bi bi-list"></i>
+            </button>
             <div class="sp-topbar-brand">
                 <div class="sp-logo-bolt"><i class="bi bi-lightning-fill"></i></div>
                 <span class="sp-logo-name">SportPartner</span>
@@ -158,28 +162,56 @@
     </div>{# /.sp-main #}
 </div>{# /.sp-layout #}
 
-<nav class="sp-bottom-nav">
-    <a href="{{ path('app_dashboard') }}" class="{{ _route == 'app_dashboard' ? 'active' }}">
-        <i class="bi bi-grid-fill"></i>
-        <span>{{ 'nav.dashboard'|trans }}</span>
-    </a>
-    <a href="{{ path('app_activities') }}" class="{{ _route starts with 'app_activities' ? 'active' }}">
-        <i class="bi bi-lightning-fill"></i>
-        <span>{{ 'nav.activities'|trans }}</span>
-    </a>
-    <a href="{{ path('app_stats') }}" class="{{ _route starts with 'app_stats' ? 'active' }}">
-        <i class="bi bi-graph-up"></i>
-        <span>{{ 'nav.stats'|trans }}</span>
-    </a>
-    <a href="{{ path('app_races') }}" class="{{ _route starts with 'app_races' ? 'active' }}">
-        <i class="bi bi-flag-fill"></i>
-        <span>{{ 'nav.races'|trans }}</span>
-    </a>
-    <a href="{{ path('app_settings') }}" class="{{ _route starts with 'app_settings' ? 'active' }}">
-        <i class="bi bi-gear"></i>
-        <span>{{ 'nav.settings'|trans }}</span>
-    </a>
-</nav>
+{# ─── Offcanvas sidebar (mobile) ──────────────────── #}
+<div class="offcanvas offcanvas-start sp-offcanvas" tabindex="-1" id="mobileSidebar">
+    <div class="offcanvas-header sp-offcanvas-header">
+        <div class="sp-logo">
+            <div class="sp-logo-bolt"><i class="bi bi-lightning-fill"></i></div>
+            <div>
+                <div class="sp-logo-name">SportPartner</div>
+                <span class="sp-logo-sub">Performance Tracker</span>
+            </div>
+        </div>
+        <button type="button" class="sp-offcanvas-close">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+    <div class="offcanvas-body sp-offcanvas-body">
+        <nav class="sp-nav">
+            <a href="{{ path('app_dashboard') }}" class="{{ _route == 'app_dashboard' ? 'active' }}">
+                <i class="bi bi-grid-fill"></i>{{ 'nav.dashboard'|trans }}
+            </a>
+            <a href="{{ path('app_activities') }}" class="{{ _route starts with 'app_activities' ? 'active' }}">
+                <i class="bi bi-lightning-fill"></i>{{ 'nav.activities'|trans }}
+            </a>
+            <a href="{{ path('app_stats') }}" class="{{ _route starts with 'app_stats' ? 'active' }}">
+                <i class="bi bi-graph-up"></i>{{ 'nav.stats'|trans }}
+            </a>
+            <a href="{{ path('app_races') }}" class="{{ _route starts with 'app_races' ? 'active' }}">
+                <i class="bi bi-flag-fill"></i>{{ 'nav.races'|trans }}
+            </a>
+            <a href="{{ path('app_settings') }}" class="{{ _route starts with 'app_settings' ? 'active' }}">
+                <i class="bi bi-gear"></i>{{ 'nav.settings'|trans }}
+            </a>
+        </nav>
+
+        <div class="sp-sidebar-user" style="margin-top:auto">
+            <div class="sp-avatar">
+                {{ app.user.firstName
+                    ? (app.user.firstName|slice(0,1) ~ (app.user.lastName ? app.user.lastName|slice(0,1) : ''))
+                    : app.user.email|slice(0,2)|upper }}
+            </div>
+            <div style="flex:1;min-width:0">
+                <div class="sp-user-name">
+                    {{ app.user.firstName ? app.user.firstName ~ ' ' ~ app.user.lastName : app.user.email }}
+                </div>
+                <div class="sp-user-role">
+                    {{ app.user.isPro() ? 'sidebar.pro_role'|trans : 'sidebar.amateur_role'|trans }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endif %}
 
 </body>
