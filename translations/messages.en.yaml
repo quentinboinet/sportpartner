@@ -3,6 +3,7 @@ nav:
     dashboard: Dashboard
     activities: Activities
     stats: Statistics
+    races: Races
     calendar: Calendar
     nutrition: Nutrition
     settings: Settings
@@ -284,6 +285,41 @@ auth:
         submit: Create my account
         have_account: Already have an account?
         login_link: Sign in
+
+# ── Race wishlist ─────────────────────────────────────────────────────────────
+races:
+    page_title: "My Races – SportPartner"
+    title: My Races
+    sub: "Races to do and races to remember"
+    btn_add: "+ Add a race"
+    filter_all: All
+    year_all: All years
+    empty: "No races added yet. Start building your list!"
+    intent_want_to_do: I want to do it
+    intent_want_to_do_desc: "You plan to register or participate in this race"
+    intent_bookmark: Bookmark
+    intent_bookmark_desc: "Saving this race so you don't forget it"
+    modal_title: Add a race
+    field_intent: Type
+    field_name: Race name
+    field_name_placeholder: "E.g. Paris Marathon, UTMB…"
+    field_year: Target year
+    field_location: Location
+    field_location_placeholder: "E.g. Paris, Chamonix…"
+    field_distance: Distance
+    field_website: Official website
+    field_notes: Notes
+    field_notes_placeholder: "Useful info, registration link…"
+    cancel: Cancel
+    save: Add
+    mark_done: Mark as done
+    unmark_done: Mark as to-do
+    website_label: Website
+    delete: Delete
+    confirm_delete: "Delete this race?"
+    flash_added: "Race added successfully."
+    flash_deleted: "Race deleted."
+    flash_name_required: "Race name is required."
 
 # ── Nutrition ─────────────────────────────────────────────────────────────────
 nutrition:

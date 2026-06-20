@@ -3,6 +3,7 @@ nav:
     dashboard: Tableau de bord
     activities: Activités
     stats: Statistiques
+    races: Courses
     calendar: Calendrier
     nutrition: Nutrition
     settings: Paramètres
@@ -284,6 +285,41 @@ auth:
         submit: Créer mon compte
         have_account: "Déjà un compte ?"
         login_link: Se connecter
+
+# ── Courses (liste de souhaits) ───────────────────────────────────────────────
+races:
+    page_title: "Mes courses – SportPartner"
+    title: Mes courses
+    sub: "Courses à faire et à retenir"
+    btn_add: "+ Ajouter une course"
+    filter_all: Toutes
+    year_all: Toutes les années
+    empty: "Aucune course ajoutée. Commence à constituer ta liste !"
+    intent_want_to_do: Je veux la faire
+    intent_want_to_do_desc: "Tu comptes t'inscrire ou participer à cette course"
+    intent_bookmark: Mémo
+    intent_bookmark_desc: "Tu notes cette course pour ne pas l'oublier"
+    modal_title: Ajouter une course
+    field_intent: Type
+    field_name: Nom de la course
+    field_name_placeholder: "Ex : Marathon de Paris, UTMB…"
+    field_year: Année souhaitée
+    field_location: Lieu
+    field_location_placeholder: "Ex : Paris, Chamonix…"
+    field_distance: Distance
+    field_website: Site officiel
+    field_notes: Notes
+    field_notes_placeholder: "Infos utiles, lien d'inscription…"
+    cancel: Annuler
+    save: Ajouter
+    mark_done: Marquer comme faite
+    unmark_done: Marquer comme à faire
+    website_label: Site
+    delete: Supprimer
+    confirm_delete: "Supprimer cette course ?"
+    flash_added: "Course ajoutée avec succès."
+    flash_deleted: "Course supprimée."
+    flash_name_required: "Le nom de la course est requis."
 
 # ── Nutrition ─────────────────────────────────────────────────────────────────
 nutrition:

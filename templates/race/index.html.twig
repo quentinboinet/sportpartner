@@ -1,0 +1,359 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'races.page_title'|trans }}{% endblock %}
+
+{% block body %}
+
+{# ── En-tête ─────────────────────────────────────── #}
+<div class="sp-page-header">
+    <div>
+        <h1 class="sp-greeting" style="font-size:24px">{{ 'races.title'|trans }}</h1>
+        <div class="sp-week-label" style="color:var(--sp-muted);font-size:11px;font-weight:500;letter-spacing:0;text-transform:none">
+            {{ 'races.sub'|trans }}
+        </div>
+    </div>
+</div>
+
+{# ── Barre de filtres ─────────────────────────────── #}
+<div class="sp-filter-bar">
+    <div class="sp-filter-tabs">
+        {# Filtre par intention #}
+        <a href="{{ path('app_races', {year: filterYear}) }}"
+           class="sp-filter-tab {{ filterIntent is null ? 'active' : '' }}">
+            {{ 'races.filter_all'|trans }}
+        </a>
+        <a href="{{ path('app_races', {intent: 'want_to_do', year: filterYear}) }}"
+           class="sp-filter-tab {{ filterIntent == 'want_to_do' ? 'active' : '' }}">
+            <i class="bi bi-flag-fill" style="color:var(--sp-orange);font-size:10px;margin-right:4px"></i>
+            {{ 'races.intent_want_to_do'|trans }}
+        </a>
+        <a href="{{ path('app_races', {intent: 'bookmark', year: filterYear}) }}"
+           class="sp-filter-tab {{ filterIntent == 'bookmark' ? 'active' : '' }}">
+            <i class="bi bi-bookmark-fill" style="color:var(--sp-teal);font-size:10px;margin-right:4px"></i>
+            {{ 'races.intent_bookmark'|trans }}
+        </a>
+
+        {% if years|length > 1 %}
+            <span class="sp-filter-sep"></span>
+            {# Filtre par année #}
+            <a href="{{ path('app_races', {intent: filterIntent}) }}"
+               class="sp-filter-tab sp-filter-tab--period {{ filterYear is null ? 'active' : '' }}">
+                {{ 'races.year_all'|trans }}
+            </a>
+            {% for y in years %}
+                <a href="{{ path('app_races', {year: y, intent: filterIntent}) }}"
+                   class="sp-filter-tab sp-filter-tab--period {{ filterYear == y ? 'active' : '' }}">
+                    {{ y }}
+                </a>
+            {% endfor %}
+        {% endif %}
+    </div>
+    <div class="sp-filter-actions">
+        <button type="button" class="sp-btn sp-btn-primary" data-bs-toggle="modal" data-bs-target="#addRaceModal">
+            {{ 'races.btn_add'|trans }}
+        </button>
+    </div>
+</div>
+
+{# ── Liste des courses ────────────────────────────── #}
+<div class="sp-card" style="padding:0;overflow:hidden">
+
+    {% if races is empty %}
+        <div style="text-align:center;padding:64px 24px">
+            <i class="bi bi-flag" style="font-size:40px;color:var(--sp-muted);opacity:.4;display:block;margin-bottom:16px"></i>
+            <p style="color:var(--sp-muted);font-size:13px;margin:0 0 20px">{{ 'races.empty'|trans }}</p>
+            <button type="button" class="sp-btn sp-btn-primary" data-bs-toggle="modal" data-bs-target="#addRaceModal">
+                {{ 'races.btn_add'|trans }}
+            </button>
+        </div>
+    {% else %}
+        <div class="sp-race-list">
+            {% for race in races %}
+                <div class="sp-race-row {{ race.isDone ? 'sp-race-row--done' : '' }}">
+
+                    {# Checkbox toggle done #}
+                    <form method="post" action="{{ path('app_races_toggle', {id: race.id}) }}" class="sp-race-toggle-form">
+                        <button type="submit" class="sp-race-check {{ race.isDone ? 'sp-race-check--checked' : '' }}" title="{{ race.isDone ? 'races.unmark_done'|trans : 'races.mark_done'|trans }}">
+                            <i class="bi {{ race.isDone ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
+                        </button>
+                    </form>
+
+                    {# Icône intention #}
+                    <div class="sp-race-intent-icon">
+                        {% if race.intent.value == 'want_to_do' %}
+                            <i class="bi bi-flag-fill" style="color:var(--sp-orange)" title="{{ 'races.intent_want_to_do'|trans }}"></i>
+                        {% else %}
+                            <i class="bi bi-bookmark-fill" style="color:var(--sp-teal)" title="{{ 'races.intent_bookmark'|trans }}"></i>
+                        {% endif %}
+                    </div>
+
+                    {# Contenu principal #}
+                    <div class="sp-race-body">
+                        <div class="sp-race-name">{{ race.name }}</div>
+                        <div class="sp-race-meta">
+                            {# Année #}
+                            <span class="sp-race-badge sp-race-badge--year">{{ race.year }}</span>
+
+                            {# Lieu #}
+                            {% if race.location %}
+                                <span class="sp-race-meta-item">
+                                    <i class="bi bi-geo-alt"></i> {{ race.location }}
+                                </span>
+                            {% endif %}
+
+                            {# Distance #}
+                            {% if race.distanceKm %}
+                                <span class="sp-race-meta-item">
+                                    <i class="bi bi-rulers"></i> {{ race.distanceKm }} km
+                                </span>
+                            {% endif %}
+
+                            {# Site web #}
+                            {% if race.website %}
+                                <a href="{{ race.website }}" target="_blank" rel="noopener" class="sp-race-meta-item sp-race-website">
+                                    <i class="bi bi-box-arrow-up-right"></i> {{ 'races.website_label'|trans }}
+                                </a>
+                            {% endif %}
+                        </div>
+
+                        {# Notes #}
+                        {% if race.notes %}
+                            <div class="sp-race-notes">{{ race.notes }}</div>
+                        {% endif %}
+                    </div>
+
+                    {# Bouton supprimer #}
+                    <form method="post" action="{{ path('app_races_delete', {id: race.id}) }}" class="sp-race-delete-form"
+                          onsubmit="return confirm('{{ 'races.confirm_delete'|trans|e('js') }}')">
+                        <button type="submit" class="sp-race-delete-btn" title="{{ 'races.delete'|trans }}">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </form>
+
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+</div>
+
+{# ── Modal : Ajouter une course ───────────────────── #}
+<div class="modal fade" id="addRaceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content sp-modal">
+            <div class="modal-header sp-modal-header">
+                <h5 class="modal-title">{{ 'races.modal_title'|trans }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{{ path('app_races_add') }}">
+                <div class="modal-body sp-modal-body">
+
+                    {# Intention — affiché en premier car structurant #}
+                    <div class="mb-3">
+                        <label class="sp-form-label">{{ 'races.field_intent'|trans }}</label>
+                        <div class="sp-intent-options">
+                            <label class="sp-intent-option sp-intent-option--active" id="intent-opt-want">
+                                <input type="radio" name="intent" value="want_to_do" checked hidden>
+                                <i class="bi bi-flag-fill" style="color:var(--sp-orange)"></i>
+                                <div>
+                                    <div class="sp-intent-option-title">{{ 'races.intent_want_to_do'|trans }}</div>
+                                    <div class="sp-intent-option-sub">{{ 'races.intent_want_to_do_desc'|trans }}</div>
+                                </div>
+                            </label>
+                            <label class="sp-intent-option" id="intent-opt-bookmark">
+                                <input type="radio" name="intent" value="bookmark" hidden>
+                                <i class="bi bi-bookmark-fill" style="color:var(--sp-teal)"></i>
+                                <div>
+                                    <div class="sp-intent-option-title">{{ 'races.intent_bookmark'|trans }}</div>
+                                    <div class="sp-intent-option-sub">{{ 'races.intent_bookmark_desc'|trans }}</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {# Nom #}
+                    <div class="mb-3">
+                        <label class="sp-form-label" for="race-name">{{ 'races.field_name'|trans }} <span style="color:var(--sp-orange)">*</span></label>
+                        <input type="text" id="race-name" name="name" class="sp-form-input"
+                               placeholder="{{ 'races.field_name_placeholder'|trans }}" required maxlength="200">
+                    </div>
+
+                    {# Année #}
+                    <div class="mb-3">
+                        <label class="sp-form-label" for="race-year">{{ 'races.field_year'|trans }} <span style="color:var(--sp-orange)">*</span></label>
+                        <select id="race-year" name="year" class="sp-form-input">
+                            {% for y in range(defaultYear, defaultYear + 5) %}
+                                <option value="{{ y }}" {{ y == defaultYear ? 'selected' : '' }}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    {# Lieu + Distance sur la même ligne #}
+                    <div class="row mb-3">
+                        <div class="col-7">
+                            <label class="sp-form-label" for="race-location">{{ 'races.field_location'|trans }}</label>
+                            <input type="text" id="race-location" name="location" class="sp-form-input"
+                                   placeholder="{{ 'races.field_location_placeholder'|trans }}" maxlength="200">
+                        </div>
+                        <div class="col-5">
+                            <label class="sp-form-label" for="race-distance">{{ 'races.field_distance'|trans }}</label>
+                            <div style="position:relative">
+                                <input type="number" id="race-distance" name="distance_km" class="sp-form-input"
+                                       placeholder="42.2" min="0" max="9999" step="0.1" style="padding-right:40px">
+                                <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--sp-muted);font-size:12px;pointer-events:none">km</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Site web #}
+                    <div class="mb-3">
+                        <label class="sp-form-label" for="race-website">{{ 'races.field_website'|trans }}</label>
+                        <input type="url" id="race-website" name="website" class="sp-form-input"
+                               placeholder="https://…" maxlength="500">
+                    </div>
+
+                    {# Notes #}
+                    <div class="mb-0">
+                        <label class="sp-form-label" for="race-notes">{{ 'races.field_notes'|trans }}</label>
+                        <textarea id="race-notes" name="notes" class="sp-form-input" rows="2"
+                                  placeholder="{{ 'races.field_notes_placeholder'|trans }}" maxlength="1000"></textarea>
+                    </div>
+
+                </div>
+                <div class="modal-footer sp-modal-footer">
+                    <button type="button" class="sp-btn" style="background:transparent;color:var(--sp-muted);border:1px solid var(--sp-border)"
+                            data-bs-dismiss="modal">{{ 'races.cancel'|trans }}</button>
+                    <button type="submit" class="sp-btn sp-btn-primary">{{ 'races.save'|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ── Styles spécifiques à la page ─────────────────── #}
+<style>
+.sp-race-list { display: flex; flex-direction: column; }
+
+.sp-race-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--sp-border);
+    transition: background .15s;
+}
+.sp-race-row:last-child { border-bottom: none; }
+.sp-race-row:hover { background: rgba(0,0,0,.018); }
+.sp-race-row--done { opacity: .55; }
+
+.sp-race-toggle-form { display: flex; align-items: center; flex-shrink: 0; margin-top: 2px; }
+.sp-race-check {
+    background: none; border: none; cursor: pointer; padding: 0;
+    color: var(--sp-muted); font-size: 18px; line-height: 1;
+    transition: color .15s;
+}
+.sp-race-check:hover { color: var(--sp-green); }
+.sp-race-check--checked { color: var(--sp-green); }
+
+.sp-race-intent-icon { flex-shrink: 0; font-size: 13px; margin-top: 3px; }
+
+.sp-race-body { flex: 1; min-width: 0; }
+.sp-race-name {
+    font-size: 14px; font-weight: 600; color: var(--sp-text);
+    margin-bottom: 5px; line-height: 1.3;
+}
+.sp-race-row--done .sp-race-name { text-decoration: line-through; }
+
+.sp-race-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+
+.sp-race-badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; letter-spacing: .02em;
+}
+.sp-race-badge--year {
+    background: rgba(22,23,42,.08); color: var(--sp-dark);
+}
+
+.sp-race-meta-item {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; color: var(--sp-muted);
+}
+.sp-race-website {
+    text-decoration: none; color: var(--sp-teal);
+}
+.sp-race-website:hover { text-decoration: underline; }
+
+.sp-race-notes {
+    margin-top: 6px;
+    font-size: 12px; color: var(--sp-muted);
+    font-style: italic; line-height: 1.4;
+}
+
+.sp-race-delete-form { flex-shrink: 0; display: flex; align-items: center; margin-top: 2px; }
+.sp-race-delete-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--sp-muted); font-size: 14px; padding: 4px 6px;
+    border-radius: 6px; transition: color .15s, background .15s;
+    opacity: 0;
+}
+.sp-race-row:hover .sp-race-delete-btn { opacity: 1; }
+.sp-race-delete-btn:hover { color: var(--sp-red); background: rgba(239,68,68,.08); }
+
+/* Modal */
+.sp-modal { background: var(--sp-card); border-radius: 14px; border: none; overflow: hidden; }
+.sp-modal-header {
+    background: var(--sp-dark); color: #fff; border-bottom: none;
+    padding: 18px 22px;
+}
+.sp-modal-header .modal-title { font-size: 15px; font-weight: 700; }
+.sp-modal-body { padding: 22px 22px 10px; }
+.sp-modal-footer { border-top: 1px solid var(--sp-border); padding: 14px 22px; gap: 10px; }
+
+.sp-form-label { font-size: 11px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 6px; }
+.sp-form-input {
+    display: block; width: 100%;
+    background: var(--sp-bg); border: 1px solid var(--sp-border);
+    border-radius: 8px; padding: 9px 12px;
+    font-size: 13px; color: var(--sp-text);
+    outline: none; transition: border-color .15s;
+}
+.sp-form-input:focus { border-color: var(--sp-orange); }
+textarea.sp-form-input { resize: vertical; }
+
+/* Intent selector */
+.sp-intent-options { display: flex; gap: 10px; }
+.sp-intent-option {
+    flex: 1; display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px; border-radius: 10px; cursor: pointer;
+    border: 2px solid var(--sp-border); background: var(--sp-bg);
+    transition: border-color .15s, background .15s;
+}
+.sp-intent-option--active {
+    border-color: var(--sp-orange); background: rgba(232,64,12,.05);
+}
+.sp-intent-option i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.sp-intent-option-title { font-size: 13px; font-weight: 600; color: var(--sp-text); }
+.sp-intent-option-sub { font-size: 11px; color: var(--sp-muted); margin-top: 2px; line-height: 1.3; }
+</style>
+
+<script>
+(function () {
+    const modal = document.getElementById('addRaceModal');
+    if (!modal) return;
+
+    const optWant = document.getElementById('intent-opt-want');
+    const optBook = document.getElementById('intent-opt-bookmark');
+
+    function syncStyle() {
+        const wantChecked = optWant.querySelector('input').checked;
+        optWant.classList.toggle('sp-intent-option--active', wantChecked);
+        optBook.classList.toggle('sp-intent-option--active', !wantChecked);
+    }
+
+    optWant.addEventListener('click', () => { optWant.querySelector('input').checked = true; syncStyle(); });
+    optBook.addEventListener('click', () => { optBook.querySelector('input').checked = true; syncStyle(); });
+})();
+</script>
+
+{% endblock %}
