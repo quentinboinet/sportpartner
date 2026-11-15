@@ -10,6 +10,7 @@ import DonutChartController     from './donut_chart_controller.js';
 import PaceTrendController      from './pace_trend_controller.js';
 import EnergyDonutController    from './energy_donut_controller.js';
 import BalanceChartController   from './balance_chart_controller.js';
+import RaceCalendarController   from './race_calendar_controller.js';
 
 application.register('weekly-chart',    WeeklyChartController);
 application.register('elevation-chart', ElevationChartController);
@@ -22,3 +23,4 @@ application.register('balance-chart',   BalanceChartController);
 application.register('weather', WeatherController);
 application.register('map',             MapController);
 application.register('heartrate-chart', HeartrateChartController);
+application.register('race-calendar',   RaceCalendarController);

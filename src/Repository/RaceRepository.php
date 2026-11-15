@@ -2,6 +2,7 @@
 namespace App\Repository;
 
 use App\Entity\Race;
+use App\Entity\RaceIntent;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -32,7 +33,7 @@ class RaceRepository extends ServiceEntityRepository
             $qb->andWhere('r.year = :year')->setParameter('year', $year);
         }
 
-        if ($intent !== null && in_array($intent, ['want_to_do', 'bookmark'], true)) {
+        if ($intent !== null && RaceIntent::tryFrom($intent) !== null) {
             $qb->andWhere('r.intent = :intent')->setParameter('intent', $intent);
         }
 

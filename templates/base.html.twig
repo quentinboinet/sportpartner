@@ -132,7 +132,7 @@
                 {% for message in messages %}
                     <div class="alert alert-{{ type == 'error' ? 'danger' : type }} alert-dismissible fade show mb-3"
                          role="alert" style="border-radius:10px">
-                        {{ message }}
+                        {{ message|trans }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 {% endfor %}
@@ -146,7 +146,7 @@
         <div class="alert alert-{{ type == 'error' ? 'danger' : type }} alert-dismissible fade show"
              style="position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;width:400px;border-radius:10px"
              role="alert">
-            {{ message }}
+            {{ message|trans }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     {% endfor %}

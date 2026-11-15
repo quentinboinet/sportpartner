@@ -42,4 +42,36 @@ return [
         'version' => '1.9.4',
         'type' => 'css',
     ],
+    // FullCalendar 6.1.22 — fichiers ESM bruts du paquet npm, servis en local.
+    // Ne PAS passer par `importmap:require @fullcalendar/*` : le bundling +esm de jsDelivr
+    // duplique les internes (core/index.js et core/internal.js) et casse les plugins.
+    // Pour mettre à jour : retélécharger les mêmes fichiers depuis cdn.jsdelivr.net/npm/@fullcalendar/<pkg>@<version>/
+    // (preact doit rester à la version exigée par @fullcalendar/core, ~10.12.1).
+    '@fullcalendar/core' => [
+        'path' => './assets/lib/fullcalendar/core/index.js',
+    ],
+    '@fullcalendar/core/index.js' => [
+        'path' => './assets/lib/fullcalendar/core/index.js',
+    ],
+    '@fullcalendar/core/internal.js' => [
+        'path' => './assets/lib/fullcalendar/core/internal.js',
+    ],
+    '@fullcalendar/core/preact.js' => [
+        'path' => './assets/lib/fullcalendar/core/preact.js',
+    ],
+    '@fullcalendar/core/locales/fr' => [
+        'path' => './assets/lib/fullcalendar/core/locales/fr.js',
+    ],
+    '@fullcalendar/daygrid' => [
+        'path' => './assets/lib/fullcalendar/daygrid/index.js',
+    ],
+    'preact' => [
+        'version' => '10.12.1',
+    ],
+    'preact/compat' => [
+        'version' => '10.12.1',
+    ],
+    'preact/hooks' => [
+        'version' => '10.12.1',
+    ],
 ];

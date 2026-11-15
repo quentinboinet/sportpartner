@@ -297,8 +297,23 @@ races:
     empty: "No races added yet. Start building your list!"
     intent_want_to_do: I want to do it
     intent_want_to_do_desc: "You plan to register or participate in this race"
+    intent_registered: I'm registered
+    intent_registered_desc: "Your entry is confirmed, your bib is waiting"
     intent_bookmark: Bookmark
     intent_bookmark_desc: "Saving this race so you don't forget it"
+    change_intent: Change status
+    modal_title_edit: Edit race
+    save_edit: Save
+    edit: Edit
+    field_date: Race date
+    field_date_help: "Optional — if set, the year is derived from it and the race shows up in the calendar."
+    field_elevation: Elevation gain
+    view_label: View
+    view_list: List
+    view_calendar: Calendar
+    undated_title: Races without a date
+    undated_hint: "Add a date to place them on the calendar"
+    flash_updated: "Race updated."
     modal_title: Add a race
     field_intent: Type
     field_name: Race name

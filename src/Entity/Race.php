@@ -2,6 +2,7 @@
 namespace App\Entity;
 
 use App\Repository\RaceRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: RaceRepository::class)]
@@ -24,8 +25,16 @@ class Race
     #[ORM\Column(type: 'float', nullable: true)]
     private ?float $distanceKm = null;
 
+    /** Dénivelé positif en mètres. */
+    #[ORM\Column(nullable: true)]
+    private ?int $elevationGain = null;
+
     #[ORM\Column(type: 'smallint')]
     private int $year;
+
+    /** Date précise de la course (optionnelle). Si renseignée, $year en est dérivée. */
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $raceDate = null;
 
     #[ORM\Column(type: 'string', length: 30, enumType: RaceIntent::class)]
     private RaceIntent $intent = RaceIntent::WantToDo;
@@ -61,8 +70,14 @@ class Race
     public function getDistanceKm(): ?float { return $this->distanceKm; }
     public function setDistanceKm(?float $d): static { $this->distanceKm = $d; return $this; }
 
+    public function getElevationGain(): ?int { return $this->elevationGain; }
+    public function setElevationGain(?int $e): static { $this->elevationGain = $e; return $this; }
+
     public function getYear(): int { return $this->year; }
     public function setYear(int $y): static { $this->year = $y; return $this; }
+
+    public function getRaceDate(): ?\DateTimeImmutable { return $this->raceDate; }
+    public function setRaceDate(?\DateTimeImmutable $d): static { $this->raceDate = $d; return $this; }
 
     public function getIntent(): RaceIntent { return $this->intent; }
     public function setIntent(RaceIntent $i): static { $this->intent = $i; return $this; }

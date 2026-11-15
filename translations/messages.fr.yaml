@@ -297,8 +297,23 @@ races:
     empty: "Aucune course ajoutée. Commence à constituer ta liste !"
     intent_want_to_do: Je veux la faire
     intent_want_to_do_desc: "Tu comptes t'inscrire ou participer à cette course"
+    intent_registered: Je suis inscrit
+    intent_registered_desc: "Ton inscription est validée, ton dossard t'attend"
     intent_bookmark: Mémo
     intent_bookmark_desc: "Tu notes cette course pour ne pas l'oublier"
+    change_intent: Changer le statut
+    modal_title_edit: Modifier la course
+    save_edit: Enregistrer
+    edit: Modifier
+    field_date: Date de la course
+    field_date_help: "Optionnelle — si tu la renseignes, l'année en découle et la course apparaît dans le calendrier."
+    field_elevation: Dénivelé +
+    view_label: Affichage
+    view_list: Liste
+    view_calendar: Calendrier
+    undated_title: Courses sans date
+    undated_hint: "Ajoute une date pour les placer dans le calendrier"
+    flash_updated: "Course mise à jour."
     modal_title: Ajouter une course
     field_intent: Type
     field_name: Nom de la course
