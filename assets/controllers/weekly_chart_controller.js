@@ -22,7 +22,7 @@ export default class extends Controller {
         const labels    = weeks.map(w => `S${w.week}`);
         const distances = weeks.map(w => Math.round(w.totalDistance / 100) / 10); // km, 1 decimal
 
-        // Forme : rolling 4-week average of distance, normalized to 35–90
+        // Forme : rolling 4-week average of distance, normalized to 35-90
         const maxDist = Math.max(...distances, 1);
         const forme = distances.map((_, i, arr) => {
             const window = arr.slice(Math.max(0, i - 3), i + 1);

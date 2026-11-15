@@ -4,8 +4,8 @@
 
 {% block body %}
 
-{# Paramètre de vue conservé dans les liens de filtre (null = liste, omis de l'URL) #}
-{% set viewParam = view == 'calendar' ? 'calendar' : null %}
+{# Paramètres courants, conservés par chaque lien de filtre (les null sont omis de l'URL) #}
+{% set q = {intent: filterIntent, year: filterYear, type: filterType, view: view == 'calendar' ? 'calendar' : null} %}
 
 {# ── En-tête ─────────────────────────────────────── #}
 <div class="sp-page-header">
@@ -21,27 +21,38 @@
 <div class="sp-filter-bar">
     <div class="sp-filter-tabs">
         {# Filtre par statut #}
-        <a href="{{ path('app_races', {year: filterYear, view: viewParam}) }}"
+        <a href="{{ path('app_races', q|merge({intent: null})) }}"
            class="sp-filter-tab {{ filterIntent is null ? 'active' : '' }}">
             {{ 'races.filter_all'|trans }}
         </a>
         {% for intent in intents %}
-            <a href="{{ path('app_races', {intent: intent.value, year: filterYear, view: viewParam}) }}"
+            <a href="{{ path('app_races', q|merge({intent: intent.value})) }}"
                class="sp-filter-tab {{ filterIntent == intent.value ? 'active' : '' }}">
                 <i class="bi {{ intent.icon }}" style="color:{{ intent.color }};font-size:10px;margin-right:4px"></i>
                 {{ intent.labelKey|trans }}
             </a>
         {% endfor %}
 
+        <span class="sp-filter-sep"></span>
+        {# Filtre par type (re-cliquer sur le type actif retire le filtre) #}
+        {% for type in types %}
+            <a href="{{ path('app_races', q|merge({type: filterType == type.value ? null : type.value})) }}"
+               class="sp-filter-tab {{ filterType == type.value ? 'active' : '' }}"
+               {% if filterType == type.value %}aria-pressed="true"{% endif %}>
+                <i class="bi {{ type.icon }}" style="font-size:10px;margin-right:4px"></i>
+                {{ type.labelKey|trans }}
+            </a>
+        {% endfor %}
+
         {% if years|length > 1 %}
             <span class="sp-filter-sep"></span>
             {# Filtre par année #}
-            <a href="{{ path('app_races', {intent: filterIntent, view: viewParam}) }}"
+            <a href="{{ path('app_races', q|merge({year: null})) }}"
                class="sp-filter-tab sp-filter-tab--period {{ filterYear is null ? 'active' : '' }}">
                 {{ 'races.year_all'|trans }}
             </a>
             {% for y in years %}
-                <a href="{{ path('app_races', {year: y, intent: filterIntent, view: viewParam}) }}"
+                <a href="{{ path('app_races', q|merge({year: y})) }}"
                    class="sp-filter-tab sp-filter-tab--period {{ filterYear == y ? 'active' : '' }}">
                     {{ y }}
                 </a>
@@ -51,11 +62,11 @@
     <div class="sp-filter-actions">
         {# Bascule Liste / Calendrier #}
         <div class="sp-view-toggle" role="group" aria-label="{{ 'races.view_label'|trans }}">
-            <a href="{{ path('app_races', {intent: filterIntent, year: filterYear}) }}"
+            <a href="{{ path('app_races', q|merge({view: null})) }}"
                class="sp-view-toggle-btn {{ view == 'list' ? 'active' : '' }}" title="{{ 'races.view_list'|trans }}">
                 <i class="bi bi-list-ul"></i><span>{{ 'races.view_list'|trans }}</span>
             </a>
-            <a href="{{ path('app_races', {intent: filterIntent, year: filterYear, view: 'calendar'}) }}"
+            <a href="{{ path('app_races', q|merge({view: 'calendar'})) }}"
                class="sp-view-toggle-btn {{ view == 'calendar' ? 'active' : '' }}" title="{{ 'races.view_calendar'|trans }}">
                 <i class="bi bi-calendar3"></i><span>{{ 'races.view_calendar'|trans }}</span>
             </a>
@@ -134,11 +145,11 @@
                             </button>
                         </form>
 
-                        {# Icône statut — cliquable pour changer de statut #}
+                        {# Icône statut - cliquable pour changer de statut #}
                         <div class="dropdown sp-race-intent-icon">
                             <button type="button" class="sp-race-intent-btn" data-bs-toggle="dropdown" aria-expanded="false"
                                     data-bs-popper-config='{"strategy":"fixed"}'
-                                    title="{{ race.intent.labelKey|trans }} — {{ 'races.change_intent'|trans }}">
+                                    title="{{ race.intent.labelKey|trans }} - {{ 'races.change_intent'|trans }}">
                                 <i class="bi {{ race.intent.icon }}" style="color:{{ race.intent.color }}"></i>
                             </button>
                             <form method="post" action="{{ path('app_races_intent', {id: race.id}) }}"
@@ -154,7 +165,7 @@
                             </form>
                         </div>
 
-                        {# Contenu principal — un clic sur le nom ouvre l'édition #}
+                        {# Contenu principal - un clic sur le nom ouvre l'édition #}
                         <div class="sp-race-body">
                             <button type="button" class="sp-race-name"
                                     data-bs-toggle="modal" data-bs-target="#raceModal"
@@ -168,6 +179,13 @@
                                     </span>
                                 {% else %}
                                     <span class="sp-race-badge sp-race-badge--year">{{ race.year }}</span>
+                                {% endif %}
+
+                                {# Type : route / trail #}
+                                {% if race.type %}
+                                    <span class="sp-race-badge sp-race-badge--{{ race.type.value }}">
+                                        <i class="bi {{ race.type.icon }}" style="margin-right:4px"></i>{{ race.type.labelKey|trans }}
+                                    </span>
                                 {% endif %}
 
                                 {# Lieu #}
@@ -207,6 +225,10 @@
 
                         {# Actions : modifier / supprimer #}
                         <div class="sp-race-actions">
+                            <a href="{{ path('app_race_plan', {id: race.id}) }}" class="sp-race-edit-btn sp-race-plan-btn"
+                               title="{{ 'races.plan_link'|trans }}" aria-label="{{ 'races.plan_link'|trans }}">
+                                <i class="bi bi-signpost-split"></i>
+                            </a>
                             {{ _self.edit_button(race, racesData, '') }}
                             <form method="post" action="{{ path('app_races_delete', {id: race.id}) }}" class="sp-race-delete-form"
                                   onsubmit="return confirm('{{ 'races.confirm_delete'|trans|e('js') }}')">
@@ -243,7 +265,7 @@
             <form method="post" action="{{ path('app_races_add') }}" id="raceForm">
                 <div class="modal-body sp-modal-body">
 
-                    {# Statut — affiché en premier car structurant #}
+                    {# Statut - affiché en premier car structurant #}
                     <div class="mb-3">
                         <label class="sp-form-label">{{ 'races.field_intent'|trans }}</label>
                         <div class="sp-intent-options">
@@ -255,6 +277,19 @@
                                         <div class="sp-intent-option-title">{{ intent.labelKey|trans }}</div>
                                         <div class="sp-intent-option-sub">{{ intent.descriptionKey|trans }}</div>
                                     </div>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    {# Type de course : route / trail #}
+                    <div class="mb-3">
+                        <span class="sp-form-label" id="race-type-label">{{ 'races.field_type'|trans }}</span>
+                        <div class="sp-type-options" role="radiogroup" aria-labelledby="race-type-label">
+                            {% for type in types %}
+                                <label class="sp-type-option">
+                                    <input type="radio" name="race_type" value="{{ type.value }}" {{ loop.first ? 'checked' : '' }}>
+                                    <i class="bi {{ type.icon }}"></i> {{ type.labelKey|trans }}
                                 </label>
                             {% endfor %}
                         </div>
@@ -274,7 +309,10 @@
                             <input type="date" id="race-date" name="race_date" class="sp-form-input">
                         </div>
                         <div class="col-5">
-                            <label class="sp-form-label" for="race-year">{{ 'races.field_year'|trans }} <span style="color:var(--sp-orange)">*</span></label>
+                            {# Libellé selon le statut : "Année souhaitée" sauf si déjà inscrit #}
+                            <label class="sp-form-label" for="race-year"><span id="race-year-label"
+                                   data-label-default="{{ 'races.field_year'|trans }}"
+                                   data-label-registered="{{ 'races.field_year_registered'|trans }}">{{ 'races.field_year'|trans }}</span> <span style="color:var(--sp-orange)">*</span></label>
                             <select id="race-year" name="year" class="sp-form-input">
                                 {% for y in range(defaultYear, defaultYear + 5) %}
                                     <option value="{{ y }}" {{ y == defaultYear ? 'selected' : '' }}>{{ y }}</option>
@@ -393,6 +431,23 @@
 .sp-race-badge--year {
     background: rgba(22,23,42,.08); color: var(--sp-dark);
 }
+.sp-race-badge--road  { background: rgba(22,23,42,.05); color: var(--sp-muted); }
+.sp-race-badge--trail { background: rgba(34,197,94,.12); color: #15803D; }
+
+/* Sélecteur route / trail (segmenté) */
+.sp-type-options {
+    display: inline-flex; padding: 3px; border-radius: 10px;
+    background: var(--sp-bg); border: 1px solid var(--sp-border);
+}
+.sp-type-option {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    padding: 6px 16px; border-radius: 8px;
+    font-size: 13px; font-weight: 600; color: var(--sp-muted);
+    transition: background .15s, color .15s;
+}
+.sp-type-option input { position: absolute; opacity: 0; pointer-events: none; }
+.sp-type-option:has(input:checked) { background: var(--sp-dark); color: #fff; }
+.sp-type-option:has(input:focus-visible) { outline: 2px solid var(--sp-orange); outline-offset: 2px; }
 
 .sp-race-meta-item {
     display: inline-flex; align-items: center; gap: 4px;
@@ -424,6 +479,8 @@
 .sp-race-delete-btn:focus-visible { opacity: 1; }
 .sp-race-edit-btn:hover { color: var(--sp-dark); background: rgba(0,0,0,.06); }
 .sp-race-delete-btn:hover { color: var(--sp-red); background: rgba(239,68,68,.08); }
+.sp-race-plan-btn { display: inline-flex; align-items: center; text-decoration: none; }
+.sp-race-plan-btn:hover { color: var(--sp-orange); }
 @media (hover: none) {
     .sp-race-edit-btn, .sp-race-delete-btn { opacity: 1; }
 }
@@ -551,10 +608,14 @@ const options = modalEl.querySelectorAll('.sp-intent-option');
 const yearSel = f('year');
 const dateIn  = f('race_date');
 
+const yearLabel = document.getElementById('race-year-label');
+
 function syncIntentStyle() {
     options.forEach(opt => {
         opt.classList.toggle('sp-intent-option--active', opt.querySelector('input').checked);
     });
+    const registered = form.querySelector('input[name="intent"]:checked')?.value === 'registered';
+    yearLabel.textContent = registered ? yearLabel.dataset.labelRegistered : yearLabel.dataset.labelDefault;
 }
 options.forEach(opt => {
     opt.addEventListener('click', () => { opt.querySelector('input').checked = true; syncIntentStyle(); });
@@ -602,6 +663,11 @@ function fill(race) {
     const intent = r.intent ?? options[0].querySelector('input').value;
     options.forEach(opt => { const i = opt.querySelector('input'); i.checked = i.value === intent; });
     syncIntentStyle();
+
+    // Type : "route" par défaut à l'ajout ; une ancienne course sans type reste sans sélection
+    // (rien n'est envoyé, le serveur conserve alors la valeur existante)
+    const type = editing ? r.type : 'road';
+    form.querySelectorAll('input[name="race_type"]').forEach(i => { i.checked = i.value === type; });
     syncYearFromDate();
 }
 

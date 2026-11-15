@@ -54,7 +54,7 @@ class SidebarExtension extends AbstractExtension
             }
 
             if ($avgHr && $maxHr && $maxHr > $restingHr) {
-                // Banister TRIMP — standard HR-based training load approximation
+                // Banister TRIMP - standard HR-based training load approximation
                 $hrr = max(0.0, min(1.0, ($avgHr - $restingHr) / ($maxHr - $restingHr)));
                 $totalTss += $durationMin * $hrr * 0.64 * exp(1.92 * $hrr);
                 $hasTss = true;

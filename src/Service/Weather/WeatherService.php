@@ -48,7 +48,7 @@ class WeatherService
 
     /**
      * Fetch weather conditions for an activity at its start time and location,
-     * store the result in the entity (lazy pattern — fetches only once).
+     * store the result in the entity (lazy pattern - fetches only once).
      *
      * Returns an empty array if coordinates are missing or fetch fails.
      *

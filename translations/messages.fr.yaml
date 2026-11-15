@@ -22,7 +22,7 @@ topbar:
 
 # ── Page dashboard ───────────────────────────
 dashboard:
-    page_title: "Tableau de bord – SportPartner"
+    page_title: "Tableau de bord - SportPartner"
     title: Tableau de bord
     sub: "Vue d'ensemble de ta semaine"
     week_label: "SEMAINE %week% · %start% - %end% %month%"
@@ -103,21 +103,33 @@ sport:
 
 # ── Calendrier ───────────────────────────────────────────────────────────────
 calendar:
-    page_title: "Calendrier – SportPartner"
+    page_title: "Calendrier - SportPartner"
     title: Calendrier
-    sub: "Planification & courses"
-    view_month: Mois
-    view_week: Semaine
-    btn_plan: "+ Planifier"
-    sessions_done: séances ce mois
-    objectives_title: "Objectifs à venir"
-    objectives_empty: "Aucun objectif planifié. Ajoute une course ou un événement cible."
-    objectives_add: "+ Ajouter un objectif"
-    legend_done: Séance réalisée
-    legend_planned: Planifiée
-    legend_race: Course
-    toast_title: Plan généré automatiquement
-    toast_sub: "Le plan s'ajuste chaque semaine selon ta charge et ta forme actuelles."
+    sub: "Tes activités et tes courses prévues"
+    show_races: Afficher les courses prévues
+    summary_title: Bilan
+    summary_sessions: séances
+    summary_duration: durée
+    summary_empty: Aucune activité sur cette période.
+    upcoming_title: Prochaines courses
+    upcoming_all: Toutes
+    upcoming_empty: "Aucune course datée à venir. Ajoute une date à tes courses pour les voir ici."
+    today: "Aujourd'hui"
+    in_days: "{1} dans 1 jour|]1,Inf[ dans %count% jours"
+    qv_distance: Distance
+    qv_duration: Durée
+    qv_pace: Allure
+    qv_speed: Vitesse
+    qv_elevation: Dénivelé +
+    qv_hr_avg: FC moyenne
+    qv_hr_max: FC max
+    qv_details: Voir le détail
+    qv_close: Fermer
+    qv_plan: Plan de course
+    qv_races: Mes courses
+    qv_location: Lieu
+    qv_website: Site officiel
+    qv_done: Faite
     day_mon: LUN
     day_tue: MAR
     day_wed: MER
@@ -140,7 +152,7 @@ calendar:
 
 # ── Page Statistiques ────────────────────────────────────────────────────────
 stats:
-    page_title: "Statistiques – SportPartner"
+    page_title: "Statistiques - SportPartner"
     title: Statistiques
     sub: Tendances et records
     export: Exporter
@@ -181,7 +193,7 @@ stats:
 
 # ── Détail d'une activité ────────────────────────────────────────────────────
 activity_detail:
-    page_title: "Détail de l'activité – SportPartner"
+    page_title: "Détail de l'activité - SportPartner"
     back: Retour aux activités
     share: Partager
     stat_distance: DISTANCE
@@ -210,7 +222,7 @@ activity_detail:
 
 # ── Page Activités ────────────────────────────
 activities:
-    page_title: "Activités – SportPartner"
+    page_title: "Activités - SportPartner"
     title: Activités
     sub: Historique de tes séances
     filter_all: Tout
@@ -228,7 +240,7 @@ activities:
 
 # ── Paramètres ───────────────────────────────────────────────────────────────
 settings:
-    page_title: "Paramètres – SportPartner"
+    page_title: "Paramètres - SportPartner"
     title: Paramètres
     sub: "Ton compte SportPartner"
     saved_flash: "Profil enregistré avec succès."
@@ -260,7 +272,7 @@ settings:
 # ── Authentification ─────────────────────────
 auth:
     login:
-        page_title: "Connexion – SportPartner"
+        page_title: "Connexion - SportPartner"
         title: Connexion
         sub: Bienvenue sur SportPartner
         email: Email
@@ -271,7 +283,7 @@ auth:
         no_account: "Pas de compte ?"
         register_link: S'inscrire
     register:
-        page_title: "Inscription – SportPartner"
+        page_title: "Inscription - SportPartner"
         title: Créer un compte
         sub: Rejoins la communauté SportPartner
         first_name: Prénom
@@ -288,7 +300,7 @@ auth:
 
 # ── Courses (liste de souhaits) ───────────────────────────────────────────────
 races:
-    page_title: "Mes courses – SportPartner"
+    page_title: "Mes courses - SportPartner"
     title: Mes courses
     sub: "Courses à faire et à retenir"
     btn_add: "+ Ajouter une course"
@@ -306,7 +318,7 @@ races:
     save_edit: Enregistrer
     edit: Modifier
     field_date: Date de la course
-    field_date_help: "Optionnelle — si tu la renseignes, l'année en découle et la course apparaît dans le calendrier."
+    field_date_help: "Optionnelle - si tu la renseignes, l'année en découle et la course apparaît dans le calendrier."
     field_elevation: Dénivelé +
     view_label: Affichage
     view_list: Liste
@@ -314,11 +326,15 @@ races:
     undated_title: Courses sans date
     undated_hint: "Ajoute une date pour les placer dans le calendrier"
     flash_updated: "Course mise à jour."
+    field_type: Type de course
+    type_road: Route
+    type_trail: Trail
     modal_title: Ajouter une course
-    field_intent: Type
+    field_intent: Statut
     field_name: Nom de la course
     field_name_placeholder: "Ex : Marathon de Paris, UTMB…"
     field_year: Année souhaitée
+    field_year_registered: Année
     field_location: Lieu
     field_location_placeholder: "Ex : Paris, Chamonix…"
     field_distance: Distance
@@ -335,10 +351,110 @@ races:
     flash_added: "Course ajoutée avec succès."
     flash_deleted: "Course supprimée."
     flash_name_required: "Le nom de la course est requis."
+    plan_link: Plan de course
+
+# ── Plan de course (parcours GPX + repères) ───────────────────────────────────
+race_plan:
+    page_title: "Plan de course - %name% - SportPartner"
+    back: Mes courses
+    eyebrow: Plan de course
+    # Import GPX
+    upload_title: Importe le parcours de la course
+    upload_sub: "À partir du fichier GPX officiel, construis ton plan de course repère par repère."
+    upload_feature_profile: "Carte et profil altimétrique interactifs"
+    upload_feature_checkpoints: "Repères et ravitaillements placés d'un clic sur le profil"
+    upload_feature_segments: "Distance, D+, D- et pente moyenne entre chaque repère"
+    upload_feature_next: "Bientôt : temps de passage, barrières horaires et bracelet d'allure"
+    upload_where: "Le GPX se trouve en général sur le site de l'organisation. Tu peux aussi l'exporter depuis Strava, Garmin Connect, Visorando…"
+    dropzone_title: Glisse ton fichier GPX ici
+    dropzone_or: ou clique pour le choisir
+    dropzone_hint: "Fichier .gpx - 15 Mo maximum"
+    dropzone_too_large: "Ce fichier dépasse 15 Mo."
+    dropzone_bad_ext: "Le fichier doit être au format .gpx."
+    btn_import: Importer le parcours
+    importing: Import en cours…
+    btn_replace: Remplacer le GPX
+    btn_delete_route: Supprimer le parcours
+    confirm_delete_route: "Supprimer le parcours importé ?"
+    replace_title: Remplacer le parcours
+    replace_help: "Tes repères sont conservés. Ceux situés au-delà de la nouvelle arrivée seront signalés dans le tableau."
+    # Résumé
+    stat_distance: Distance
+    stat_gain: D+
+    stat_loss: D-
+    stat_min: Alt. min
+    stat_max: Alt. max
+    # Carte & profil
+    map_title: Parcours
+    profile_title: Profil altimétrique
+    profile_hint: "Clique sur le profil ou le tracé pour ajouter un repère"
+    no_elevation: "Ce GPX ne contient pas d'altitude : le profil n'est pas disponible. Clique sur le tracé pour placer tes repères."
+    grade: Pente
+    start: Départ
+    finish: Arrivée
+    # Tableau des repères
+    checkpoints_title: Repères
+    checkpoints_sub: "Points de passage et ravitaillements, dans l'ordre du parcours"
+    btn_add_checkpoint: Ajouter un repère
+    checkpoints_empty_route: "Aucun repère pour l'instant. Clique sur le profil ou sur le tracé pour placer ton premier ravitaillement."
+    checkpoints_empty_no_route: "Aucun repère. Importe le GPX pour les placer sur le profil, ou ajoute-les à la main."
+    col_name: Repère
+    col_km: Km
+    col_altitude: Alt.
+    col_segment: Depuis le repère précédent
+    col_seg_distance: Dist.
+    col_seg_gain: D+
+    col_seg_loss: D-
+    col_seg_grade: Pente moy.
+    col_stop: Arrêt
+    col_cutoff: Barrière
+    col_notes: Notes
+    col_actions: Actions
+    beyond_route: "Au-delà de l'arrivée"
+    beyond_route_title: "Ce repère est situé après la fin du parcours importé : modifie sa distance."
+    minutes_short: "%n% min"
+    edit: Modifier
+    delete: Supprimer
+    confirm_delete_checkpoint: "Supprimer ce repère ?"
+    # Types de repère (CheckpointType::labelKey)
+    type_point: Point de passage
+    type_point_desc: "Sommet, col, croisement, point de contrôle…"
+    type_aid_station: Ravitaillement
+    type_aid_station_desc: "Ravito avec un temps d'arrêt prévu"
+    # Modale
+    modal_title_add: Ajouter un repère
+    modal_title_edit: Modifier le repère
+    field_type: Type
+    field_name: Nom
+    field_name_placeholder: "Ex : Col de Balme, Ravito Trient…"
+    field_distance: Km depuis le départ
+    field_distance_max: "Maximum : %max% km"
+    field_distance_too_far: "La distance dépasse la longueur du parcours (%max% km)."
+    field_distance_too_far_no_route: "La distance ne peut pas dépasser %max% km."
+    field_stop: Arrêt prévu
+    field_stop_help: Temps passé au ravito
+    field_cutoff: Barrière horaire
+    field_cutoff_placeholder: "Ex : 12:30"
+    field_cutoff_help: "hh:mm depuis le départ (ex : 30:15 pour 30 h 15). Laisse vide s'il n'y en a pas."
+    field_notes: Notes
+    field_notes_placeholder: "Nutrition, matériel, point d'eau, assistance…"
+    cancel: Annuler
+    save_add: Ajouter
+    save_edit: Enregistrer
+    # Messages flash
+    flash_csrf: "Session expirée, merci de réessayer."
+    flash_route_imported: "Parcours importé."
+    flash_gpx_invalid: "Fichier GPX invalide ou illisible."
+    flash_gpx_too_large: "Fichier trop volumineux (15 Mo maximum)."
+    flash_gpx_missing: "Choisis un fichier GPX à importer."
+    flash_route_deleted: "Parcours supprimé."
+    flash_checkpoint_saved: "Repère enregistré."
+    flash_checkpoint_deleted: "Repère supprimé."
+    flash_checkpoint_invalid: "Repère invalide : vérifie le nom, la distance et la barrière horaire."
 
 # ── Nutrition ─────────────────────────────────────────────────────────────────
 nutrition:
-    page_title: "Nutrition – SportPartner"
+    page_title: "Nutrition - SportPartner"
     training_day: "Journée d'entraînement"
     rest_day: "Journée de repos"
     add_meal: "+ Ajouter un repas"

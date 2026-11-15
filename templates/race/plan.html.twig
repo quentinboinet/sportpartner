@@ -1,0 +1,877 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'race_plan.page_title'|trans({'%name%': race.name}) }}{% endblock %}
+
+{# ── Formulaire d'import GPX (page vide + modale « Remplacer ») ── #}
+{% macro gpx_form(race, idPrefix) %}
+    <form method="post" action="{{ path('app_race_route_import', {id: race.id}) }}"
+          enctype="multipart/form-data" class="rp-upload-form">
+        <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
+        <label class="rp-dropzone" for="{{ idPrefix }}-gpx" data-gpx-dropzone>
+            <input type="file" id="{{ idPrefix }}-gpx" name="gpx" class="visually-hidden"
+                   accept=".gpx,application/gpx+xml">
+            <i class="bi bi-cloud-arrow-up rp-dropzone-icon"></i>
+            <span class="rp-dropzone-title">{{ 'race_plan.dropzone_title'|trans }}</span>
+            <span class="rp-dropzone-sub">{{ 'race_plan.dropzone_or'|trans }}</span>
+            <span class="rp-dropzone-file" data-gpx-filename hidden></span>
+            <span class="rp-dropzone-hint">{{ 'race_plan.dropzone_hint'|trans }}</span>
+        </label>
+        <div class="rp-upload-error" data-gpx-error hidden
+             data-too-large="{{ 'race_plan.dropzone_too_large'|trans }}"
+             data-bad-ext="{{ 'race_plan.dropzone_bad_ext'|trans }}"></div>
+        <div class="rp-upload-actions">
+            <button type="submit" class="sp-btn sp-btn-primary" disabled
+                    data-importing="{{ 'race_plan.importing'|trans }}">
+                <i class="bi bi-upload"></i> {{ 'race_plan.btn_import'|trans }}
+            </button>
+        </div>
+    </form>
+{% endmacro %}
+
+{# ── Cellules « depuis le précédent » d'une ligne du tableau ── #}
+{% macro segment_cells(seg, dec, th) %}
+    {% if seg %}
+        <td class="rp-num-cell">{{ (seg.distanceM / 1000)|number_format(1, dec, th) }} km</td>
+        <td class="rp-num-cell rp-up">+{{ seg.gainM|number_format(0, dec, th) }} m</td>
+        <td class="rp-num-cell rp-down">−{{ seg.lossM|number_format(0, dec, th) }} m</td>
+        <td class="rp-num-cell">
+            {% if seg.avgGradePct is not null %}
+                {% set g = seg.avgGradePct %}
+                <span class="rp-grade {{ g >= 8 ? 'rp-grade--up' : (g <= -8 ? 'rp-grade--down' : '') }}">
+                    {{ g > 0 ? '+' : (g < 0 ? '−' : '') }}{{ g|abs|number_format(1, dec, th) }} %
+                </span>
+            {% else %}-{% endif %}
+        </td>
+    {% else %}
+        <td class="rp-num-cell rp-empty">-</td>
+        <td class="rp-num-cell rp-empty">-</td>
+        <td class="rp-num-cell rp-empty">-</td>
+        <td class="rp-num-cell rp-empty">-</td>
+    {% endif %}
+{% endmacro %}
+
+{% block body %}
+
+{# ── Variables locales ────────────────────────────── #}
+{% set _fr  = app.request.locale == 'fr' %}
+{% set _dec = _fr ? ',' : '.' %}
+{% set _th  = _fr ? ' ' : ',' %}
+{% set _hasRoute = route is not null and routeData is not null %}
+{# Distance max d'un repère (km) : longueur du parcours, sinon 1000 km #}
+{% set _maxKm = _hasRoute ? routeData.distanceM / 1000 : 1000 %}
+{% set _maxKmLabel = _maxKm|number_format(3, '.', '')|trim('0', 'right')|trim('.', 'right')|replace({'.': _dec}) %}
+{% set _cpPlaceholder = 999999999 %}
+
+<a href="{{ path('app_races') }}" class="sp-back-link">
+    <i class="bi bi-arrow-left"></i> {{ 'race_plan.back'|trans }}
+</a>
+
+{# ── En-tête ─────────────────────────────────────── #}
+<div class="sp-page-header rp-header">
+    <div class="rp-header-main">
+        <div class="sp-week-label">{{ 'race_plan.eyebrow'|trans }}</div>
+        <h1 class="sp-greeting rp-title">{{ race.name }}</h1>
+        <div class="rp-meta">
+            <span class="rp-badge" title="{{ race.intent.labelKey|trans }}">
+                <i class="bi {{ race.intent.icon }}" style="color:{{ race.intent.color }}"></i>
+                {{ race.intent.labelKey|trans }}
+            </span>
+            {% if race.raceDate %}
+                <span class="rp-badge"><i class="bi bi-calendar-event"></i> {{ race.raceDate|date('d/m/Y') }}</span>
+            {% else %}
+                <span class="rp-badge">{{ race.year }}</span>
+            {% endif %}
+            {% if race.location %}
+                <span class="rp-meta-item"><i class="bi bi-geo-alt"></i> {{ race.location }}</span>
+            {% endif %}
+            {% if race.distanceKm %}
+                <span class="rp-meta-item">
+                    <i class="bi bi-rulers"></i>
+                    {{ race.distanceKm|number_format(race.distanceKm == race.distanceKm|round ? 0 : 1, _dec, _th) }} km
+                </span>
+            {% endif %}
+            {% if race.elevationGain %}
+                <span class="rp-meta-item">
+                    <i class="bi bi-graph-up-arrow"></i> {{ race.elevationGain|number_format(0, _dec, _th) }} m D+
+                </span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if not _hasRoute %}
+
+    {# ── Pas encore de parcours : import du GPX ──────── #}
+    <div class="sp-card rp-upload-card">
+        <div class="rp-upload-grid">
+            <div class="rp-upload-intro">
+                <div class="rp-upload-icon"><i class="bi bi-signpost-split"></i></div>
+                <h2 class="rp-upload-title">{{ 'race_plan.upload_title'|trans }}</h2>
+                <p class="rp-upload-sub">{{ 'race_plan.upload_sub'|trans }}</p>
+                <ul class="rp-features">
+                    <li><i class="bi bi-map"></i> {{ 'race_plan.upload_feature_profile'|trans }}</li>
+                    <li><i class="bi bi-cup-hot"></i> {{ 'race_plan.upload_feature_checkpoints'|trans }}</li>
+                    <li><i class="bi bi-bar-chart-steps"></i> {{ 'race_plan.upload_feature_segments'|trans }}</li>
+                    <li class="rp-features-next"><i class="bi bi-stopwatch"></i> {{ 'race_plan.upload_feature_next'|trans }}</li>
+                </ul>
+                <p class="rp-upload-where"><i class="bi bi-info-circle"></i> {{ 'race_plan.upload_where'|trans }}</p>
+            </div>
+            <div class="rp-upload-side">
+                {{ _self.gpx_form(race, 'gpx-main') }}
+            </div>
+        </div>
+    </div>
+
+{% else %}
+
+    {# ── Résumé du parcours ──────────────────────────── #}
+    <div class="sp-card rp-summary">
+        <div class="rp-stats">
+            <div class="rp-stat">
+                <div class="rp-stat-label">{{ 'race_plan.stat_distance'|trans }}</div>
+                <div class="rp-stat-val">{{ (routeData.distanceM / 1000)|number_format(1, _dec, _th) }} <span>km</span></div>
+            </div>
+            <div class="rp-stat">
+                <div class="rp-stat-label">{{ 'race_plan.stat_gain'|trans }}</div>
+                <div class="rp-stat-val">+{{ routeData.gainM|number_format(0, _dec, _th) }} <span>m</span></div>
+            </div>
+            <div class="rp-stat">
+                <div class="rp-stat-label">{{ 'race_plan.stat_loss'|trans }}</div>
+                <div class="rp-stat-val">−{{ routeData.lossM|number_format(0, _dec, _th) }} <span>m</span></div>
+            </div>
+            <div class="rp-stat">
+                <div class="rp-stat-label">{{ 'race_plan.stat_min'|trans }}</div>
+                <div class="rp-stat-val">
+                    {% if routeData.minEle is not null %}{{ routeData.minEle|number_format(0, _dec, _th) }} <span>m</span>{% else %}-{% endif %}
+                </div>
+            </div>
+            <div class="rp-stat">
+                <div class="rp-stat-label">{{ 'race_plan.stat_max'|trans }}</div>
+                <div class="rp-stat-val">
+                    {% if routeData.maxEle is not null %}{{ routeData.maxEle|number_format(0, _dec, _th) }} <span>m</span>{% else %}-{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="rp-file">
+            <div class="rp-file-name" title="{{ routeData.fileName }}">
+                <i class="bi bi-file-earmark-arrow-up"></i>
+                <span>{{ routeData.fileName }}</span>
+            </div>
+            <div class="rp-file-actions">
+                <button type="button" class="sp-btn-ghost rp-btn-sm" data-bs-toggle="modal" data-bs-target="#routeModal">
+                    <i class="bi bi-arrow-repeat"></i> {{ 'race_plan.btn_replace'|trans }}
+                </button>
+                <form method="post" action="{{ path('app_race_route_delete', {id: race.id}) }}"
+                      onsubmit="return confirm('{{ 'race_plan.confirm_delete_route'|trans|e('js') }}')">
+                    <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
+                    <button type="submit" class="sp-btn-ghost rp-btn-sm rp-btn-danger">
+                        <i class="bi bi-trash3"></i> {{ 'race_plan.btn_delete_route'|trans }}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {# ── Carte + profil (Stimulus race-route) ────────── #}
+    <div class="rp-viz"
+         data-controller="race-route"
+         data-race-route-route-value="{{ routeData|json_encode }}"
+         data-race-route-checkpoints-value="{{ checkpointsData|json_encode }}"
+         data-race-route-labels-value="{{ {grade: 'race_plan.grade'|trans, start: 'race_plan.start'|trans, finish: 'race_plan.finish'|trans}|json_encode }}"
+         data-race-route-locale-value="{{ app.request.locale }}">
+
+        <div class="sp-card rp-viz-card">
+            <div class="rp-viz-head">
+                <span class="sp-card-title">{{ 'race_plan.map_title'|trans }}</span>
+                <span class="rp-legend">
+                    {% for type in checkpointTypes %}
+                        <span class="rp-legend-item">
+                            <span class="rp-legend-dot rp-legend-dot--{{ type.value }}"></span>{{ type.labelKey|trans }}
+                        </span>
+                    {% endfor %}
+                </span>
+            </div>
+            <div class="rp-map" data-race-route-target="map"></div>
+        </div>
+
+        <div class="sp-card rp-viz-card">
+            <div class="rp-viz-head">
+                <span class="sp-card-title">{{ 'race_plan.profile_title'|trans }}</span>
+                <span class="rp-hint"><i class="bi bi-hand-index"></i> {{ 'race_plan.profile_hint'|trans }}</span>
+            </div>
+            <div class="rp-profile" data-race-route-target="chartWrap">
+                <canvas data-race-route-target="chart"></canvas>
+            </div>
+            <div class="rp-no-ele" data-race-route-target="noElevation" hidden>
+                <i class="bi bi-graph-down"></i>
+                <span>{{ 'race_plan.no_elevation'|trans }}</span>
+            </div>
+        </div>
+    </div>
+
+{% endif %}
+
+{# ── Repères ─────────────────────────────────────── #}
+<div class="sp-card rp-cp-card">
+    <div class="rp-cp-head">
+        <div>
+            <div class="sp-card-title">{{ 'race_plan.checkpoints_title'|trans }}</div>
+            <div class="sp-card-sub">{{ 'race_plan.checkpoints_sub'|trans }}</div>
+        </div>
+        <button type="button" class="sp-btn sp-btn-primary rp-btn-add" data-bs-toggle="modal" data-bs-target="#checkpointModal"
+                aria-label="{{ 'race_plan.btn_add_checkpoint'|trans }}" title="{{ 'race_plan.btn_add_checkpoint'|trans }}">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i><span>{{ 'race_plan.btn_add_checkpoint'|trans }}</span>
+        </button>
+    </div>
+
+    {% if not _hasRoute and checkpointRows is empty %}
+        <div class="rp-cp-empty">
+            <i class="bi bi-geo-alt"></i>
+            <p>{{ 'race_plan.checkpoints_empty_no_route'|trans }}</p>
+        </div>
+    {% else %}
+        {% set _rs = _hasRoute ? 2 : 1 %}
+        <div class="rp-table-wrap">
+            <table class="rp-table {{ _hasRoute ? 'rp-table--route' : '' }}">
+                <thead>
+                    <tr>
+                        <th rowspan="{{ _rs }}" class="rp-col-num">#</th>
+                        <th rowspan="{{ _rs }}">{{ 'race_plan.col_name'|trans }}</th>
+                        <th rowspan="{{ _rs }}" class="rp-num-cell">{{ 'race_plan.col_km'|trans }}</th>
+                        <th rowspan="{{ _rs }}" class="rp-num-cell">{{ 'race_plan.col_altitude'|trans }}</th>
+                        {% if _hasRoute %}
+                            <th colspan="4" class="rp-th-group">{{ 'race_plan.col_segment'|trans }}</th>
+                        {% endif %}
+                        <th rowspan="{{ _rs }}">{{ 'race_plan.col_stop'|trans }}</th>
+                        <th rowspan="{{ _rs }}">{{ 'race_plan.col_cutoff'|trans }}</th>
+                        <th rowspan="{{ _rs }}">{{ 'race_plan.col_notes'|trans }}</th>
+                        <th rowspan="{{ _rs }}" class="rp-col-actions"><span class="visually-hidden">{{ 'race_plan.col_actions'|trans }}</span></th>
+                    </tr>
+                    {% if _hasRoute %}
+                        <tr>
+                            <th class="rp-num-cell rp-th-sub">{{ 'race_plan.col_seg_distance'|trans }}</th>
+                            <th class="rp-num-cell rp-th-sub">{{ 'race_plan.col_seg_gain'|trans }}</th>
+                            <th class="rp-num-cell rp-th-sub">{{ 'race_plan.col_seg_loss'|trans }}</th>
+                            <th class="rp-num-cell rp-th-sub">{{ 'race_plan.col_seg_grade'|trans }}</th>
+                        </tr>
+                    {% endif %}
+                </thead>
+                <tbody>
+                    {# Départ #}
+                    {% if _hasRoute %}
+                        {% set _startEle = segments is not empty ? (segments|first).startEle : null %}
+                        <tr class="rp-row-edge">
+                            <td class="rp-col-num"><span class="rp-edge-dot rp-edge-dot--start"></span></td>
+                            <td class="rp-name-cell"><span class="rp-name">{{ 'race_plan.start'|trans }}</span></td>
+                            <td class="rp-num-cell">{{ 0|number_format(1, _dec, _th) }}</td>
+                            <td class="rp-num-cell">{{ _startEle is not null ? _startEle|number_format(0, _dec, _th) ~ ' m' : '-' }}</td>
+                            <td colspan="4"></td>
+                            <td></td><td></td><td></td><td></td>
+                        </tr>
+                    {% endif %}
+
+                    {% for row in checkpointRows %}
+                        {% set cp = row.checkpoint %}
+                        {# Tronçon arrivant sur ce repère : segments suit le même ordre que les repères ;
+                           les repères au-delà de l'arrivée (toujours en fin de liste) n'en ont pas #}
+                        {% set seg = null %}
+                        {% if not row.beyondRoute and segments[loop.index0] is defined
+                              and segments[loop.index0].toDistanceM == cp.distanceM %}
+                            {% set seg = segments[loop.index0] %}
+                        {% endif %}
+                        <tr class="{{ row.beyondRoute ? 'rp-row-beyond' : '' }}">
+                            <td class="rp-col-num">
+                                <span class="rp-cp-pin rp-cp-pin--{{ cp.type.value }}">{{ loop.index }}</span>
+                            </td>
+                            <td class="rp-name-cell">
+                                <span class="rp-name">
+                                    <i class="bi {{ cp.type.icon }}" style="color:{{ cp.type.color }}" title="{{ cp.type.labelKey|trans }}"></i>
+                                    {{ cp.name }}
+                                </span>
+                                {% if row.beyondRoute %}
+                                    <span class="rp-badge-warn" title="{{ 'race_plan.beyond_route_title'|trans }}">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> {{ 'race_plan.beyond_route'|trans }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="rp-num-cell rp-strong">{{ row.distanceKm|number_format(1, _dec, _th) }}</td>
+                            <td class="rp-num-cell">{{ row.ele is not null ? row.ele|number_format(0, _dec, _th) ~ ' m' : '-' }}</td>
+                            {% if _hasRoute %}
+                                {{ _self.segment_cells(seg, _dec, _th) }}
+                            {% endif %}
+                            <td class="rp-nowrap">
+                                {% if cp.type.value == 'aid_station' %}
+                                    {% if cp.stopSeconds %}
+                                        <i class="bi bi-pause-circle rp-muted-icon"></i>
+                                        {{ 'race_plan.minutes_short'|trans({'%n%': (cp.stopSeconds / 60)|round}) }}
+                                    {% else %}<span class="rp-empty">-</span>{% endif %}
+                                {% endif %}
+                            </td>
+                            <td class="rp-nowrap">
+                                {% if row.cutoff %}
+                                    <span class="rp-cutoff"><i class="bi bi-hourglass-split"></i> {{ row.cutoff }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cp.notes %}
+                                    <span class="rp-notes" title="{{ cp.notes }}">{{ cp.notes }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="rp-col-actions">
+                                <div class="rp-actions">
+                                    <button type="button" class="rp-icon-btn" title="{{ 'race_plan.edit'|trans }}"
+                                            data-bs-toggle="modal" data-bs-target="#checkpointModal"
+                                            data-checkpoint-id="{{ cp.id }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form method="post"
+                                          action="{{ path('app_race_checkpoint_delete', {id: race.id, checkpointId: cp.id}) }}"
+                                          onsubmit="return confirm('{{ 'race_plan.confirm_delete_checkpoint'|trans|e('js') }}')">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
+                                        <button type="submit" class="rp-icon-btn rp-icon-btn--danger" title="{{ 'race_plan.delete'|trans }}">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+
+                    {% if _hasRoute and checkpointRows is empty %}
+                        <tr class="rp-row-hint">
+                            <td colspan="12"><i class="bi bi-hand-index"></i> {{ 'race_plan.checkpoints_empty_route'|trans }}</td>
+                        </tr>
+                    {% endif %}
+
+                    {# Arrivée #}
+                    {% if _hasRoute %}
+                        {% set _last = segments is not empty ? segments|last : null %}
+                        <tr class="rp-row-edge">
+                            <td class="rp-col-num"><span class="rp-edge-dot rp-edge-dot--finish"></span></td>
+                            <td class="rp-name-cell"><span class="rp-name">{{ 'race_plan.finish'|trans }}</span></td>
+                            <td class="rp-num-cell rp-strong">{{ (routeData.distanceM / 1000)|number_format(1, _dec, _th) }}</td>
+                            <td class="rp-num-cell">{{ _last and _last.endEle is not null ? _last.endEle|number_format(0, _dec, _th) ~ ' m' : '-' }}</td>
+                            {{ _self.segment_cells(_last, _dec, _th) }}
+                            <td></td><td></td><td></td><td></td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+
+{# ── Modale : ajouter / modifier un repère ──────── #}
+<div class="modal fade" id="checkpointModal" tabindex="-1" aria-hidden="true" aria-labelledby="checkpointModalTitle"
+     data-add-url="{{ path('app_race_checkpoint_add', {id: race.id}) }}"
+     data-edit-url="{{ path('app_race_checkpoint_edit', {id: race.id, checkpointId: _cpPlaceholder}) }}"
+     data-delete-url="{{ path('app_race_checkpoint_delete', {id: race.id, checkpointId: _cpPlaceholder}) }}"
+     data-placeholder="{{ _cpPlaceholder }}"
+     data-checkpoints="{{ checkpointsData|json_encode }}"
+     data-max-km="{{ _maxKm }}"
+     data-decimal="{{ _dec }}"
+     data-msg-too-far="{{ (_hasRoute ? 'race_plan.field_distance_too_far' : 'race_plan.field_distance_too_far_no_route')|trans({'%max%': _maxKmLabel}) }}"
+     data-title-add="{{ 'race_plan.modal_title_add'|trans }}"
+     data-title-edit="{{ 'race_plan.modal_title_edit'|trans }}"
+     data-submit-add="{{ 'race_plan.save_add'|trans }}"
+     data-submit-edit="{{ 'race_plan.save_edit'|trans }}">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content sp-modal">
+            <div class="modal-header sp-modal-header">
+                <h5 class="modal-title" id="checkpointModalTitle">{{ 'race_plan.modal_title_add'|trans }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ 'race_plan.cancel'|trans }}"></button>
+            </div>
+            <form method="post" action="{{ path('app_race_checkpoint_add', {id: race.id}) }}" id="checkpointForm">
+                <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
+                <div class="modal-body sp-modal-body">
+
+                    {# Type #}
+                    <div class="mb-3">
+                        <span class="sp-form-label">{{ 'race_plan.field_type'|trans }}</span>
+                        <div class="sp-intent-options">
+                            {% for type in checkpointTypes %}
+                                <label class="sp-intent-option {{ loop.first ? 'sp-intent-option--active' : '' }}">
+                                    <input type="radio" name="type" value="{{ type.value }}" {{ loop.first ? 'checked' : '' }} class="visually-hidden">
+                                    <i class="bi {{ type.icon }}" style="color:{{ type.color }}"></i>
+                                    <div>
+                                        <div class="sp-intent-option-title">{{ type.labelKey|trans }}</div>
+                                        <div class="sp-intent-option-sub">{{ ('race_plan.type_' ~ type.value ~ '_desc')|trans }}</div>
+                                    </div>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    {# Nom #}
+                    <div class="mb-3">
+                        <label class="sp-form-label" for="cp-name">{{ 'race_plan.field_name'|trans }} <span style="color:var(--sp-orange)">*</span></label>
+                        <input type="text" id="cp-name" name="name" class="sp-form-input" required maxlength="120"
+                               placeholder="{{ 'race_plan.field_name_placeholder'|trans }}">
+                    </div>
+
+                    {# Distance + arrêt prévu #}
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="sp-form-label" for="cp-distance">{{ 'race_plan.field_distance'|trans }} <span style="color:var(--sp-orange)">*</span></label>
+                            <div class="sp-input-unit">
+                                <input type="text" id="cp-distance" name="distance_km" class="sp-form-input" required
+                                       inputmode="decimal" autocomplete="off" placeholder="{{ 12.5|number_format(1, _dec, '') }}"
+                                       pattern="[0-9]{1,4}([.,][0-9]{1,3})?">
+                                <span>km</span>
+                            </div>
+                            <div class="sp-form-help">{{ 'race_plan.field_distance_max'|trans({'%max%': _maxKmLabel}) }}</div>
+                        </div>
+                        <div class="col-6" id="cp-stop-wrap" hidden>
+                            <label class="sp-form-label" for="cp-stop">{{ 'race_plan.field_stop'|trans }}</label>
+                            <div class="sp-input-unit">
+                                <input type="number" id="cp-stop" name="stop_minutes" class="sp-form-input"
+                                       min="0" max="1440" step="1" placeholder="5" disabled>
+                                <span>min</span>
+                            </div>
+                            <div class="sp-form-help">{{ 'race_plan.field_stop_help'|trans }}</div>
+                        </div>
+                    </div>
+
+                    {# Barrière horaire #}
+                    <div class="mb-3">
+                        <label class="sp-form-label" for="cp-cutoff">{{ 'race_plan.field_cutoff'|trans }}</label>
+                        <input type="text" id="cp-cutoff" name="cutoff" class="sp-form-input rp-cutoff-input"
+                               autocomplete="off" pattern="[0-9]{1,3} *[:hH] *[0-5][0-9]"
+                               placeholder="{{ 'race_plan.field_cutoff_placeholder'|trans }}"
+                               title="{{ 'race_plan.field_cutoff_help'|trans }}">
+                        <div class="sp-form-help">{{ 'race_plan.field_cutoff_help'|trans }}</div>
+                    </div>
+
+                    {# Notes #}
+                    <div class="mb-0">
+                        <label class="sp-form-label" for="cp-notes">{{ 'race_plan.field_notes'|trans }}</label>
+                        <textarea id="cp-notes" name="notes" class="sp-form-input" rows="2" maxlength="5000"
+                                  placeholder="{{ 'race_plan.field_notes_placeholder'|trans }}"></textarea>
+                    </div>
+
+                </div>
+                <div class="modal-footer sp-modal-footer">
+                    <button type="submit" form="checkpointDeleteForm" class="rp-modal-delete me-auto" id="checkpointDelete" hidden>
+                        <i class="bi bi-trash3"></i> {{ 'race_plan.delete'|trans }}
+                    </button>
+                    <button type="button" class="sp-btn" style="background:transparent;color:var(--sp-muted);border:1px solid var(--sp-border)"
+                            data-bs-dismiss="modal">{{ 'race_plan.cancel'|trans }}</button>
+                    <button type="submit" class="sp-btn sp-btn-primary" id="checkpointSubmit">{{ 'race_plan.save_add'|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Formulaire de suppression utilisé par la modale (hors du formulaire d'édition) #}
+<form method="post" action="" id="checkpointDeleteForm"
+      onsubmit="return confirm('{{ 'race_plan.confirm_delete_checkpoint'|trans|e('js') }}')">
+    <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
+</form>
+
+{# ── Modale : remplacer le GPX ──────────────────── #}
+{% if _hasRoute %}
+<div class="modal fade" id="routeModal" tabindex="-1" aria-hidden="true" aria-labelledby="routeModalTitle">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content sp-modal">
+            <div class="modal-header sp-modal-header">
+                <h5 class="modal-title" id="routeModalTitle">{{ 'race_plan.replace_title'|trans }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ 'race_plan.cancel'|trans }}"></button>
+            </div>
+            <div class="modal-body sp-modal-body rp-replace-body">
+                <p class="rp-replace-help"><i class="bi bi-info-circle"></i> {{ 'race_plan.replace_help'|trans }}</p>
+                {{ _self.gpx_form(race, 'gpx-replace') }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Styles spécifiques à la page ─────────────────── #}
+<style>
+/* En-tête */
+.rp-header-main { min-width: 0; }
+.rp-title { font-size: 26px; overflow-wrap: anywhere; margin-bottom: 8px; }
+.rp-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.rp-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px;
+    background: rgba(22,23,42,.08); color: var(--sp-dark);
+    font-size: 11px; font-weight: 700; letter-spacing: .02em;
+}
+.rp-meta-item { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--sp-muted); }
+
+/* Import GPX */
+.rp-upload-card { padding: 28px; margin-bottom: 16px; }
+.rp-upload-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: center; }
+.rp-upload-icon {
+    width: 44px; height: 44px; border-radius: 12px; margin-bottom: 14px;
+    background: rgba(232,64,12,.10); color: var(--sp-orange);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+}
+.rp-upload-title { font-size: 18px; font-weight: 800; color: var(--sp-text); letter-spacing: -.02em; margin: 0 0 6px; }
+.rp-upload-sub { font-size: 13px; color: var(--sp-muted); margin: 0 0 16px; }
+.rp-features { list-style: none; padding: 0; margin: 0 0 16px; display: flex; flex-direction: column; gap: 9px; }
+.rp-features li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--sp-text); }
+.rp-features i { color: var(--sp-orange); font-size: 15px; line-height: 1.2; }
+.rp-features-next, .rp-features-next i { color: var(--sp-muted) !important; }
+.rp-upload-where { font-size: 12px; color: var(--sp-muted); margin: 0; line-height: 1.5; }
+
+.rp-dropzone {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    padding: 30px 18px; border-radius: 14px; cursor: pointer; text-align: center;
+    border: 2px dashed rgba(0,0,0,.15); background: var(--sp-bg);
+    transition: border-color .15s, background .15s;
+}
+.rp-dropzone:hover, .rp-dropzone:focus-within { border-color: var(--sp-orange); }
+.rp-dropzone--drag { border-color: var(--sp-orange); background: rgba(232,64,12,.06); }
+.rp-dropzone--ready { border-style: solid; border-color: var(--sp-green); background: rgba(34,197,94,.06); }
+.rp-dropzone-icon { font-size: 30px; color: var(--sp-orange); margin-bottom: 4px; }
+.rp-dropzone-title { font-size: 14px; font-weight: 700; color: var(--sp-text); }
+.rp-dropzone-sub { font-size: 12px; color: var(--sp-muted); }
+.rp-dropzone-file {
+    margin-top: 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12px; font-weight: 700; color: var(--sp-dark);
+    background: #fff; border-radius: 20px; padding: 3px 12px;
+}
+.rp-dropzone-hint { margin-top: 6px; font-size: 11px; color: var(--sp-muted); }
+.rp-upload-error { margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--sp-red); }
+.rp-upload-actions { margin-top: 14px; display: flex; justify-content: flex-end; }
+.rp-upload-actions .sp-btn:disabled { opacity: .5; cursor: not-allowed; }
+.rp-replace-body { padding-bottom: 22px; }
+.rp-replace-help { font-size: 12px; color: var(--sp-muted); margin: 0 0 14px; line-height: 1.5; }
+
+/* Résumé */
+.rp-summary { padding: 0; overflow: hidden; margin-bottom: 16px; }
+.rp-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.rp-stat { padding: 16px 20px; border-right: 1px solid var(--sp-border); min-width: 0; }
+.rp-stat:last-child { border-right: none; }
+.rp-stat-label { font-size: 9.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--sp-muted); margin-bottom: 4px; }
+.rp-stat-val { font-size: 22px; font-weight: 900; color: var(--sp-text); letter-spacing: -.03em; line-height: 1; white-space: nowrap; }
+.rp-stat-val span { font-size: 13px; font-weight: 600; letter-spacing: 0; }
+.rp-file {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    padding: 10px 20px; border-top: 1px solid var(--sp-border); background: rgba(0,0,0,.015);
+}
+.rp-file-name { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--sp-muted); }
+.rp-file-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-file-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rp-file-actions form { margin: 0; }
+.rp-btn-sm { padding: 5px 12px; font-size: 12px; }
+.rp-btn-danger:hover { border-color: var(--sp-red); color: var(--sp-red); }
+
+/* Carte + profil */
+.rp-viz { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; margin-bottom: 16px; }
+.rp-viz-card { padding: 0; overflow: hidden; min-width: 0; display: flex; flex-direction: column; }
+.rp-viz-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    padding: 14px 18px; border-bottom: 1px solid var(--sp-border);
+}
+.rp-legend { display: inline-flex; gap: 12px; flex-wrap: wrap; }
+.rp-legend-item { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--sp-muted); }
+.rp-legend-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sp-dark); }
+.rp-legend-dot--aid_station { background: var(--sp-teal); border-radius: 3px; }
+.rp-hint { font-size: 11px; color: var(--sp-muted); display: inline-flex; align-items: center; gap: 5px; }
+.rp-map { height: 360px; width: 100%; z-index: 0; }
+.rp-map.rp-map--near.leaflet-grab { cursor: pointer; }
+.rp-profile { position: relative; height: 360px; padding: 8px 14px 10px 8px; min-width: 0; }
+.rp-profile canvas { display: block; }
+.rp-no-ele {
+    flex: 1; min-height: 200px; padding: 24px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    color: var(--sp-muted); font-size: 12px; text-align: center;
+}
+.rp-no-ele[hidden] { display: none; }
+.rp-no-ele i { font-size: 26px; opacity: .5; }
+
+/* Repères numérotés (carte + tableau) */
+.rp-cp-pin {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--sp-dark); color: #fff; border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.35);
+    font-size: 10.5px; font-weight: 800; line-height: 1; cursor: pointer;
+}
+.rp-cp-pin--aid_station { background: var(--sp-teal); border-radius: 7px; }
+.rp-table .rp-cp-pin { cursor: default; box-shadow: none; border: none; }
+
+/* Tableau des repères */
+.rp-cp-card { padding: 0; overflow: hidden; }
+.rp-cp-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 16px 20px; border-bottom: 1px solid var(--sp-border);
+}
+.rp-cp-empty { text-align: center; padding: 48px 24px; color: var(--sp-muted); }
+.rp-cp-empty i { font-size: 34px; opacity: .4; display: block; margin-bottom: 12px; }
+.rp-cp-empty p { font-size: 13px; margin: 0 auto; max-width: 420px; }
+
+/* position: relative - les éléments .visually-hidden (position absolue) restent dans la zone de défilement */
+.rp-table-wrap { position: relative; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; contain: inline-size; }
+.rp-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 13px; color: var(--sp-text); }
+.rp-table--route { min-width: 900px; }
+.rp-table th {
+    padding: 9px 10px; white-space: nowrap; vertical-align: bottom;
+    font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--sp-muted);
+    border-bottom: 1px solid var(--sp-border); background: rgba(0,0,0,.015);
+}
+.rp-table th.rp-th-group { text-align: center; padding-bottom: 4px; border-bottom: 1px dashed rgba(0,0,0,.1); }
+.rp-table th.rp-th-sub { padding-top: 4px; }
+.rp-table td { padding: 10px; border-bottom: 1px solid var(--sp-border); vertical-align: middle; }
+.rp-table tbody tr:last-child td { border-bottom: none; }
+.rp-table tbody tr:hover td { background: rgba(0,0,0,.018); }
+.rp-table th:first-child, .rp-table td:first-child { padding-left: 20px; }
+.rp-table th:last-child, .rp-table td:last-child { padding-right: 16px; }
+.rp-col-num { width: 44px; text-align: center; }
+.rp-num-cell { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rp-nowrap { white-space: nowrap; }
+.rp-strong { font-weight: 700; }
+.rp-up { color: var(--sp-orange); }
+.rp-down { color: var(--sp-teal); }
+.rp-empty { color: var(--sp-muted); opacity: .6; }
+.rp-muted-icon { color: var(--sp-muted); }
+.rp-grade--up { color: var(--sp-orange); font-weight: 700; }
+.rp-grade--down { color: var(--sp-teal); font-weight: 700; }
+.rp-name-cell { min-width: 170px; }
+.rp-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.rp-badge-warn {
+    display: inline-flex; align-items: center; gap: 4px; margin-left: 6px;
+    padding: 2px 8px; border-radius: 20px; white-space: nowrap;
+    background: rgba(245,158,11,.14); color: #B45309; font-size: 10.5px; font-weight: 700;
+}
+.rp-row-beyond td { background: rgba(245,158,11,.04); }
+.rp-row-edge td { background: rgba(22,23,42,.025); }
+.rp-row-edge .rp-name { font-weight: 800; }
+.rp-edge-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.rp-edge-dot--start { background: var(--sp-green); }
+.rp-edge-dot--finish { background: var(--sp-red); }
+.rp-row-hint td { text-align: center; color: var(--sp-muted); font-size: 12px; padding: 18px 10px; }
+.rp-cutoff { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--sp-red); font-variant-numeric: tabular-nums; }
+.rp-notes { display: block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sp-muted); font-size: 12px; }
+.rp-col-actions { width: 72px; }
+.rp-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.rp-actions form { display: flex; margin: 0; }
+.rp-icon-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--sp-muted); font-size: 14px; padding: 4px 6px; border-radius: 6px;
+    transition: color .15s, background .15s;
+}
+.rp-icon-btn:hover { color: var(--sp-dark); background: rgba(0,0,0,.06); }
+.rp-icon-btn--danger:hover { color: var(--sp-red); background: rgba(239,68,68,.08); }
+
+/* Modale (mêmes styles que la page des courses) */
+.sp-modal { background: var(--sp-card); border-radius: 14px; border: none; overflow: hidden; }
+.sp-modal-header { background: var(--sp-dark); color: #fff; border-bottom: none; padding: 18px 22px; }
+.sp-modal-header .modal-title { font-size: 15px; font-weight: 700; }
+.sp-modal-body { padding: 22px 22px 10px; }
+.sp-modal-footer { border-top: 1px solid var(--sp-border); padding: 14px 22px; gap: 10px; }
+.sp-form-label { font-size: 11px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 6px; }
+.sp-form-input {
+    display: block; width: 100%;
+    background: var(--sp-bg); border: 1px solid var(--sp-border);
+    border-radius: 8px; padding: 9px 12px;
+    font-size: 13px; color: var(--sp-text);
+    outline: none; transition: border-color .15s;
+}
+.sp-form-input:focus { border-color: var(--sp-orange); }
+.sp-form-input:disabled { opacity: .55; cursor: not-allowed; }
+textarea.sp-form-input { resize: vertical; }
+.sp-form-help { font-size: 11px; color: var(--sp-muted); margin-top: 6px; }
+.sp-input-unit { position: relative; }
+.sp-input-unit .sp-form-input { padding-right: 38px; }
+.sp-input-unit span {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--sp-muted); font-size: 12px; pointer-events: none;
+}
+.sp-intent-options { display: flex; gap: 10px; }
+.sp-intent-option {
+    position: relative; flex: 1; display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px; border-radius: 10px; cursor: pointer;
+    border: 2px solid var(--sp-border); background: var(--sp-bg);
+    transition: border-color .15s, background .15s;
+}
+.sp-intent-option:focus-within { outline: 2px solid rgba(232,64,12,.35); outline-offset: 1px; }
+.sp-intent-option--active { border-color: var(--sp-orange); background: rgba(232,64,12,.05); }
+.sp-intent-option i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.sp-intent-option-title { font-size: 13px; font-weight: 600; color: var(--sp-text); }
+.sp-intent-option-sub { font-size: 11px; color: var(--sp-muted); margin-top: 2px; line-height: 1.3; }
+.rp-cutoff-input { font-variant-numeric: tabular-nums; }
+.rp-modal-delete {
+    background: none; border: none; padding: 6px 4px; cursor: pointer;
+    color: var(--sp-muted); font-size: 13px; font-weight: 600;
+}
+.rp-modal-delete:hover { color: var(--sp-red); }
+.rp-modal-delete[hidden] { display: none; }
+
+/* Responsive */
+@media (max-width: 1199.98px) {
+    .rp-viz { grid-template-columns: minmax(0, 1fr); }
+    .rp-map { height: 320px; }
+    .rp-profile { height: 260px; }
+}
+@media (max-width: 991.98px) {
+    .rp-upload-grid { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+    .rp-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .rp-stat:nth-child(3) { border-right: none; }
+    .rp-stat:nth-child(n+4) { border-top: 1px solid var(--sp-border); }
+}
+@media (max-width: 575.98px) {
+    .rp-title { font-size: 22px; }
+    .rp-upload-card { padding: 18px; }
+    .rp-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rp-stat { padding: 12px 14px; }
+    .rp-stat:nth-child(3) { border-right: 1px solid var(--sp-border); }
+    .rp-stat:nth-child(2n) { border-right: none; }
+    .rp-stat:nth-child(n+3) { border-top: 1px solid var(--sp-border); }
+    .rp-stat-val { font-size: 19px; }
+    .rp-file { padding: 10px 14px; }
+    .rp-viz-head { padding: 12px 14px; }
+    .rp-map { height: 260px; }
+    .rp-profile { height: 220px; padding: 6px 8px 8px 4px; }
+    .rp-cp-head { padding: 14px; }
+    .rp-btn-add { padding: 8px 12px; }
+    .rp-btn-add span { display: none; }
+    .rp-table th:first-child, .rp-table td:first-child { padding-left: 14px; }
+    .sp-intent-options { flex-direction: column; }
+}
+</style>
+
+<script type="module">
+import { Modal } from 'bootstrap';
+
+// ── Import GPX : glisser-déposer + contrôles côté client ─────────────────────
+const MAX_BYTES = 15 * 1024 * 1024;
+
+// Un fichier lâché hors de la zone ne doit pas ouvrir le GPX dans l'onglet
+['dragover', 'drop'].forEach(t => window.addEventListener(t, (e) => {
+    if (!e.target.closest || !e.target.closest('[data-gpx-dropzone]')) e.preventDefault();
+}));
+
+document.querySelectorAll('[data-gpx-dropzone]').forEach((zone) => {
+    const form   = zone.closest('form');
+    const input  = zone.querySelector('input[type="file"]');
+    const nameEl = zone.querySelector('[data-gpx-filename]');
+    const errEl  = form.querySelector('[data-gpx-error]');
+    const submit = form.querySelector('button[type="submit"]');
+
+    const check = () => {
+        const file = input.files && input.files[0];
+        let error = '';
+        if (file && !/\.(gpx|xml)$/i.test(file.name)) error = errEl.dataset.badExt;
+        else if (file && file.size > MAX_BYTES) error = errEl.dataset.tooLarge;
+        nameEl.textContent = file ? file.name : '';
+        nameEl.hidden = !file;
+        errEl.textContent = error;
+        errEl.hidden = !error;
+        zone.classList.toggle('rp-dropzone--ready', !!file && !error);
+        submit.disabled = !file || !!error;
+    };
+
+    input.addEventListener('change', check);
+    ['dragenter', 'dragover'].forEach(t => zone.addEventListener(t, (e) => {
+        e.preventDefault();
+        zone.classList.add('rp-dropzone--drag');
+    }));
+    ['dragleave', 'dragend', 'drop'].forEach(t => zone.addEventListener(t, (e) => {
+        e.preventDefault();
+        zone.classList.remove('rp-dropzone--drag');
+    }));
+    zone.addEventListener('drop', (e) => {
+        if (!e.dataTransfer || !e.dataTransfer.files.length) return;
+        input.files = e.dataTransfer.files;
+        check();
+    });
+
+    // Retour visuel pendant l'envoi / l'analyse du fichier
+    form.addEventListener('submit', () => {
+        submit.disabled = true;
+        const spinner = document.createElement('span');
+        spinner.className = 'spinner-border spinner-border-sm';
+        submit.replaceChildren(spinner, document.createTextNode(' ' + submit.dataset.importing));
+    });
+});
+
+// ── Modale repère : ajout / modification ─────────────────────────────────────
+const modalEl  = document.getElementById('checkpointModal');
+const form     = document.getElementById('checkpointForm');
+const delForm  = document.getElementById('checkpointDeleteForm');
+const delBtn   = document.getElementById('checkpointDelete');
+const stopWrap = document.getElementById('cp-stop-wrap');
+const ds       = modalEl.dataset;
+const f        = (name) => form.elements.namedItem(name);
+const options  = modalEl.querySelectorAll('.sp-intent-option');
+const distIn   = f('distance_km');
+const maxKm    = parseFloat(ds.maxKm);
+const byId     = new Map(JSON.parse(ds.checkpoints || '[]').map(c => [String(c.id), c]));
+const modal    = Modal.getOrCreateInstance(modalEl);
+
+const ROUTE_TOLERANCE_KM = 0.05; // le serveur accepte 50 m au-delà de l'arrivée (saisie arrondie) puis borne
+
+// Km au dixième (clic sur le profil) ; au mètre près en édition pour ne pas déplacer le repère
+const fmtKm = (km, precise = false) => (precise ? String(Math.round(km * 1000) / 1000) : (Math.round(km * 10) / 10).toFixed(1))
+    .replace('.', ds.decimal);
+
+// Style des cartes de type + champ « arrêt prévu » réservé aux ravitaillements
+function syncType() {
+    let aid = false;
+    options.forEach(opt => {
+        const input = opt.querySelector('input');
+        opt.classList.toggle('sp-intent-option--active', input.checked);
+        if (input.checked && input.value === 'aid_station') aid = true;
+    });
+    stopWrap.hidden = !aid;
+    f('stop_minutes').disabled = !aid;
+}
+options.forEach(opt => opt.querySelector('input').addEventListener('change', syncType));
+
+function checkDistance() {
+    const v = parseFloat(distIn.value.replace(',', '.'));
+    distIn.setCustomValidity(Number.isFinite(v) && v > maxKm + ROUTE_TOLERANCE_KM + 1e-9 ? ds.msgTooFar : '');
+}
+distIn.addEventListener('input', checkDistance);
+
+function fill(cp, km = null) {
+    const editing = !!cp;
+    form.action = editing ? ds.editUrl.replace(ds.placeholder, cp.id) : ds.addUrl;
+    delForm.action = editing ? ds.deleteUrl.replace(ds.placeholder, cp.id) : '';
+    delBtn.hidden = !editing;
+    modalEl.querySelector('.modal-title').textContent = editing ? ds.titleEdit : ds.titleAdd;
+    document.getElementById('checkpointSubmit').textContent = editing ? ds.submitEdit : ds.submitAdd;
+
+    const c = cp || {};
+    f('name').value         = c.name ?? '';
+    f('distance_km').value  = editing ? fmtKm(c.distanceM / 1000, true) : (km !== null ? fmtKm(km) : '');
+    f('stop_minutes').value = c.stopMinutes ?? '';
+    f('cutoff').value       = c.cutoff ?? '';
+    f('notes').value        = c.notes ?? '';
+
+    const type = c.type ?? options[0].querySelector('input').value;
+    options.forEach(opt => { const i = opt.querySelector('input'); i.checked = i.value === type; });
+    syncType();
+    checkDistance();
+}
+
+// Ouverture via un bouton : data-checkpoint-id = modification, sinon ajout
+// (sans relatedTarget = ouverture depuis la carte / le profil, déjà remplie par fill())
+modalEl.addEventListener('show.bs.modal', (e) => {
+    if (!e.relatedTarget) return;
+    const id = e.relatedTarget.dataset.checkpointId;
+    fill(id ? (byId.get(id) ?? null) : null);
+});
+modalEl.addEventListener('shown.bs.modal', () => f('name').focus());
+
+// Clic sur le profil ou près du tracé : nouveau repère pré-rempli avec le km
+document.addEventListener('race-route:pick', (e) => {
+    fill(null, e.detail.distanceKm);
+    modal.show();
+});
+
+// Clic sur un repère (carte ou bulle du profil) : modification
+document.addEventListener('race-route:select', (e) => {
+    const cp = byId.get(String(e.detail.id));
+    if (!cp) return;
+    fill(cp);
+    modal.show();
+});
+</script>
+
+{% endblock %}

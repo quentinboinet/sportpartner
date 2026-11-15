@@ -1,6 +1,6 @@
 {
     "name": "sport-health/boilerplate",
-    "description": "SportPartner — tableau de bord sportif connecté à Strava (Symfony 7, Twig, Stimulus)",
+    "description": "SportPartner - tableau de bord sportif connecté à Strava (Symfony 7, Twig, Stimulus)",
     "type": "project",
     "license": "proprietary",
     "require": {

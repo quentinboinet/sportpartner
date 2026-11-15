@@ -28,7 +28,7 @@
 {% set prevTSS = (prevSecs / 3600 * 60)|round(0) %}
 {% set tssTrend = prevTSS > 0 ? ((estTSS - prevTSS) / prevTSS * 100)|round(0) : null %}
 
-{# Forme : dist courante / moyenne dist toutes semaines → normalisé 35–90 #}
+{# Forme : dist courante / moyenne dist toutes semaines → normalisé 35-90 #}
 {% set _sumDist = 0 %}
 {% for w in wAll %}{% set _sumDist = _sumDist + w.totalDistance %}{% endfor %}
 {% set avgDist = wAll|length > 0 ? _sumDist / wAll|length : 0 %}
@@ -201,7 +201,7 @@
                     {{ distTrend > 0 ? '+' : '' }}{{ distTrend }}%
                 </span>
             {% else %}
-                <span class="sp-trend flat">—</span>
+                <span class="sp-trend flat">-</span>
             {% endif %}
         </div>
     </div>
@@ -223,7 +223,7 @@
                     {{ timeTrend > 0 ? '+' : '' }}{{ timeTrend }}%
                 </span>
             {% else %}
-                <span class="sp-trend flat">—</span>
+                <span class="sp-trend flat">-</span>
             {% endif %}
         </div>
     </div>
@@ -237,7 +237,7 @@
             <div class="sp-stat-val">
                 {{ _elevSum > 0 ? _elevSum|round(0) : '--' }}{% if _elevSum > 0 %}<sup> m</sup>{% endif %}
             </div>
-            <span class="sp-trend flat">—</span>
+            <span class="sp-trend flat">-</span>
         </div>
     </div>
 
@@ -256,7 +256,7 @@
                     {{ tssTrend > 0 ? '+' : '' }}{{ tssTrend }}%
                 </span>
             {% else %}
-                <span class="sp-trend flat">—</span>
+                <span class="sp-trend flat">-</span>
             {% endif %}
         </div>
     </div>
@@ -318,7 +318,13 @@
                                 </span>
                                 <span class="sp-act-stat-unit">durée</span>
                             </div>
-                            {% if activity.pace is defined and activity.pace is not null %}
+                            {# Vélo : vitesse en km/h ; autres sports : allure en min/km #}
+                            {% if _type == 'ride' and activity.speedKmh %}
+                                <div class="sp-act-stat">
+                                    <span class="sp-act-stat-val">{{ activity.speedKmh|number_format(1) }}</span>
+                                    <span class="sp-act-stat-unit">{{ 'activities.speed_unit'|trans }}</span>
+                                </div>
+                            {% elseif activity.pace is not null %}
                                 <div class="sp-act-stat">
                                     <span class="sp-act-stat-val">{{ activity.pace }}</span>
                                     <span class="sp-act-stat-unit">/km</span>

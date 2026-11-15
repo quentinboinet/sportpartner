@@ -4,155 +4,256 @@
 
 {% block body %}
 
-<div class="sp-cal-layout">
-
-    {# ── Zone principale ──────────────────────── #}
-    <div class="sp-cal-main">
-
-        {# Navigation mois #}
-        <div class="sp-cal-nav">
-            <div style="display:flex;align-items:center;gap:12px">
-                <div class="sp-cal-arrows">
-                    <a href="{{ path('app_calendar', {year: prevYear, month: prevMonth}) }}"
-                       class="sp-cal-arrow"><i class="bi bi-chevron-left"></i></a>
-                    <a href="{{ path('app_calendar', {year: nextYear, month: nextMonth}) }}"
-                       class="sp-cal-arrow"><i class="bi bi-chevron-right"></i></a>
-                </div>
-                <h2 class="sp-cal-month-title">
-                    {{ ('calendar.month_' ~ month)|trans }} {{ year }}
-                </h2>
-                {% if totalCompleted > 0 %}
-                    <span class="sp-cal-sessions-badge">
-                        <i class="bi bi-check-circle-fill"></i>
-                        {{ totalCompleted }} {{ 'calendar.sessions_done'|trans }}
-                    </span>
-                {% endif %}
-            </div>
-            <div style="display:flex;align-items:center;gap:8px">
-                <div class="sp-cal-view-toggle">
-                    <span class="sp-cal-view-btn active">{{ 'calendar.view_month'|trans }}</span>
-                    <span class="sp-cal-view-btn">{{ 'calendar.view_week'|trans }}</span>
-                </div>
-                <button class="sp-btn sp-btn-primary" style="padding:8px 18px">
-                    <i class="bi bi-plus-lg"></i> {{ 'calendar.btn_plan'|trans }}
-                </button>
-            </div>
+<div class="sp-page-header">
+    <div>
+        <h1 class="sp-greeting" style="font-size:24px">{{ 'calendar.title'|trans }}</h1>
+        <div class="sp-week-label" style="color:var(--sp-muted);font-size:11px;font-weight:500;letter-spacing:0;text-transform:none">
+            {{ 'calendar.sub'|trans }}
         </div>
+    </div>
+</div>
 
-        {# Grille calendrier #}
+<div class="sp-cal-layout"
+     data-controller="training-calendar"
+     data-training-calendar-events-url-value="{{ path('app_calendar_events') }}"
+     data-training-calendar-show-races-value="{{ showRaces ? 'true' : 'false' }}"
+     data-training-calendar-initial-date-value="{{ initialDate }}"
+     data-training-calendar-locale-value="{{ app.request.locale }}"
+     data-training-calendar-labels-value="{{ {
+        sessions: 'calendar.summary_sessions'|trans, duration: 'calendar.summary_duration'|trans, empty: 'calendar.summary_empty'|trans,
+        distance: 'calendar.qv_distance'|trans, pace: 'calendar.qv_pace'|trans, speed: 'calendar.qv_speed'|trans,
+        elevation: 'calendar.qv_elevation'|trans, hrAvg: 'calendar.qv_hr_avg'|trans, hrMax: 'calendar.qv_hr_max'|trans,
+        details: 'calendar.qv_details'|trans, plan: 'calendar.qv_plan'|trans, location: 'calendar.qv_location'|trans,
+        done: 'calendar.qv_done'|trans
+     }|json_encode }}">
+
+    {# ── Calendrier ──────────────────────────────── #}
+    <div class="sp-cal-main">
+        <div class="sp-cal-options">
+            <label class="sp-cal-switch">
+                <input type="checkbox" role="switch"
+                       data-training-calendar-target="toggle"
+                       data-action="training-calendar#toggleRaces"
+                       {{ showRaces ? 'checked' : '' }}>
+                <span class="sp-cal-switch-track" aria-hidden="true"></span>
+                <i class="bi bi-flag-fill" style="color:var(--sp-orange)"></i>
+                {{ 'calendar.show_races'|trans }}
+            </label>
+        </div>
         <div class="sp-card sp-cal-card">
-
-            {# En-têtes jours #}
-            <div class="sp-cal-grid sp-cal-header-row">
-                {% for day in ['calendar.day_mon', 'calendar.day_tue', 'calendar.day_wed',
-                               'calendar.day_thu', 'calendar.day_fri', 'calendar.day_sat', 'calendar.day_sun'] %}
-                    <div class="sp-cal-header-cell">{{ day|trans }}</div>
-                {% endfor %}
-            </div>
-
-            {# Semaines #}
-            {% for week in weeks %}
-                <div class="sp-cal-grid sp-cal-week-row">
-                    {% for day in week %}
-                        <div class="sp-cal-day
-                                    {{ not day.inMonth ? 'sp-cal-day-out' : '' }}
-                                    {{ day.isToday    ? 'sp-cal-day-today' : '' }}">
-
-                            {# Numéro du jour #}
-                            <div class="sp-cal-day-num {{ day.isToday ? 'sp-cal-day-num-today' : '' }}">
-                                {{ day.num }}
-                            </div>
-
-                            {# Activités du jour #}
-                            {% if day.inMonth %}
-                                {% for activity in day.activities %}
-                                    {% set sport = activity.sport %}
-                                    {% set color = sport ? sport.color : '#9CA3AF' %}
-                                    {% set slug  = sport ? sport.slug  : 'other' %}
-                                    {% set dist  = activity.distanceKm %}
-
-                                    <div class="sp-cal-pill"
-                                         title="{{ activity.name ?? ('sport.' ~ slug)|trans }}{% if dist %} · {{ dist|number_format(1) }} km{% endif %}"
-                                         style="background:{{ color }}1A;border-color:{{ color }}33">
-                                        <i class="bi bi-check2" style="color:{{ color }};font-size:9px;flex-shrink:0"></i>
-                                        <span class="sp-cal-pill-text">
-                                            {%- set _name = activity.name ?? ('sport.' ~ slug)|trans -%}
-                                            {%- if dist -%}
-                                                {{ _name }} {{ dist|round }}km
-                                            {%- else -%}
-                                                {{ _name }}
-                                            {%- endif -%}
-                                        </span>
-                                    </div>
-                                {% endfor %}
-                            {% endif %}
-
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endfor %}
-
-            {# Légende #}
-            <div class="sp-cal-legend">
-                <span class="sp-cal-legend-item">
-                    <span class="sp-cal-legend-dot" style="background:var(--sp-orange)"></span>
-                    {{ 'calendar.legend_done'|trans }}
-                </span>
-                <span class="sp-cal-legend-item">
-                    <span class="sp-cal-legend-dot" style="background:transparent;border:1.5px dashed #9CA3AF"></span>
-                    {{ 'calendar.legend_planned'|trans }}
-                </span>
-                <span class="sp-cal-legend-item">
-                    <span class="sp-cal-legend-dot" style="background:var(--sp-orange)"></span>
-                    {{ 'calendar.legend_race'|trans }}
-                </span>
-            </div>
-
+            <div id="training-calendar" data-training-calendar-target="calendar"></div>
         </div>
     </div>
 
-    {# ── Sidebar Objectifs ───────────────────── #}
-    <div class="sp-cal-sidebar">
-
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <h3 class="sp-card-title" style="font-size:15px;margin:0">
-                {{ 'calendar.objectives_title'|trans }}
-            </h3>
-            <span style="background:rgba(0,0,0,.07);color:var(--sp-muted);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px">
-                0
-            </span>
+    {# ── Panneau latéral ─────────────────────────── #}
+    <aside class="sp-cal-side">
+        <div class="sp-card sp-cal-side-card">
+            <h2 class="sp-cal-side-title">
+                {{ 'calendar.summary_title'|trans }}
+                <span class="sp-cal-side-period" data-training-calendar-target="summaryTitle"></span>
+            </h2>
+            <div data-training-calendar-target="summary">
+                <p class="sp-cal-summary-empty">…</p>
+            </div>
         </div>
 
-        {# État vide #}
-        <div class="sp-cal-obj-empty">
-            <div class="sp-cal-obj-empty-icon">
-                <i class="bi bi-trophy"></i>
-            </div>
-            <p style="font-size:13px;color:var(--sp-muted);text-align:center;margin:0 0 14px">
-                {{ 'calendar.objectives_empty'|trans }}
-            </p>
-            <button class="sp-btn sp-btn-primary" style="width:100%;justify-content:center">
-                <i class="bi bi-plus-lg"></i> {{ 'calendar.objectives_add'|trans }}
-            </button>
+        <div class="sp-card sp-cal-side-card">
+            <h2 class="sp-cal-side-title">
+                {{ 'calendar.upcoming_title'|trans }}
+                <a href="{{ path('app_races') }}" class="sp-cal-side-link">{{ 'calendar.upcoming_all'|trans }}</a>
+            </h2>
+            {% if upcomingRaces is empty %}
+                <p class="sp-cal-summary-empty">{{ 'calendar.upcoming_empty'|trans }}</p>
+            {% else %}
+                <ul class="sp-cal-upcoming">
+                    {% for race in upcomingRaces %}
+                        {% set _days = ((race.raceDate|date('U') - 'today'|date('U')) / 86400)|round %}
+                        <li>
+                            <a href="{{ path('app_races', {view: 'calendar', year: race.year}) }}">
+                                <i class="bi {{ race.intent.icon }}" style="color:{{ race.intent.color }}"></i>
+                                <span class="sp-cal-upcoming-body">
+                                    <span class="sp-cal-upcoming-name">{{ race.name }}</span>
+                                    <span class="sp-cal-upcoming-meta">
+                                        {{ race.raceDate|date('d/m/Y') }}
+                                        {% if race.distanceKm %} · {{ race.distanceKm }} km{% endif %}
+                                        {% if race.elevationGain %} · {{ race.elevationGain }} m D+{% endif %}
+                                    </span>
+                                </span>
+                                <span class="sp-cal-upcoming-days">
+                                    {{ _days == 0 ? 'calendar.today'|trans : 'calendar.in_days'|trans({'%count%': _days}) }}
+                                </span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
         </div>
+    </aside>
 
-        {# Toast en bas #}
-        <div class="sp-cal-toast">
-            <div class="sp-cal-toast-icon">
-                <i class="bi bi-lightning-fill"></i>
-            </div>
-            <div>
-                <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:2px">
-                    {{ 'calendar.toast_title'|trans }}
+    {# ── Vue rapide d'une activité (remplie par training_calendar_controller) ── #}
+    <div class="modal fade" tabindex="-1" aria-hidden="true" aria-labelledby="qvTitle"
+         data-training-calendar-target="quickView">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content sp-qv">
+                <div class="sp-qv-header">
+                    <span class="sp-qv-icon"><i data-training-calendar-target="qvIcon"></i></span>
+                    <div class="sp-qv-heading">
+                        <h2 class="sp-qv-title" id="qvTitle" data-training-calendar-target="qvTitle"></h2>
+                        <div class="sp-qv-sub" data-training-calendar-target="qvSub"></div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="{{ 'calendar.qv_close'|trans }}"></button>
                 </div>
-                <div style="font-size:11px;color:rgba(255,255,255,.55)">
-                    {{ 'calendar.toast_sub'|trans }}
+                <div class="sp-qv-body">
+                    <div class="sp-qv-badges" data-training-calendar-target="qvBadges" hidden></div>
+                    <div class="sp-qv-stats" data-training-calendar-target="qvStats"></div>
+                    <p class="sp-qv-notes" data-training-calendar-target="qvNotes" hidden></p>
+                    <a class="sp-qv-website" target="_blank" rel="noopener noreferrer"
+                       data-training-calendar-target="qvWebsite" hidden>
+                        <i class="bi bi-box-arrow-up-right"></i> {{ 'calendar.qv_website'|trans }}
+                    </a>
+                    <div class="sp-qv-map-slot" data-training-calendar-target="qvMapSlot" hidden></div>
+                </div>
+                <div class="sp-qv-footer">
+                    <button type="button" class="sp-btn sp-qv-btn-ghost" data-bs-dismiss="modal">{{ 'calendar.qv_close'|trans }}</button>
+                    {# Course uniquement : lien vers la liste des courses #}
+                    <a href="#" class="sp-btn sp-qv-btn-ghost" data-training-calendar-target="qvLinkSecondary" hidden>
+                        {{ 'calendar.qv_races'|trans }}
+                    </a>
+                    <a href="#" class="sp-btn sp-btn-primary" data-training-calendar-target="qvLink">
+                        <span data-training-calendar-target="qvLinkLabel">{{ 'calendar.qv_details'|trans }}</span> <i class="bi bi-arrow-right"></i>
+                    </a>
                 </div>
             </div>
         </div>
-
     </div>
 
 </div>
+
+<style>
+.sp-cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+@media (max-width: 991.98px) { .sp-cal-layout { grid-template-columns: minmax(0, 1fr); } }
+
+.sp-cal-options { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.sp-cal-switch {
+    display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+    font-size: 13px; font-weight: 600; color: var(--sp-text);
+}
+.sp-cal-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.sp-cal-switch-track {
+    position: relative; width: 34px; height: 20px; border-radius: 10px;
+    background: var(--sp-border); transition: background .15s;
+}
+.sp-cal-switch-track::after {
+    content: ''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px;
+    border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.sp-cal-switch input:checked + .sp-cal-switch-track { background: var(--sp-orange); }
+.sp-cal-switch input:checked + .sp-cal-switch-track::after { transform: translateX(14px); }
+.sp-cal-switch input:focus-visible + .sp-cal-switch-track { outline: 2px solid var(--sp-orange); outline-offset: 2px; }
+
+.sp-cal-card { padding: 18px; }
+#training-calendar {
+    min-height: 480px; font-size: 12px;
+    --fc-border-color: var(--sp-border);
+    --fc-today-bg-color: rgba(232,64,12,.06);
+    --fc-button-bg-color: var(--sp-card);
+    --fc-button-border-color: var(--sp-border);
+    --fc-button-text-color: var(--sp-text);
+    --fc-button-hover-bg-color: rgba(0,0,0,.05);
+    --fc-button-hover-border-color: var(--sp-border);
+    --fc-button-active-bg-color: var(--sp-dark);
+    --fc-button-active-border-color: var(--sp-dark);
+    --fc-page-bg-color: var(--sp-card);
+}
+#training-calendar .fc-toolbar-title { font-size: 17px; font-weight: 700; color: var(--sp-text); text-transform: capitalize; }
+#training-calendar .fc-button { font-size: 12px; font-weight: 600; border-radius: 8px; box-shadow: none !important; text-transform: capitalize; }
+#training-calendar .fc-button-active { color: #fff; }
+#training-calendar .fc-col-header-cell-cushion,
+#training-calendar .fc-daygrid-day-number { color: var(--sp-muted); text-decoration: none; font-weight: 600; }
+#training-calendar .fc-event { border-radius: 6px; padding: 1px 4px; cursor: pointer; }
+#training-calendar .sp-fc-activity { color: #fff; }
+#training-calendar .sp-fc-race--want_to_do { --fc-event-bg-color: var(--sp-orange); --fc-event-border-color: var(--sp-orange); }
+#training-calendar .sp-fc-race--registered { --fc-event-bg-color: var(--sp-green);  --fc-event-border-color: var(--sp-green); }
+#training-calendar .sp-fc-race--bookmark   { --fc-event-bg-color: var(--sp-teal);   --fc-event-border-color: var(--sp-teal); }
+#training-calendar .sp-fc-race { font-weight: 700; box-shadow: inset 0 0 0 2px rgba(255,255,255,.55); }
+#training-calendar .sp-fc-race--done { opacity: .55; text-decoration: line-through; }
+.sp-fc-ev { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; white-space: nowrap; color: #fff; font-size: 11px; }
+.sp-fc-ev i { font-size: 10px; flex-shrink: 0; }
+.sp-fc-ev-time { opacity: .85; flex-shrink: 0; }
+.sp-fc-ev-title { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.sp-fc-ev-km { opacity: .85; flex-shrink: 0; margin-left: auto; padding-left: 4px; }
+/* Vue Mois : cellules étroites, on privilégie le nom (l'heure reste en vue Semaine et dans l'infobulle) */
+.fc-dayGridMonth-view .sp-fc-ev-time,
+.fc-dayGridYear-view .sp-fc-ev-time { display: none; }
+
+.sp-cal-side { display: flex; flex-direction: column; gap: 16px; }
+.sp-cal-side-card { padding: 16px 18px; }
+.sp-cal-side-title {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    font-size: 14px; font-weight: 700; color: var(--sp-text); margin: 0 0 12px;
+}
+.sp-cal-side-period { font-size: 11px; font-weight: 600; color: var(--sp-muted); text-transform: capitalize; }
+.sp-cal-side-link { font-size: 11px; font-weight: 600; color: var(--sp-muted); text-decoration: none; }
+.sp-cal-side-link:hover { color: var(--sp-orange); }
+.sp-cal-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.sp-cal-total-val { font-size: 18px; font-weight: 800; color: var(--sp-text); line-height: 1.1; }
+.sp-cal-total-lbl { font-size: 10px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .05em; }
+.sp-cal-summary-empty { font-size: 12px; color: var(--sp-muted); margin: 0; }
+.sp-cal-sport-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.sp-cal-sport-list li { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.sp-cal-sport-name { font-weight: 600; color: var(--sp-text); }
+.sp-cal-sport-meta { margin-left: auto; color: var(--sp-muted); }
+.sp-cal-upcoming { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.sp-cal-upcoming a {
+    display: flex; align-items: center; gap: 10px; padding: 8px; margin: 0 -8px;
+    border-radius: 8px; text-decoration: none; color: inherit; transition: background .15s;
+}
+.sp-cal-upcoming a:hover { background: rgba(0,0,0,.04); }
+.sp-cal-upcoming-body { display: flex; flex-direction: column; min-width: 0; }
+.sp-cal-upcoming-name { font-size: 13px; font-weight: 600; color: var(--sp-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-cal-upcoming-meta { font-size: 11px; color: var(--sp-muted); }
+.sp-cal-upcoming-days { margin-left: auto; flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--sp-orange); }
+
+/* Vue rapide */
+.sp-qv { border: none; border-radius: 14px; overflow: hidden; background: var(--sp-card); }
+.sp-qv-header { display: flex; align-items: center; gap: 12px; padding: 18px 20px; background: var(--sp-dark); color: #fff; }
+.sp-qv-icon {
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 17px; color: #fff;
+}
+.sp-qv-heading { flex: 1; min-width: 0; }
+.sp-qv-title { font-size: 15px; font-weight: 700; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-qv-sub { font-size: 12px; color: rgba(255,255,255,.65); margin-top: 2px; }
+.sp-qv-sub::first-letter { text-transform: uppercase; }
+.sp-qv-body { padding: 18px 20px; }
+.sp-qv-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sp-qv-tile { background: var(--sp-bg); border-radius: 10px; padding: 10px 12px; }
+.sp-qv-val { font-size: 16px; font-weight: 800; color: var(--sp-text); line-height: 1.2; }
+.sp-qv-lbl { font-size: 10px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+.sp-qv-map-slot { margin-top: 14px; }
+.sp-qv-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.sp-qv-badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; background: rgba(22,23,42,.07); color: var(--sp-dark);
+}
+.sp-qv-badge--countdown { background: rgba(232,64,12,.1); color: var(--sp-orange); }
+.sp-qv-badge--done { background: rgba(34,197,94,.12); color: #15803D; }
+.sp-qv-notes { margin: 14px 0 0; font-size: 13px; color: var(--sp-text); white-space: pre-line; line-height: 1.45; }
+.sp-qv-website { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--sp-teal); text-decoration: none; }
+.sp-qv-website:hover { text-decoration: underline; }
+.sp-qv-val--text { font-size: 14px; overflow-wrap: anywhere; }
+.sp-qv-map { height: 220px; border-radius: 10px; overflow: hidden; }
+.sp-qv-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--sp-border); }
+.sp-qv-btn-ghost { background: transparent; color: var(--sp-muted); border: 1px solid var(--sp-border); }
+
+@media (max-width: 575.98px) {
+    .sp-qv-stats { grid-template-columns: repeat(2, 1fr); }
+    .sp-cal-card { padding: 10px; }
+    #training-calendar .fc-header-toolbar { flex-wrap: wrap; gap: 8px; }
+    #training-calendar .fc-toolbar-title { font-size: 15px; }
+    .sp-fc-ev-time, .sp-fc-ev-km { display: none; }
+}
+</style>
 
 {% endblock %}

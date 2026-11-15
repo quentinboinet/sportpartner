@@ -115,7 +115,7 @@ export default class extends Controller {
       const h         = time.getHours();
       const showLabel = i === 0 || h % 6 === 0;
       const pct       = mm > 0 ? Math.max((mm / maxMm) * 100, 5) : 0;
-      const title     = mm > 0 ? `${h}h – ${mm.toFixed(1)} mm` : `${h}h`;
+      const title     = mm > 0 ? `${h}h - ${mm.toFixed(1)} mm` : `${h}h`;
       return `<div class="sp-precip-col" title="${title}">
         <div class="sp-precip-bar-wrap">
           <div class="sp-precip-bar" style="height:${pct}%"></div>

@@ -10,7 +10,7 @@ import { Controller } from '@hotwired/stimulus';
  *        data-race-calendar-locale-value="fr"></div>
  *
  * Un clic sur une course émet l'événement DOM `race-calendar:select`
- * (detail = données de la course) — la page ouvre alors la modale d'édition.
+ * (detail = données de la course) - la page ouvre alors la modale d'édition.
  *
  * FullCalendar (+ preact) pèse ~450 Ko : il est importé dynamiquement pour
  * n'être téléchargé que sur les pages qui affichent un calendrier.
@@ -59,7 +59,7 @@ export default class extends Controller {
                     p.distanceKm ? `${p.distanceKm} km` : null,
                     p.elevationGain ? `${p.elevationGain} m D+` : null,
                 ].filter(Boolean).join(' · ');
-                info.el.title = meta ? `${info.event.title} — ${meta}` : info.event.title;
+                info.el.title = meta ? `${info.event.title} - ${meta}` : info.event.title;
             },
         });
         this.calendar.render();

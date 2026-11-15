@@ -112,11 +112,11 @@ export default class extends Controller {
                             label: item => `${Math.round(item.raw)} bpm`,
                             afterLabel: item => {
                                 const pct = item.raw / maxHr;
-                                if (pct < 0.60) return 'Zone 1 — Récupération';
-                                if (pct < 0.70) return 'Zone 2 — Endurance';
-                                if (pct < 0.80) return 'Zone 3 — Tempo';
-                                if (pct < 0.90) return 'Zone 4 — Seuil';
-                                return 'Zone 5 — VO2max';
+                                if (pct < 0.60) return 'Zone 1 - Récupération';
+                                if (pct < 0.70) return 'Zone 2 - Endurance';
+                                if (pct < 0.80) return 'Zone 3 - Tempo';
+                                if (pct < 0.90) return 'Zone 4 - Seuil';
+                                return 'Zone 5 - VO2max';
                             },
                         },
                     },

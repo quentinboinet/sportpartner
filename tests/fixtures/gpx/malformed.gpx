@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Broken export" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Truncated upload</name>
+    <trkseg>
+      <trkpt lat="45.9000" lon="6.1300"><ele>500.0</ele></trkpt>
+      <trkpt lat="45.9010" lon="6.1300"><ele>505.0</ele>
+      <trkpt lat="45.9020" lon="6.1300"><ele>510.0</ele></trkpt>
+    </trkseg>

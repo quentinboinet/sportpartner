@@ -3,6 +3,7 @@ namespace App\Controller\Race;
 
 use App\Entity\Race;
 use App\Entity\RaceIntent;
+use App\Entity\RaceType;
 use App\Entity\User;
 use App\Repository\RaceRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -24,9 +25,10 @@ class RaceController extends AbstractController
     {
         $year   = $request->query->getInt('year', 0) ?: null;
         $intent = $request->query->get('intent');
+        $type   = RaceType::tryFrom((string) $request->query->get('type'))?->value;
         $view   = in_array($request->query->get('view'), self::VIEWS, true) ? $request->query->get('view') : 'list';
 
-        $races = $repo->findByUser($user, $year, $intent);
+        $races = $repo->findByUser($user, $year, $intent, $type);
         $years = $repo->getYearsForUser($user);
 
         // Ensure current year is always in the year list for the filter
@@ -68,10 +70,12 @@ class RaceController extends AbstractController
             'years'         => $years,
             'filterYear'    => $year,
             'filterIntent'  => $intent,
+            'filterType'    => $type,
             'view'          => $view,
             'initialDate'   => $initialDate,
             'defaultYear'   => $currentYear,
             'intents'       => RaceIntent::cases(),
+            'types'         => RaceType::cases(),
         ]);
     }
 
@@ -180,6 +184,12 @@ class RaceController extends AbstractController
             $race->setIntent(RaceIntent::WantToDo);
         }
 
+        // Type absent ou invalide : on garde la valeur existante (null pour les anciennes courses)
+        $type = RaceType::tryFrom((string) $post->get('race_type'));
+        if ($type !== null) {
+            $race->setType($type);
+        }
+
         // Une date précise, si fournie, fait foi pour l'année
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $post->get('race_date', ''));
         $race->setRaceDate($date ?: null);
@@ -193,7 +203,7 @@ class RaceController extends AbstractController
     /**
      * Données d'une course pour le JS (modale d'édition, calendrier).
      *
-     * @return array{id: int|null, name: string, location: string|null, distanceKm: float|null, elevationGain: int|null, year: int, raceDate: string|null, intent: string, website: string|null, notes: string|null, isDone: bool}
+     * @return array{id: int|null, name: string, location: string|null, distanceKm: float|null, elevationGain: int|null, year: int, raceDate: string|null, intent: string, type: string|null, website: string|null, notes: string|null, isDone: bool}
      */
     private function toArray(Race $race): array
     {
@@ -206,13 +216,14 @@ class RaceController extends AbstractController
             'year'          => $race->getYear(),
             'raceDate'      => $race->getRaceDate()?->format('Y-m-d'),
             'intent'        => $race->getIntent()->value,
+            'type'          => $race->getType()?->value,
             'website'       => $race->getWebsite(),
             'notes'         => $race->getNotes(),
             'isDone'        => $race->isDone(),
         ];
     }
 
-    /** N'accepte que des liens http(s) — le site est rendu dans un href. */
+    /** N'accepte que des liens http(s) - le site est rendu dans un href. */
     private function normalizeUrl(string $url): ?string
     {
         $url = trim($url);

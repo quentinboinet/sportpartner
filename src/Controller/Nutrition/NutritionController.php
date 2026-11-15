@@ -69,7 +69,7 @@ class NutritionController extends AbstractController
         $totalExpenditure = $bmr + $activityKcal;
         $isTrainingDay    = count($todayActivities) > 0;
 
-        // ── 7-day weekly data (Mon–Sun of current week) ───────────────────
+        // ── 7-day weekly data (Mon-Sun of current week) ───────────────────
         $dayOfWeek = (int)$date->format('N');
         $weekStart = $date->modify('-' . ($dayOfWeek - 1) . ' days')->setTime(0, 0, 0);
         $weekEnd   = $weekStart->modify('+6 days');

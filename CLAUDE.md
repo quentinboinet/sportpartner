@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Tech Stack
 
 **Backend :** Symfony 7.4 (PHP 8.3+), Doctrine ORM 3, form login Symfony (sessions), traductions fr/en  
-**Frontend :** Twig + Bootstrap 5 + Stimulus + Chart.js + Leaflet (via Symfony Asset Mapper — aucun bundler Node.js)  
-**Infrastructure locale :** Docker Compose — `php` (PHP 8.3-FPM alpine), `nginx` (http://localhost:8080), `mysql` (MySQL 8.0, port 3306), `mailhog` (SMTP 1025, UI http://localhost:8025)  
+**Frontend :** Twig + Bootstrap 5 + Stimulus + Chart.js + Leaflet (via Symfony Asset Mapper - aucun bundler Node.js)  
+**Infrastructure locale :** Docker Compose - `php` (PHP 8.3-FPM alpine), `nginx` (http://localhost:8080), `mysql` (MySQL 8.0, port 3306), `mailhog` (SMTP 1025, UI http://localhost:8025)  
 **Production :** Alwaysdata (PHP 8.3), déployée par GitHub Actions  
 **APIs externes :** Strava API v3 (OAuth2 + synchro des activités), Open-Meteo (`api.open-meteo.com` prévisions, `archive.open-meteo.com` historique), Nominatim OpenStreetMap (géocodage inverse, widget météo), tuiles OpenStreetMap (cartes Leaflet), Bootstrap Icons via jsDelivr
 
@@ -21,7 +21,7 @@ docker compose exec php bin/console doctrine:migrations:migrate
 
 > Il n'existe **aucune fixture** (`src/DataFixtures/` absent) : `doctrine:fixtures:load` échoue (« Could not find any fixture services to load »).
 
-**Assets (Asset Mapper — pas de npm run dev) :**
+**Assets (Asset Mapper - pas de npm run dev) :**
 ```bash
 # En dev : les assets sont servis dynamiquement par Symfony, aucune compilation nécessaire
 # En prod uniquement :
@@ -52,6 +52,7 @@ php vendor/bin/phpunit --filter testMethodName
 - **PHPStan niveau 6 doit rester à 0 erreur** (imposé par la CI, sans baseline). Ne pas ajouter de baseline, d'`ignoreErrors` ni de `@phpstan-ignore`, et ne pas baisser le niveau.
 - Dans un controller protégé, récupérer l'utilisateur avec `#[CurrentUser] User $user` plutôt que `$this->getUser()` (typé `UserInterface|null`).
 - PHP-CS-Fixer n'est **pas** imposé par la CI. Ne pas reformater du code que l'on ne modifie pas.
+- **Tirets : uniquement le tiret classique `-`.** Jamais de tiret cadratin (U+2014) ni de tiret demi-cadratin (U+2013), nulle part dans le projet : code, commentaires, templates, traductions, doc, messages de commit. Exception : les fichiers tiers dans `vendor/`, `assets/vendor/` et `assets/lib/`. Vérification en bash (ne doit rien renvoyer, indépendant de la locale) : `grep -rn $'\xe2\x80\x94\|\xe2\x80\x93' --exclude-dir={vendor,var,.git,lib} . | grep -v "^./assets/vendor"`
 
 ## Architecture
 
@@ -76,8 +77,10 @@ php vendor/bin/phpunit --filter testMethodName
 | `pace_trend_controller.js` | `pace-trend` | Stats : évolution de l'allure de course par semaine |
 | `energy_donut_controller.js` | `energy-donut` | Nutrition : kcal consommées vs objectif (doughnut) |
 | `balance_chart_controller.js` | `balance-chart` | Nutrition : apports vs dépenses par jour (barres) |
+| `race_route_controller.js` | `race-route` | Plan de course (`/courses/{id}/plan`) : tracé GPX sur Leaflet, profil Chart.js avec bulles de repères ; clic sur le profil = nouveau repère au km, clic sur une bulle = édition |
 | `race_calendar_controller.js` | `race-calendar` | Courses (`/courses?view=calendar`) : calendrier mensuel FullCalendar, importé dynamiquement (`import()`) ; un clic émet `race-calendar:select` pour ouvrir la modale d'édition |
-| `weather_activity_controller.js` | *(non enregistré)* | Météo d'une activité côté client — absent d'`index.js` et d'aucun template (la météo d'activité est faite côté serveur par `WeatherService`) |
+| `training_calendar_controller.js` | `training-calendar` | Calendrier général (`/calendar`) : activités + courses datées en option, chargées par période depuis `/calendar/events` ; FullCalendar importé dynamiquement ; clic = vue rapide en modale (Bootstrap `Modal`), contenu inséré via `textContent` uniquement ; la mini-carte réutilise `map_controller` (créée à `shown.bs.modal`, détruite à la fermeture) |
+| `weather_activity_controller.js` | *(non enregistré)* | Météo d'une activité côté client - absent d'`index.js` et d'aucun template (la météo d'activité est faite côté serveur par `WeatherService`) |
 
 `weather_constants.js` n'est pas un controller : il exporte les icônes et libellés WMO (fr/en) pour les controllers météo.
 
@@ -88,14 +91,14 @@ Pour attacher un controller Stimulus à un élément :
 ```
 
 ### Layer structure
-- **Controllers** ([src/Controller/](src/Controller/)) — par domaine : `Activities/` (`/activities`, `/activities/{id}`), `Auth/` (`/login`, `/logout`, `/register`), `Calendar/` (`/calendar`), `Dashboard/` (`/`), `Nutrition/` (`/nutrition`), `OAuth/` (`/oauth/strava`, `/oauth/strava/callback`, `/strava/sync`), `Race/` (`/courses` en GET liste/calendrier, POST ajout, + `edit`, `toggle`, `intent`, `delete`), `Settings/` (`/settings`), `Stats/` (`/stats`), et `LocaleController` (`/switch-locale/{fr|en}`). Les dossiers `Api/` et `Billing/` sont vides. Vérifier avec `php bin/console debug:router`.
-- **Services** ([src/Service/](src/Service/)) — `Strava/StravaService` (OAuth, refresh auto du token, synchro des activités, streams altitude/FC, splits), `Weather/WeatherService` (météo d'une activité via Open-Meteo, stockée sur l'activité), `Units/UnitConverter` (conversions, allure). `Auth/` et `Billing/` sont vides.
-- **Entities** ([src/Entity/](src/Entity/)) — `User` (tokens Strava, champs Stripe et `subscriptionPlan` inutilisés hors affichage), `Activity`, `Sport`, `AthleteProfile`, `Meal` (+ enum `MealType`), `Race` (+ enum `RaceIntent`).
-- **Repositories** ([src/Repository/](src/Repository/)) — Activity, Meal, Race, Sport, User.
-- **Autres** — `Form/ProfileType`, `EventSubscriber/LocaleSubscriber` (locale stockée en session, défaut `fr`), `Twig/SidebarExtension` (stats du jour dans la sidebar). Les dossiers `src/DTO/` et `src/EventListener/` sont vides.
-- **Styles** — [assets/styles/app.css](assets/styles/app.css), chargé par `asset()` dans `base.html.twig` (le CSS Bootstrap est importé par `app.js`).
-- **Templates** ([templates/](templates/)) — `activities/`, `auth/`, `calendar/`, `dashboard/`, `nutrition/`, `race/`, `settings/`, `stats/`.
-- **Traductions** — [translations/messages.fr.yaml](translations/messages.fr.yaml) et [messages.en.yaml](translations/messages.en.yaml) : toute nouvelle clé doit être ajoutée dans les deux.
+- **Controllers** ([src/Controller/](src/Controller/)) - par domaine : `Activities/` (`/activities`, `/activities/{id}`), `Auth/` (`/login`, `/logout`, `/register`), `Calendar/` (`/calendar` + `/calendar/events` en JSON par période), `Dashboard/` (`/`), `Nutrition/` (`/nutrition`), `OAuth/` (`/oauth/strava`, `/oauth/strava/callback`, `/strava/sync`), `Race/` (`RaceController` : `/courses` en GET liste/calendrier, POST ajout, + `edit`, `toggle`, `intent`, `delete` ; `RacePlanController` : `/courses/{id}/plan`, import/suppression GPX `/route`, repères `/checkpoints`, routes `app_race_*`, CSRF `race_plan`), `Settings/` (`/settings`), `Stats/` (`/stats`), et `LocaleController` (`/switch-locale/{fr|en}`). Les dossiers `Api/` et `Billing/` sont vides. Vérifier avec `php bin/console debug:router`.
+- **Services** ([src/Service/](src/Service/)) - `Strava/StravaService` (OAuth, refresh auto du token, synchro des activités, streams altitude/FC, splits), `Weather/WeatherService` (météo d'une activité via Open-Meteo, stockée sur l'activité), `Units/UnitConverter` (conversions, allure), `Route/` (`GpxParser` : GPX → tracé ré-échantillonné `[distanceM, ele, lat, lon]`, 15 Mo / 200 000 points max ; `RouteAnalyzer` : altitude/position interpolées, D+/D- avec hystérésis, tronçons entre repères). `Auth/` et `Billing/` sont vides.
+- **Entities** ([src/Entity/](src/Entity/)) - `User` (tokens Strava, champs Stripe et `subscriptionPlan` inutilisés hors affichage), `Activity`, `Sport`, `AthleteProfile`, `Meal` (+ enum `MealType`), `Race` (+ enums `RaceIntent` statut, `RaceType` route/trail nullable), `RaceRoute` (OneToOne vers `Race`, non mappé côté `Race`), `RaceCheckpoint` (+ enum `CheckpointType`).
+- **Repositories** ([src/Repository/](src/Repository/)) - Activity, Meal, Race, RaceCheckpoint, RaceRoute, Sport, User.
+- **Autres** - `Form/ProfileType`, `EventSubscriber/LocaleSubscriber` (locale stockée en session, défaut `fr`), `Twig/SidebarExtension` (stats du jour dans la sidebar). Les dossiers `src/DTO/` et `src/EventListener/` sont vides.
+- **Styles** - [assets/styles/app.css](assets/styles/app.css), chargé par `asset()` dans `base.html.twig` (le CSS Bootstrap est importé par `app.js`).
+- **Templates** ([templates/](templates/)) - `activities/`, `auth/`, `calendar/`, `dashboard/`, `nutrition/`, `race/`, `settings/`, `stats/`.
+- **Traductions** - [translations/messages.fr.yaml](translations/messages.fr.yaml) et [messages.en.yaml](translations/messages.en.yaml) : toute nouvelle clé doit être ajoutée dans les deux.
 
 ### Auth & access control
 - Form login Symfony (`/login`, `/logout`) géré par [LoginController](src/Controller/Auth/LoginController.php), inscription par `RegisterController`. Le remember-me (7 jours) est configuré mais inactif : le formulaire de connexion n'a pas de champ `_remember_me`.
@@ -107,7 +110,7 @@ Aucune route webhook n'existe aujourd'hui, mais `^/webhooks` est déjà en `PUBL
 
 ## Conventions base de données
 
-### Nommage des tables — camelCase obligatoire
+### Nommage des tables - camelCase obligatoire
 
 Toute **nouvelle** table utilise le **camelCase** (ex: `athleteProfile`, `raceIntent`). Les tables existantes ne suivent pas toutes cette règle (voir ci-dessous) : ne pas les renommer sans migration.  
 MySQL sur Linux (prod) est **sensible à la casse** : `Race` ≠ `race`. En local sous Windows, MySQL ne l'est pas, donc une erreur de casse ne se voit qu'en prod. Sans annotation explicite, Doctrine utilise le nom de la classe PHP comme nom de table (PascalCase), ce qui peut diverger de la migration.
@@ -135,6 +138,8 @@ class Race { ... }
 | `AthleteProfile` | `AthleteProfile` |
 | `Meal` | `Meal` |
 | `Race` | `race` |
+| `RaceRoute` | `raceRoute` |
+| `RaceCheckpoint` | `raceCheckpoint` |
 
 > `AthleteProfile` et `Meal` sont en PascalCase car les migrations les créent ainsi (`Version20240008`, `Version20240009`).  
 > Si tu renommes ces tables un jour, mets à jour l'attribut ET ajoute une migration.
@@ -145,8 +150,8 @@ class Race { ... }
 
 Variables réellement lues par l'application :
 - `APP_ENV`, `APP_DEBUG`, `APP_SECRET`
-- `APP_URL` — sert à construire l'URI de redirection Strava (`%env(APP_URL)%/oauth/strava/callback`)
-- `DATABASE_URL` — MySQL (Docker : `mysql://app:password@mysql:3306/sport_health?serverVersion=8.0&charset=utf8mb4`)
+- `APP_URL` - sert à construire l'URI de redirection Strava (`%env(APP_URL)%/oauth/strava/callback`)
+- `DATABASE_URL` - MySQL (Docker : `mysql://app:password@mysql:3306/sport_health?serverVersion=8.0&charset=utf8mb4`)
 - `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`
 
 Présentes dans les modèles mais lues par aucun code aujourd'hui : `MAILER_DSN` (MailHog depuis les conteneurs : `smtp://mailhog:1025`), `MAILER_FROM_ADDRESS`, `MAILER_FROM_NAME` (symfony/mailer est installé mais ni configuré ni utilisé), `STRAVA_WEBHOOK_VERIFY_TOKEN`.
@@ -163,5 +168,7 @@ Conséquences : ne jamais pousser sur `main` sans accord explicite ; une migrati
 - Synchro Strava **manuelle** (`/strava/sync`) : pas de webhook Strava.
 - Pas de paiement : aucun Stripe/billing. Les colonnes Stripe de `User` et `subscriptionPlan`/`isPro()` ne servent qu'à afficher un libellé (Pro/Amateur).
 - Pas de vérification d'email ni de « mot de passe oublié » (la règle `^/reset-password` n'a aucune route).
-- Pas de fixtures ; un seul fichier de tests (`tests/Unit/Service/UnitConverterTest.php`), aucun test fonctionnel.
+- Pas de fixtures ; tests unitaires seulement (`tests/Unit/`), aucun test fonctionnel.
+- Plan de course : phase 1 seulement (GPX + repères). Scénarios de passage, allure auto, impression et comparaison après course restent à faire.
+- Upload GPX en local : `upload_max_filesize` de WAMP souvent à 2M (Docker : 20M).
 - Le schéma de la base locale diverge déjà du mapping Doctrine (index, types de colonnes) : vérifier `doctrine:schema:update --dump-sql` avant d'écrire une migration.

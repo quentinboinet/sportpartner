@@ -24,6 +24,7 @@ export default class extends Controller {
     if (!coords.length) return;
 
     const map = L.map(this.element, { zoomControl: true, attributionControl: false });
+    this.map = map;
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
     }).addTo(map);
@@ -66,5 +67,8 @@ export default class extends Controller {
   disconnect() {
     window.removeEventListener('elevation:hover', this._onElevationHover);
     window.removeEventListener('elevation:leave', this._onElevationLeave);
+    // Libère la carte (indispensable quand l'élément est recréé, ex. vue rapide en modale)
+    this.map?.remove();
+    this.map = null;
   }
 }

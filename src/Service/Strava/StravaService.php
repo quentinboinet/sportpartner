@@ -102,7 +102,7 @@ class StravaService
             $this->refreshAccessToken($user);
         }
 
-        // Build a lookup set of already-imported stravaIds — O(1) duplicate check.
+        // Build a lookup set of already-imported stravaIds - O(1) duplicate check.
         $existing = array_flip($this->activityRepo->findExistingStravaIds($user));
 
         // Pre-load all sports indexed by slug to avoid N+1 queries.
@@ -204,7 +204,7 @@ class StravaService
 
             $activity->setElevationProfile(json_encode($data));
         } catch (\Throwable) {
-            // Strava unavailable or activity has no GPS — store empty so we don't retry every view.
+            // Strava unavailable or activity has no GPS - store empty so we don't retry every view.
             $activity->setElevationProfile('[]');
         }
 
@@ -213,7 +213,7 @@ class StravaService
 
     /**
      * Fetches the heart-rate stream for one activity and stores it as JSON.
-     * Same pattern as fetchAltitudeStream — no-ops if already stored.
+     * Same pattern as fetchAltitudeStream - no-ops if already stored.
      */
     public function fetchHeartrateStream(User $user, Activity $activity): void
     {

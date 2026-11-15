@@ -15,7 +15,7 @@ export default class extends Controller {
         new Chart(this.element, {
             type: 'doughnut',
             data: {
-                labels: data.map(d => d.slug),
+                labels: data.map(d => d.label ?? d.slug),
                 datasets: [{
                     data: data.map(d => d.pct),
                     backgroundColor: data.map(d => d.color),

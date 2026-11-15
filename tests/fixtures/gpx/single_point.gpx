@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Watch" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>Single fix</name></metadata>
+  <trk>
+    <name>Lost signal</name>
+    <trkseg>
+      <trkpt lat="45.9000" lon="6.1300"><ele>500.0</ele><time>2026-05-10T07:30:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

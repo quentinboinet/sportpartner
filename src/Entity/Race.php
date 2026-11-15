@@ -39,6 +39,10 @@ class Race
     #[ORM\Column(type: 'string', length: 30, enumType: RaceIntent::class)]
     private RaceIntent $intent = RaceIntent::WantToDo;
 
+    /** Route ou trail (null pour les courses créées avant l'ajout du champ). */
+    #[ORM\Column(type: 'string', length: 10, nullable: true, enumType: RaceType::class)]
+    private ?RaceType $type = null;
+
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $notes = null;
 
@@ -81,6 +85,9 @@ class Race
 
     public function getIntent(): RaceIntent { return $this->intent; }
     public function setIntent(RaceIntent $i): static { $this->intent = $i; return $this; }
+
+    public function getType(): ?RaceType { return $this->type; }
+    public function setType(?RaceType $t): static { $this->type = $t; return $this; }
 
     public function getNotes(): ?string { return $this->notes; }
     public function setNotes(?string $n): static { $this->notes = $n; return $this; }

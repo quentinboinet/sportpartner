@@ -101,9 +101,10 @@ class Activity
         if (!$this->movingTimeSeconds || !$this->distanceMeters) {
             return null;
         }
-        $paceSeconds = ($this->movingTimeSeconds / $this->distanceMeters) * 1000;
+        // Arrondi à la seconde AVANT découpage (évite "4:59" pour 299,6 s et le modulo sur float)
+        $paceSeconds = (int) round(($this->movingTimeSeconds / $this->distanceMeters) * 1000);
 
-        return sprintf('%d:%02d', (int) floor($paceSeconds / 60), (int) ($paceSeconds % 60));
+        return sprintf('%d:%02d', intdiv($paceSeconds, 60), $paceSeconds % 60);
     }
 
     /** Speed in km/h (useful for cycling) */
@@ -112,7 +113,7 @@ class Activity
         return $this->averageSpeed ? round($this->averageSpeed * 3.6, 1) : null;
     }
 
-    /** Slug du sport — alias de getSport()->getSlug() pour la compatibilité ascendante */
+    /** Slug du sport - alias de getSport()->getSlug() pour la compatibilité ascendante */
     public function getType(): ?string
     {
         return $this->sport?->getSlug();

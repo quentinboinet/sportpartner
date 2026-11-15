@@ -27,7 +27,7 @@ export default class extends Controller {
             data: {
                 labels,
                 datasets: datasets.map(d => ({
-                    label: d.slug,
+                    label: d.label ?? d.slug,
                     data: d.data,
                     backgroundColor: d.color,
                     borderRadius: 5,

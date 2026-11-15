@@ -11,13 +11,14 @@ Application Symfony rendue côté serveur (Twig) avec un peu de JavaScript via S
 | Route | Page | Ce qu'elle fait |
 |---|---|---|
 | `/register`, `/login`, `/logout` | Inscription / connexion | Inscription par e-mail, prénom, nom et mot de passe. Connexion par formulaire Symfony avec CSRF. Le « se souvenir de moi » (7 jours) est configuré dans `security.yaml`, mais le formulaire n'a pas de case `_remember_me` : il ne s'active donc jamais. |
-| `/` | Tableau de bord | 10 dernières activités, graphique du volume hebdomadaire sur 12 semaines, objectifs de la semaine (distance et nombre de séances, 150 km et 7 séances par défaut), bannière de connexion Strava et bouton de synchro. Widget météo : géolocalisation du navigateur, prévisions Open-Meteo et nom de la ville via Nominatim (OpenStreetMap). |
+| `/` | Tableau de bord | 10 dernières activités (allure en /km, vitesse en km/h pour le vélo), graphique du volume hebdomadaire sur 12 semaines, objectifs de la semaine (distance et nombre de séances, 150 km et 7 séances par défaut), bannière de connexion Strava et bouton de synchro. Widget météo : géolocalisation du navigateur, prévisions Open-Meteo et nom de la ville via Nominatim (OpenStreetMap). |
 | `/activities` | Activités | Liste paginée (20 par page), filtres par sport et par période (7 jours, 30 jours ou tout). Totaux : distance, charge estimée et calories estimées (approximations, voir « Limites »). |
 | `/activities/{id}` | Détail d'une activité | Tracé GPS sur une carte Leaflet (tuiles OpenStreetMap), profil de dénivelé, allure par km, courbe de fréquence cardiaque, répartition estimée par zones FC, météo au départ (Open-Meteo : API de prévisions pour une activité du jour ou de la veille, archive historique au-delà ; uniquement si l'activité a un tracé GPS). Les flux Strava (altitude, splits, FC) et la météo sont récupérés à la première ouverture de la page, puis stockés en base. |
 | `/stats` | Statistiques | Périodes : 7 jours, mois, saison (année en cours, par défaut), tout, ou plage personnalisée. Volume par sport, répartition par sport (donut), évolution de l'allure en course à pied sur 12 semaines, zones FC estimées, records personnels (5 km, 10 km et semi-marathon en course à pied, plus longue sortie vélo, plus gros dénivelé en trail ou randonnée). |
-| `/courses` | Courses | Courses de l'utilisateur (nom, lieu, distance, dénivelé, année ou date précise, site web, notes), filtrables par année et par intention (`want_to_do` « Je veux la faire », `registered` « Je suis inscrit », `bookmark` « Mémo »). Deux vues : liste ou calendrier mensuel FullCalendar (`?view=calendar`, les courses sans date sont listées à part). Ajout et modification dans une modale, changement d'intention, marquer comme faite, suppression (`POST /courses`, `/courses/{id}/edit`, `/courses/{id}/intent`, `/courses/{id}/toggle`, `/courses/{id}/delete`). |
+| `/courses` | Courses | Courses de l'utilisateur (nom, type route ou trail, lieu, distance, dénivelé, année ou date précise, site web, notes), filtrables par statut (`want_to_do` « Je veux la faire », `registered` « Je suis inscrit », `bookmark` « Mémo »), par type (`?type=road|trail` ; les courses antérieures au champ n'ont pas de type) et par année. Deux vues : liste ou calendrier mensuel FullCalendar (`?view=calendar`, les courses sans date sont listées à part). Ajout et modification dans une modale, changement d'intention, marquer comme faite, suppression (`POST /courses`, `/courses/{id}/edit`, `/courses/{id}/intent`, `/courses/{id}/toggle`, `/courses/{id}/delete`). |
+| `/courses/{id}/plan` | Plan de course | Import d'un parcours GPX (15 Mo et 200 000 points max, DOCTYPE/entités refusés) : tracé simplifié (~5 000 points max), distance, D+/D-, altitude min/max ; complète distance et D+ de la course s'ils étaient vides. Carte Leaflet et profil Chart.js. Repères (point ou ravito avec temps d'arrêt, barrière horaire au format `H:MM` pouvant dépasser 24 h, notes) placés au km ou par clic sur le profil, et tableau des tronçons entre repères (distance, D+, D-, pente moyenne). Routes `POST /courses/{id}/route` (champ `gpx`), `/courses/{id}/route/delete`, `/courses/{id}/checkpoints`, `/courses/{id}/checkpoints/{checkpointId}/edit` et `/delete` (`RacePlanController`, CSRF `race_plan`). |
 | `/nutrition` | Nutrition | Repas du jour, objectifs caloriques et macros calculés à partir du poids du profil (70 kg par défaut), dépense estimée (métabolisme de base et sport), graphique apports / dépense de la semaine. **Lecture seule : il n'existe aucun formulaire pour saisir un repas.** |
-| `/calendar` | Calendrier | Grille mensuelle des activités. La route fonctionne, mais le lien du menu est commenté dans `templates/base.html.twig`. |
+| `/calendar` | Calendrier | Calendrier FullCalendar (mois, semaine, année) des activités réalisées, avec en option les courses datées (`?races=1`). Les événements sont chargés par période via `GET /calendar/events?start=&end=&races=0\|1` (JSON, 400 jours max) ; les heures Strava (UTC) sont converties dans le fuseau de l'activité. Clic = vue rapide en modale (activité : stats + mini-carte ; course : statut, type, compte à rebours, notes, liens vers le plan de course). Panneau latéral : bilan de la période affichée et 5 prochaines courses. `?date=` et `?races=` sont tenus à jour dans l'URL. |
 | `/settings` | Réglages | Onglet « Profil » fonctionnel : pseudo, âge, poids, FC repos, FC max, VMA, FTP et objectifs hebdomadaires. Les onglets Préférences, Zones FC, Appareils, Apparence et Compte affichent « bientôt disponible ». |
 | `/switch-locale/{fr\|en}` | Langue | Enregistre la langue en session (`LocaleSubscriber`). |
 | `/oauth/strava`, `/oauth/strava/callback`, `/strava/sync` | Strava | Connexion OAuth2 puis synchronisation manuelle (voir plus bas). |
@@ -49,10 +50,11 @@ Toutes les pages sauf `/login` et `/register` exigent d'être connecté. Dans `c
 
 ```
 src/
-  Controller/      Activities, Auth, Calendar, Dashboard, Nutrition, OAuth (Strava), Race, Settings, Stats, LocaleController
-  Entity/          User, AthleteProfile, Activity, Sport, Meal (+ enum MealType), Race (+ enum RaceIntent)
+  Controller/      Activities, Auth, Calendar, Dashboard, Nutrition, OAuth (Strava), Race (+ RacePlanController), Settings, Stats, LocaleController
+  Entity/          User, AthleteProfile, Activity, Sport, Meal (+ enum MealType), Race (+ enum RaceIntent), RaceRoute, RaceCheckpoint (+ enum CheckpointType)
   Repository/      requêtes d'agrégation (stats, volumes, records…)
-  Service/         Strava/StravaService, Weather/WeatherService (Open-Meteo), Units/UnitConverter
+  Service/         Strava/StravaService, Weather/WeatherService (Open-Meteo), Units/UnitConverter,
+                   Route/ (GpxParser, RouteAnalyzer : D+/D- avec seuil d'hystérésis, tronçons entre repères)
   Form/            ProfileType (réglages du profil)
   Twig/            SidebarExtension (stats du jour)
   EventSubscriber/ LocaleSubscriber (langue en session)
@@ -63,7 +65,7 @@ assets/
   lib/fullcalendar/        FullCalendar 6 en fichiers ESM locaux
 templates/                 Twig par domaine
 translations/              messages.fr.yaml, messages.en.yaml
-migrations/                Version20240001 → Version20240019
+migrations/                Version20240001 → Version20240021
 ```
 
 **Tables** (toujours déclarées avec `#[ORM\Table]` ; voir les conventions dans `CLAUDE.md`) :
@@ -76,6 +78,8 @@ migrations/                Version20240001 → Version20240019
 | `Sport` | `sports` (les 8 sports sont insérés par la migration `Version20240003`) |
 | `Meal` | `Meal` |
 | `Race` | `race` |
+| `RaceRoute` | `raceRoute` (parcours GPX d'une course, 1 par course) |
+| `RaceCheckpoint` | `raceCheckpoint` (repères d'une course) |
 
 **Controllers Stimulus**
 
@@ -88,6 +92,8 @@ Ils sont enregistrés à la main dans `assets/controllers/index.js`. `assets/con
 | `volume-chart`, `donut-chart`, `pace-trend` | statistiques |
 | `energy-donut`, `balance-chart` | nutrition |
 | `race-calendar` | courses (vue calendrier, FullCalendar chargé à la demande par `import()`) |
+| `race-route` | plan de course (carte Leaflet, profil Chart.js, repères cliquables) |
+| `training-calendar` | calendrier général (FullCalendar chargé à la demande, vue rapide en modale) |
 
 `weather_activity_controller.js` existe mais n'est ni enregistré ni utilisé. `weather_constants.js` est un module partagé, pas un controller.
 
@@ -101,7 +107,7 @@ Services définis dans `docker-compose.yml` :
 
 | Service | Image | Port hôte |
 |---|---|---|
-| `php` | `docker/php/Dockerfile` (PHP 8.3-FPM Alpine) | — |
+| `php` | `docker/php/Dockerfile` (PHP 8.3-FPM Alpine) | - |
 | `nginx` | `nginx:alpine` | **8080** → http://localhost:8080 |
 | `mysql` | `mysql:8.0` (base `sport_health`, utilisateur `app` / `password`) | 3306 |
 | `mailhog` | `mailhog/mailhog` | 1025 (SMTP), 8025 (interface web) |
@@ -133,6 +139,8 @@ php bin/console doctrine:migrations:migrate
 php -S localhost:8000 -t public                   # APP_URL=http://localhost:8000
 ```
 
+L'import GPX du plan de course accepte 15 Mo, mais le PHP de WAMP limite souvent les envois à `upload_max_filesize = 2M` (Docker : 20M dans `docker/php/php.ini`) : au-delà, la page affiche « fichier trop volumineux ».
+
 Un fichier `.env` est obligatoire : Symfony Dotenv refuse de démarrer sans lui. `.env` et `.env.local` sont ignorés par git ; `.env.local` surcharge `.env`.
 
 ---
@@ -149,7 +157,7 @@ Les modèles versionnés sont `.env.example` (dev) et `.env.prod.example` (prod)
 | `APP_URL` | URL publique, sans `/` final. Sert uniquement à construire l'URL de callback Strava | `http://localhost:8080` | oui |
 | `DATABASE_URL` | Connexion MySQL (Doctrine) | `mysql://app:password@mysql:3306/sport_health?serverVersion=8.0&charset=utf8mb4` | oui |
 | `STRAVA_CLIENT_ID` | ID de l'application Strava | `123456` | oui |
-| `STRAVA_CLIENT_SECRET` | Secret de l'application Strava | — | oui |
+| `STRAVA_CLIENT_SECRET` | Secret de l'application Strava | - | oui |
 
 Présentes dans les modèles mais **lues par aucun code aujourd'hui** : `MAILER_DSN`, `MAILER_FROM_ADDRESS`, `MAILER_FROM_NAME` (pas de configuration mailer, aucun envoi d'e-mail) et `STRAVA_WEBHOOK_VERIFY_TOKEN` (pas de webhook).
 
@@ -188,7 +196,7 @@ Elle doit donc correspondre exactement à l'URL par laquelle on accède au site,
 
 Avec Docker, préfixer par `docker compose exec php` (par exemple `docker compose exec php vendor/bin/phpunit`).
 
-Les tests se limitent aujourd'hui à `tests/Unit/Service/UnitConverterTest.php`. `tests/Functional/` est vide (il contient seulement `.gitkeep`, pour que la suite déclarée dans `phpunit.xml.dist` existe en CI).
+Les tests sont unitaires : `tests/Unit/Service/UnitConverterTest.php`, `tests/Unit/Entity/` et `tests/Unit/Service/Route/` (GPX, fixtures dans `tests/fixtures/gpx/`). `tests/Functional/` est vide (il contient seulement `.gitkeep`, pour que la suite déclarée dans `phpunit.xml.dist` existe en CI).
 
 ---
 
@@ -256,9 +264,10 @@ php bin/console cache:warmup --env=prod
   - calories : 50 kcal/km sur la liste des activités, 8 kcal/min sur la page nutrition ;
   - zones FC déduites du rapport FC moyenne / FC max ;
   - métabolisme de base : poids × 22.
-- **Réglages** : seul l'onglet Profil fonctionne. Le calendrier n'est pas accessible depuis le menu.
-- **Front** : `weather_activity_controller.js` est du code mort. Le calendrier d'activités (`/calendar`) est une grille Twig et n'utilise pas FullCalendar, réservé pour l'instant au calendrier des courses.
-- **Tests** : couverture minimale (un seul fichier de tests unitaires, aucun test fonctionnel).
+- **Réglages** : seul l'onglet Profil fonctionne.
+- **Front** : `weather_activity_controller.js` est du code mort.
+- **Plan de course** : seule la phase 1 (parcours GPX et repères) existe. Pas encore de scénarios de temps de passage, de modèle d'allure automatique, de vue imprimable ni de comparaison après course (phases 2 à 4).
+- **Tests** : couverture minimale (tests unitaires seulement, aucun test fonctionnel).
 - **Divers** :
   - le `name` et la `description` de `composer.json` décrivent encore l'ancien boilerplate (« Symfony 7 + Vue.js 3 ») ;
   - le Dockerfile installe Node.js, npm et l'extension Redis, mais aucun service Redis n'existe et le projet n'utilise pas npm ;

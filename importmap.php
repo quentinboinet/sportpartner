@@ -42,7 +42,7 @@ return [
         'version' => '1.9.4',
         'type' => 'css',
     ],
-    // FullCalendar 6.1.22 — fichiers ESM bruts du paquet npm, servis en local.
+    // FullCalendar 6.1.22 - fichiers ESM bruts du paquet npm, servis en local.
     // Ne PAS passer par `importmap:require @fullcalendar/*` : le bundling +esm de jsDelivr
     // duplique les internes (core/index.js et core/internal.js) et casse les plugins.
     // Pour mettre à jour : retélécharger les mêmes fichiers depuis cdn.jsdelivr.net/npm/@fullcalendar/<pkg>@<version>/

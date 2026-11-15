@@ -10,12 +10,13 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[IsGranted('ROLE_USER')]
 class StatsController extends AbstractController
 {
     #[Route('/stats', name: 'app_stats')]
-    public function index(Request $request, ActivityRepository $activityRepo, #[CurrentUser] User $user): Response
+    public function index(Request $request, ActivityRepository $activityRepo, TranslatorInterface $translator, #[CurrentUser] User $user): Response
     {
         $now  = new \DateTimeImmutable();
         $to   = $now;
@@ -64,6 +65,15 @@ class StatsController extends AbstractController
 
         $chartVolume = $this->shapeVolumeChart($rawVolume, $granularity, $from, $to);
 
+        // Libellés traduits pour les graphiques (Chart.js affiche "label", pas le slug)
+        $sportLabel = static fn (mixed $slug): string => $translator->trans('sport.'.$slug);
+        foreach ($chartVolume['datasets'] as $i => $dataset) {
+            $chartVolume['datasets'][$i]['label'] = $sportLabel($dataset['slug']);
+        }
+        foreach ($sportDist as $i => $row) {
+            $sportDist[$i]['label'] = $sportLabel($row['slug']);
+        }
+
         $chartPace = array_map(static fn($r) => [
             'week'    => 'S' . $r['wk'],
             'paceSec' => (int)$r['avg_pace_sec'],
@@ -102,7 +112,7 @@ class StatsController extends AbstractController
      *
      * @param array<int, array<string, mixed>> $raw
      *
-     * @return array{labels: list<string>, granularity: string, datasets: list<array{slug: mixed, color: mixed, data: list<float>}>}
+     * @return array{labels: list<string>, granularity: string, datasets: list<array{slug: mixed, color: mixed, data: list<float>, label?: string}>}
      */
     private function shapeVolumeChart(array $raw, string $granularity, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {

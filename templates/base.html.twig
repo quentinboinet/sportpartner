@@ -35,19 +35,19 @@
                 <i class="bi bi-lightning-fill"></i>
                 {{ 'nav.activities'|trans }}
             </a>
+            <a href="{{ path('app_calendar') }}" class="{{ _route starts with 'app_calendar' ? 'active' }}">
+                <i class="bi bi-calendar3"></i>
+                {{ 'nav.calendar'|trans }}
+            </a>
             <a href="{{ path('app_stats') }}" class="{{ _route starts with 'app_stats' ? 'active' }}">
                 <i class="bi bi-graph-up"></i>
                 {{ 'nav.stats'|trans }}
             </a>
-            <a href="{{ path('app_races') }}" class="{{ _route starts with 'app_races' ? 'active' }}">
+            <a href="{{ path('app_races') }}" class="{{ _route starts with 'app_race' ? 'active' }}">
                 <i class="bi bi-flag-fill"></i>
                 {{ 'nav.races'|trans }}
             </a>
-            {# <a href="{{ path('app_calendar') }}" class="{{ _route starts with 'app_calendar' ? 'active' }}">
-                <i class="bi bi-calendar3"></i>
-                {{ 'nav.calendar'|trans }}
-            </a>
-            <a href="{{ path('app_nutrition') }}" class="{{ _route starts with 'app_nutrition' ? 'active' }}">
+            {# <a href="{{ path('app_nutrition') }}" class="{{ _route starts with 'app_nutrition' ? 'active' }}">
                 <i class="bi bi-egg-fried"></i>
                 {{ 'nav.nutrition'|trans }}
             </a> #}
@@ -140,7 +140,7 @@
 
 {% else %}
 
-{# ─── Pages publiques (login, register…) — sans sidebar ─ #}
+{# ─── Pages publiques (login, register…) - sans sidebar ─ #}
 {% for type, messages in app.flashes %}
     {% for message in messages %}
         <div class="alert alert-{{ type == 'error' ? 'danger' : type }} alert-dismissible fade show"
@@ -184,10 +184,13 @@
             <a href="{{ path('app_activities') }}" class="{{ _route starts with 'app_activities' ? 'active' }}">
                 <i class="bi bi-lightning-fill"></i>{{ 'nav.activities'|trans }}
             </a>
+            <a href="{{ path('app_calendar') }}" class="{{ _route starts with 'app_calendar' ? 'active' }}">
+                <i class="bi bi-calendar3"></i>{{ 'nav.calendar'|trans }}
+            </a>
             <a href="{{ path('app_stats') }}" class="{{ _route starts with 'app_stats' ? 'active' }}">
                 <i class="bi bi-graph-up"></i>{{ 'nav.stats'|trans }}
             </a>
-            <a href="{{ path('app_races') }}" class="{{ _route starts with 'app_races' ? 'active' }}">
+            <a href="{{ path('app_races') }}" class="{{ _route starts with 'app_race' ? 'active' }}">
                 <i class="bi bi-flag-fill"></i>{{ 'nav.races'|trans }}
             </a>
             <a href="{{ path('app_settings') }}" class="{{ _route starts with 'app_settings' ? 'active' }}">

@@ -30,6 +30,7 @@ class DashboardController extends AbstractController
                 'movingTime'    => $a->getMovingTimeSeconds(),
                 'elevationGain' => $a->getTotalElevationGain(),
                 'pace'          => $a->getPaceMinPerKm(),
+                'speedKmh'      => $a->getSpeedKmh(),
                 'startDate'     => $a->getStartDate(),
             ], $recentActivities),
             'weeklyVolume'    => $weeklyVolume,

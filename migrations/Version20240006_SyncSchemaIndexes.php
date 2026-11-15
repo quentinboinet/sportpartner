@@ -17,7 +17,7 @@ final class Version20240006_SyncSchemaIndexes extends AbstractMigration
     public function up(Schema $schema): void
     {
         // Drop the manually-named unique index on activities.stravaId
-        // (no longer declared as unique on the entity — manual index from migration 2)
+        // (no longer declared as unique on the entity - manual index from migration 2)
         $this->addSql('DROP INDEX UNIQ_STRAVA_ID ON activities');
 
         // Fix datetime_immutable COMMENT annotations (preserved by Doctrine for type mapping)
