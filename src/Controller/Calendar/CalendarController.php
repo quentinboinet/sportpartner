@@ -146,7 +146,7 @@ class CalendarController extends AbstractController
                     default                   => $translator->trans('calendar.in_days', ['%count%' => $days]),
                 },
                 'planUrl'       => $this->generateUrl('app_race_plan', ['id' => $race->getId()]),
-                'listUrl'       => $this->generateUrl('app_races', ['view' => 'calendar', 'year' => $race->getYear()]),
+                'listUrl'       => $this->generateUrl('app_races_show', ['id' => $race->getId()]),
             ],
         ];
     }

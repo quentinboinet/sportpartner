@@ -14,8 +14,13 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, Filler, T
  *  - locale      : 'fr' | 'en' (formatage des nombres)
  *
  * Événements émis (bubbles) :
- *  - race-route:pick   { distanceKm } - clic sur le profil ou près du tracé (ajout d'un repère)
- *  - race-route:select { id }         - clic sur un repère (édition)
+ *  - race-route:pick        { distanceKm } - clic sur le profil ou près du tracé (ajout d'un repère)
+ *  - race-route:select      { id }         - clic sur un repère (édition)
+ *  - race-route:picked      { distanceKm } - mode visée : point choisi sur le tracé / le profil
+ *  - race-route:pick-cancel                - mode visée annulé (Échap, bouton Annuler)
+ *
+ * Mode visée : déclenché par l'événement DOM `race-route:start-picking` (bouton « Pointer sur le
+ * tracé » de la modale). La carte est mise en avant, un bandeau (target pickBanner) guide l'utilisateur.
  */
 
 const ORANGE = '#E8400C';
@@ -57,7 +62,7 @@ function interpolate(points, d) {
 }
 
 export default class extends Controller {
-    static targets = ['map', 'chart', 'chartWrap', 'noElevation'];
+    static targets = ['map', 'chart', 'chartWrap', 'noElevation', 'pickBanner'];
     static values = {
         route: Object,
         checkpoints: Array,
@@ -93,15 +98,23 @@ export default class extends Controller {
             if (this.hasChartWrapTarget) this.chartWrapTarget.hidden = true;
             if (this.hasNoElevationTarget) this.noElevationTarget.hidden = false;
         }
+
+        this.onStartPicking = () => this.startPicking();
+        this.onPickKey = (e) => { if (e.key === 'Escape' && this.picking) { e.preventDefault(); this.cancelPicking(); } };
+        document.addEventListener('race-route:start-picking', this.onStartPicking);
+        document.addEventListener('keydown', this.onPickKey);
     }
 
     disconnect() {
+        document.removeEventListener('race-route:start-picking', this.onStartPicking);
+        document.removeEventListener('keydown', this.onPickKey);
         if (this.onCanvasClick && this.hasChartTarget) {
             this.chartTarget.removeEventListener('click', this.onCanvasClick);
             this.chartTarget.removeEventListener('mousemove', this.onCanvasMove);
             this.chartTarget.removeEventListener('mouseleave', this.onCanvasLeave);
         }
         if (this.chart) { this.chart.destroy(); this.chart = null; }
+        if (this.onMapLeave && this.hasMapTarget) this.mapTarget.removeEventListener('mouseleave', this.onMapLeave);
         if (this.map) { this.map.remove(); this.map = null; }
         this.posMarker = null;
     }
@@ -111,11 +124,41 @@ export default class extends Controller {
     pick(distanceM) {
         // Arrondi au dixième ; près de l'arrivée le serveur tolère 50 m de dépassement et borne
         const km = Math.round(clamp(distanceM, 0, this.totalM) / 100) / 10;
+        if (this.picking) {
+            this.stopPicking();
+            this.dispatch('picked', { detail: { distanceKm: km } });
+            return;
+        }
         this.dispatch('pick', { detail: { distanceKm: km } });
     }
 
     select(id) {
         this.dispatch('select', { detail: { id } });
+    }
+
+    // ── Mode visée (depuis la modale « Ajouter un repère ») ──────────────────
+
+    startPicking() {
+        if (!this.map || this.picking) return;
+        this.picking = true;
+        this.element.classList.add('rp-viz--picking');
+        this.mapTarget.classList.add('rp-map--picking');
+        if (this.hasPickBannerTarget) this.pickBannerTarget.hidden = false;
+        this.mapTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    stopPicking() {
+        this.picking = false;
+        this.element.classList.remove('rp-viz--picking');
+        this.mapTarget.classList.remove('rp-map--picking');
+        if (this.hasPickBannerTarget) this.pickBannerTarget.hidden = true;
+        this.clearHover('map');
+    }
+
+    cancelPicking() {
+        if (!this.picking) return;
+        this.stopPicking();
+        this.dispatch('pick-cancel');
     }
 
     // ── Carte ────────────────────────────────────────────────────────────────
@@ -149,7 +192,8 @@ export default class extends Controller {
             });
             L.marker([pos.lat, pos.lon], { icon, riseOnHover: true })
                 .bindTooltip(`${cp.number}. ${esc(cp.name)} · ${this.nf1.format(cp.distanceM / 1000)} km`, { direction: 'top', offset: [0, -10] })
-                .on('click', () => this.select(cp.id))
+                // En mode visée, cliquer un repère existant reprend son km au lieu de l'éditer
+                .on('click', () => (this.picking ? this.pick(cp.distanceM) : this.select(cp.id)))
                 .addTo(map);
         });
 
@@ -159,10 +203,13 @@ export default class extends Controller {
             this.mapTarget.classList.toggle('rp-map--near', i !== null);
             if (i === null) this.clearHover('map'); else this.showHover(i, 'map');
         });
-        map.on('mouseout', () => {
+        // mouseleave DOM plutôt que 'mouseout' Leaflet : ce dernier n'est pas émis par la carte quand
+        // on la quitte depuis une épingle (le marqueur intercepte l'événement) et la bulle restait affichée
+        this.onMapLeave = () => {
             this.mapTarget.classList.remove('rp-map--near');
             this.clearHover('map');
-        });
+        };
+        this.mapTarget.addEventListener('mouseleave', this.onMapLeave);
         map.on('click', (e) => {
             const i = this.nearestIndex(e.latlng, e.containerPoint);
             if (i !== null) this.pick(this.points[i][0]);
@@ -192,12 +239,16 @@ export default class extends Controller {
     showHover(i, source) {
         const p = this.points[i];
         if (this.map) {
+            // Bulle "km · altitude" : indique exactement le point qui sera choisi (utile sur une boucle / un aller-retour)
+            const label = `${this.nf1.format(p[0] / 1000)} km` + (p[1] != null ? ` · ${this.nf0.format(p[1])} m` : '');
             if (this.posMarker) {
                 this.posMarker.setLatLng([p[2], p[3]]);
+                this.posMarker.setTooltipContent(label);
             } else {
                 this.posMarker = L.circleMarker([p[2], p[3]], {
                     radius: 7, color: '#fff', fillColor: ORANGE, fillOpacity: 1, weight: 2.5, interactive: false,
-                }).addTo(this.map);
+                }).bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -8], className: 'rp-hover-tip' })
+                    .addTo(this.map);
             }
         }
         if (source !== 'chart' && this.chart) {
@@ -320,7 +371,7 @@ export default class extends Controller {
         // sont dessinées au-dessus (marge haute) : clic et curseur sont donc gérés sur le canvas.
         this.onCanvasClick = (e) => {
             const mark = this.markAt(e.offsetX, e.offsetY);
-            if (mark) this.select(mark.id);
+            if (mark) { if (this.picking) this.pick(mark.distanceM); else this.select(mark.id); }
         };
         this.onCanvasMove = (e) => {
             this.chartTarget.style.cursor = this.markAt(e.offsetX, e.offsetY) ? 'pointer' : 'crosshair';

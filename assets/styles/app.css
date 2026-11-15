@@ -211,6 +211,21 @@ body {
 
 .sp-header-btns { display: flex; align-items: center; gap: 8px; padding-top: 6px; }
 
+/* Compte à rebours vers la prochaine course (tableau de bord) */
+.sp-next-race {
+  display: inline-flex; align-items: center; gap: 10px; padding: 5px 14px 5px 5px;
+  border-radius: 12px; background: var(--sp-dark); color: #fff; text-decoration: none;
+  max-width: 320px; transition: transform .15s, box-shadow .15s;
+}
+.sp-next-race:hover { color: #fff; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(22,23,42,.25); }
+.sp-next-race-days {
+  background: var(--sp-orange); border-radius: 9px; padding: 6px 10px;
+  font-size: 16px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; line-height: 1.1;
+}
+.sp-next-race-body { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sp-next-race-name { font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-next-race-date { font-size: 11px; color: rgba(255,255,255,.65); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .sp-btn {
   display: inline-flex; align-items: center; gap: 6px;
   border-radius: 22px; font-size: 13px; font-weight: 600;
@@ -975,7 +990,8 @@ canvas { max-width: 100%; }
 
   /* En-tête de page : empiler titre et boutons */
   .sp-page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .sp-header-btns { padding-top: 0; }
+  .sp-header-btns { padding-top: 0; flex-wrap: wrap; } /* + badge J-xxx */
+  .sp-next-race { max-width: 100%; }
 
   /* Cards */
   .sp-card { padding: 16px; }

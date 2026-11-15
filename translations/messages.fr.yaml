@@ -22,6 +22,8 @@ topbar:
 
 # ── Page dashboard ───────────────────────────
 dashboard:
+    next_race_title: "Prochaine course où tu es inscrit"
+    next_race_today: Jour J
     page_title: "Tableau de bord - SportPartner"
     title: Tableau de bord
     sub: "Vue d'ensemble de ta semaine"
@@ -126,7 +128,7 @@ calendar:
     qv_details: Voir le détail
     qv_close: Fermer
     qv_plan: Plan de course
-    qv_races: Mes courses
+    qv_races: Voir la course
     qv_location: Lieu
     qv_website: Site officiel
     qv_done: Faite
@@ -351,7 +353,34 @@ races:
     flash_added: "Course ajoutée avec succès."
     flash_deleted: "Course supprimée."
     flash_name_required: "Le nom de la course est requis."
+    flash_csrf: "Session expirée, merci de réessayer."
     plan_link: Plan de course
+
+# ── Page d'une course ────────────────────────────────────────────────────────
+race_show:
+    route_map_label: "Carte du parcours"
+    route_profile_label: "Profil d'altitude du parcours"
+    back: Mes courses
+    done: Faite
+    plan_title: Plan de course
+    plan_sub_empty: "Importe le parcours (GPX) pour placer tes repères et préparer ta course."
+    plan_sub_ready: "Parcours importé. Retrouve la carte, le profil et tes repères."
+    plan_create: Créer le plan de course
+    plan_open: Ouvrir le plan de course
+    step_gpx: "Importer le GPX du parcours (fichier ou lien)"
+    step_checkpoints: "Placer les repères : ravitos, cols, barrières horaires"
+    step_times: "Définir tes temps de passage (bientôt)"
+    checkpoints: repères
+    aid_stations: ravitos
+    info_title: Infos
+    date: Date
+    location: Lieu
+    distance: Distance
+    elevation: Dénivelé +
+    website: Site officiel
+    info_empty: "Ajoute le lieu, la distance ou le site officiel via « Modifier »."
+    notes_title: Notes
+    notes_empty: "Aucune note. Utilise « Modifier » pour en ajouter (infos d'inscription, logistique…)."
 
 # ── Plan de course (parcours GPX + repères) ───────────────────────────────────
 race_plan:
@@ -381,6 +410,8 @@ race_plan:
     # Résumé
     stat_distance: Distance
     stat_gain: D+
+    gain_gpx: "GPX : +%gain% m"
+    gain_gpx_title: "D+ calculé depuis le tracé GPX. Il peut différer du D+ officiel (tunnels, ponts ou relief mal restitués par le fichier)."
     stat_loss: D-
     stat_min: Alt. min
     stat_max: Alt. max
@@ -447,6 +478,20 @@ race_plan:
     flash_gpx_invalid: "Fichier GPX invalide ou illisible."
     flash_gpx_too_large: "Fichier trop volumineux (15 Mo maximum)."
     flash_gpx_missing: "Choisis un fichier GPX à importer."
+    flash_url_invalid: "Lien invalide : colle une adresse complète qui commence par http:// ou https://."
+    flash_url_blocked: "Ce lien pointe vers une adresse interne ou privée : il ne peut pas être importé."
+    flash_url_unreachable: "Impossible de télécharger le fichier (site injoignable ou trop lent). Réessaie plus tard."
+    flash_url_http_error: "Le site a refusé le téléchargement (page introuvable ou accès protégé)."
+    flash_url_not_gpx: "Ce lien mène à une page web, pas à un fichier GPX. Copie le lien du bouton de téléchargement du GPX."
+    url_or: ou depuis un lien
+    url_label: Lien vers le fichier GPX
+    btn_import_url: Importer le lien
+    url_hint: "Lien direct vers le .gpx (site de l'organisation, Dropbox, Google Drive partagé…). Le lien est conservé pour pouvoir réimporter la trace si elle change."
+    btn_refresh_url: Réimporter
+    btn_refresh_url_title: "Télécharger à nouveau le GPX depuis le lien d'origine"
+    pick_on_track: Pointer sur le tracé
+    pick_banner: "Clique sur le tracé ou le profil pour placer le repère"
+    pick_cancel: Annuler
     flash_route_deleted: "Parcours supprimé."
     flash_checkpoint_saved: "Repère enregistré."
     flash_checkpoint_deleted: "Repère supprimé."
@@ -487,3 +532,67 @@ nutrition:
         pre_workout: "Collation pré-séance"
         dinner: Dîner
         evening_snack: Collation soirée
+
+# ── Impression du plan de course (fiche et bracelet) ─────────────────────────
+race_print:
+    page_title: "%race% - %scenario% - Fiche de course"
+    page_title_empty: "%race% - Fiche de course"
+    toolbar: Options d'impression
+    back: Retour au plan
+    scenario: Scénario
+    format: Format
+    format_sheet: Fiche
+    format_band: Bracelet
+    print: Imprimer
+    eyebrow: Plan de course
+    start_at: "Départ %time%"
+    # Résumé
+    distance: Distance
+    gain: D+
+    start_time: Heure de départ
+    target: Objectif
+    avg_pace: Allure moyenne
+    avg_pace_title: "Allure de déplacement : temps objectif moins les arrêts, divisé par la distance"
+    total_stops: Arrêts prévus
+    no_times: "Aucun temps saisi pour ce scénario : remplis les cases à la main."
+    incomplete: "Plan incomplet : les cases vides sont à remplir à la main."
+    # Tableau
+    col_name: Repère
+    col_km: Km
+    col_gain: D+ cumulé
+    col_segment: Tronçon
+    col_time: Passage
+    col_clock: Heure
+    col_stop: Arrêt
+    col_pace: Allure
+    col_cutoff: Barrière / marge
+    start: Départ
+    finish: Arrivée
+    aid_tag: Ravito
+    departure: "repart %time%"
+    minutes: "%n% min"
+    hours_minutes: "%h% h %m%"
+    day_offset: "J+%n%"
+    # Barrières horaires
+    cutoff_ok: OK
+    cutoff_tight: Juste
+    cutoff_missed: Hors délai
+    legend_title: Barrières
+    legend_ok: "marge de 15 min ou plus"
+    legend_tight: "marge de moins de 15 min"
+    legend_missed: "barrière dépassée"
+    # Incohérences
+    error_not_increasing: "Temps inférieur ou égal au repère précédent"
+    error_after_finish: "Temps après l'arrivée visée"
+    error_stops_exceed_target: "Les arrêts prévus dépassent le temps objectif : vérifie l'objectif et les temps d'arrêt dans le plan."
+    # Bracelet
+    band_hint: "Découpe chaque bande le long des pointillés, enroule-la autour du poignet et fixe-la avec du ruban adhésif transparent."
+    band_target: Obj.
+    band_start: Dép.
+    band_cutoff: "Barr. %time%"
+    # Pied de page / état vide
+    generated_by: Généré par
+    printed_on: "Imprimé le %date%"
+    empty_title: Aucun scénario à imprimer
+    empty_text: "Crée d'abord un scénario (un objectif de temps) dans le plan de course : ses temps de passage pourront ensuite être imprimés en fiche ou en bracelet."
+    empty_cta: Aller au plan de course

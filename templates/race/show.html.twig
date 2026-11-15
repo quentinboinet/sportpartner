@@ -1,0 +1,248 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ race.name }} - SportPartner{% endblock %}
+
+{% set _dec = app.request.locale == 'fr' ? ',' : '.' %}
+{% set _th  = app.request.locale == 'fr' ? ' ' : ',' %}
+
+{% block body %}
+
+{# ── En-tête ─────────────────────────────────────── #}
+<a href="{{ path('app_races') }}" class="rs-back"><i class="bi bi-arrow-left"></i> {{ 'race_show.back'|trans }}</a>
+
+<div class="rs-header {{ race.isDone ? 'rs-header--done' : '' }}">
+    <div class="rs-header-main">
+        <span class="rs-intent-icon" style="background:{{ race.intent.color }}"><i class="bi {{ race.intent.icon }}"></i></span>
+        <div class="rs-heading">
+            <h1 class="rs-title">{{ race.name }}</h1>
+            <div class="rs-badges">
+                {# Statut : menu pour le changer #}
+                <div class="dropdown">
+                    <button type="button" class="rs-badge rs-badge--intent" data-bs-toggle="dropdown" aria-expanded="false"
+                            title="{{ 'races.change_intent'|trans }}">
+                        <i class="bi {{ race.intent.icon }}" style="color:{{ race.intent.color }}"></i>
+                        {{ race.intent.labelKey|trans }} <i class="bi bi-chevron-down rs-chevron"></i>
+                    </button>
+                    <form method="post" action="{{ path('app_races_intent', {id: race.id}) }}" class="dropdown-menu rs-menu">
+                        <input type="hidden" name="_token" value="{{ csrf_token('race_action') }}">
+                        {% for intent in intents %}
+                            <button type="submit" name="intent" value="{{ intent.value }}"
+                                    class="dropdown-item {{ race.intent == intent ? 'active' : '' }}">
+                                <i class="bi {{ intent.icon }}" style="color:{{ intent.color }}"></i> {{ intent.labelKey|trans }}
+                            </button>
+                        {% endfor %}
+                    </form>
+                </div>
+                {% if race.type %}
+                    <span class="rs-badge rs-badge--{{ race.type.value }}"><i class="bi {{ race.type.icon }}"></i> {{ race.type.labelKey|trans }}</span>
+                {% endif %}
+                {% if race.isDone %}
+                    <span class="rs-badge rs-badge--done"><i class="bi bi-check-circle-fill"></i> {{ 'race_show.done'|trans }}</span>
+                {% elseif daysLeft is not null and daysLeft >= 0 %}
+                    <span class="rs-badge rs-badge--countdown"><i class="bi bi-hourglass-split"></i>
+                        {{ daysLeft == 0 ? 'calendar.today'|trans : 'calendar.in_days'|trans({'%count%': daysLeft}) }}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="rs-actions">
+        <form method="post" action="{{ path('app_races_toggle', {id: race.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('race_action') }}">
+            <button type="submit" class="sp-btn rs-btn-ghost">
+                <i class="bi {{ race.isDone ? 'bi-arrow-counterclockwise' : 'bi-check2-circle' }}"></i>
+                {{ race.isDone ? 'races.unmark_done'|trans : 'races.mark_done'|trans }}
+            </button>
+        </form>
+        <button type="button" class="sp-btn rs-btn-ghost" data-bs-toggle="modal" data-bs-target="#raceModal"
+                data-race="{{ raceData|json_encode }}">
+            <i class="bi bi-pencil"></i> {{ 'races.edit'|trans }}
+        </button>
+        <form method="post" action="{{ path('app_races_delete', {id: race.id}) }}"
+              onsubmit="return confirm('{{ 'races.confirm_delete'|trans|e('js') }}')">
+            <input type="hidden" name="_token" value="{{ csrf_token('race_action') }}">
+            <button type="submit" class="sp-btn rs-btn-ghost rs-btn-danger" title="{{ 'races.delete'|trans }}"
+                    aria-label="{{ 'races.delete'|trans }}">
+                <i class="bi bi-trash3"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="rs-grid">
+
+    {# ── Plan de course (bloc principal) ──────────── #}
+    <section class="sp-card rs-plan {{ route ? '' : 'rs-plan--empty' }}">
+        <div class="rs-plan-head">
+            <span class="rs-plan-icon"><i class="bi bi-signpost-split"></i></span>
+            <div>
+                <h2 class="rs-plan-title">{{ 'race_show.plan_title'|trans }}</h2>
+                <p class="rs-plan-sub">{{ (route ? 'race_show.plan_sub_ready' : 'race_show.plan_sub_empty')|trans }}</p>
+            </div>
+        </div>
+
+        {% if route %}
+            <div class="rs-plan-stats">
+                <div><span class="rs-val">{{ (route.distanceM / 1000)|number_format(1, _dec, _th) }} km</span><span class="rs-lbl">{{ 'race_plan.stat_distance'|trans }}</span></div>
+                {# D+ officiel en priorité, D+ calculé depuis le GPX en complément s'il diffère #}
+                <div>
+                    <span class="rs-val">+{{ (race.elevationGain ?? route.gainM)|number_format(0, _dec, _th) }} m</span>
+                    <span class="rs-lbl">{{ 'race_plan.stat_gain'|trans }}</span>
+                    {% if race.elevationGain is not null and (race.elevationGain - route.gainM)|abs > 10 %}
+                        <span class="rs-note" title="{{ 'race_plan.gain_gpx_title'|trans }}">{{ 'race_plan.gain_gpx'|trans({'%gain%': route.gainM|number_format(0, _dec, _th)}) }}</span>
+                    {% endif %}
+                </div>
+                <div><span class="rs-val">{{ checkpointCount }}</span><span class="rs-lbl">{{ 'race_show.checkpoints'|trans }}</span></div>
+                <div><span class="rs-val">{{ aidCount }}</span><span class="rs-lbl">{{ 'race_show.aid_stations'|trans }}</span></div>
+            </div>
+            {# Aperçu du parcours GPX (lecture seule ; l'édition se fait sur le plan de course) #}
+            {% if routePreview %}
+                <div class="rs-route"
+                     data-controller="route-preview"
+                     data-route-preview-points-value="{{ routePreview.points|json_encode }}"
+                     data-route-preview-checkpoints-value="{{ routePreview.checkpoints|json_encode }}"
+                     data-route-preview-labels-value="{{ {start: 'race_plan.start'|trans, finish: 'race_plan.finish'|trans}|json_encode }}"
+                     data-route-preview-locale-value="{{ app.request.locale }}">
+                    <div class="rs-route-map" data-route-preview-target="map"
+                         role="img" aria-label="{{ 'race_show.route_map_label'|trans }}"></div>
+                    <div class="rs-route-profile" data-route-preview-target="chartWrap">
+                        <canvas data-route-preview-target="chart" aria-label="{{ 'race_show.route_profile_label'|trans }}"></canvas>
+                    </div>
+                </div>
+            {% endif %}
+            <a href="{{ path('app_race_plan', {id: race.id}) }}" class="sp-btn sp-btn-primary rs-plan-cta">
+                {{ 'race_show.plan_open'|trans }} <i class="bi bi-arrow-right"></i>
+            </a>
+        {% else %}
+            <ul class="rs-plan-steps">
+                <li><span>1</span> {{ 'race_show.step_gpx'|trans }}</li>
+                <li><span>2</span> {{ 'race_show.step_checkpoints'|trans }}</li>
+                <li class="rs-plan-step-next"><span>3</span> {{ 'race_show.step_times'|trans }}</li>
+            </ul>
+            <a href="{{ path('app_race_plan', {id: race.id}) }}" class="sp-btn sp-btn-primary rs-plan-cta">
+                <i class="bi bi-plus-lg"></i> {{ 'race_show.plan_create'|trans }}
+            </a>
+        {% endif %}
+    </section>
+
+    <div class="rs-side">
+    {# ── Infos ───────────────────────────────────── #}
+    <section class="sp-card rs-info">
+        <h2 class="rs-section-title">{{ 'race_show.info_title'|trans }}</h2>
+        <dl class="rs-info-list">
+            <div>
+                <dt><i class="bi bi-calendar-event"></i> {{ 'race_show.date'|trans }}</dt>
+                <dd>{{ race.raceDate ? race.raceDate|date('d/m/Y') : race.year }}</dd>
+            </div>
+            {% if race.location %}
+                <div><dt><i class="bi bi-geo-alt"></i> {{ 'race_show.location'|trans }}</dt><dd>{{ race.location }}</dd></div>
+            {% endif %}
+            {% if race.distanceKm %}
+                <div><dt><i class="bi bi-rulers"></i> {{ 'race_show.distance'|trans }}</dt><dd>{{ race.distanceKm|number_format(1, _dec, _th) }} km</dd></div>
+            {% endif %}
+            {% if race.elevationGain %}
+                <div><dt><i class="bi bi-graph-up-arrow"></i> {{ 'race_show.elevation'|trans }}</dt><dd>{{ race.elevationGain|number_format(0, _dec, _th) }} m</dd></div>
+            {% endif %}
+            {% if race.website %}
+                <div>
+                    <dt><i class="bi bi-box-arrow-up-right"></i> {{ 'race_show.website'|trans }}</dt>
+                    {% set _site = race.website|replace({'https://': '', 'http://': ''}) %}
+                    <dd><a href="{{ race.website }}" target="_blank" rel="noopener noreferrer" class="rs-link">{{ _site|length > 40 ? _site|slice(0, 40) ~ '…' : _site }}</a></dd>
+                </div>
+            {% endif %}
+        </dl>
+        {% if not race.location and not race.distanceKm and not race.website %}
+            <p class="rs-empty-hint">{{ 'race_show.info_empty'|trans }}</p>
+        {% endif %}
+    </section>
+
+    {# ── Notes ───────────────────────────────────── #}
+    <section class="sp-card rs-notes">
+        <h2 class="rs-section-title">{{ 'race_show.notes_title'|trans }}</h2>
+        {% if race.notes %}
+            <p class="rs-notes-text">{{ race.notes }}</p>
+        {% else %}
+            <p class="rs-empty-hint">{{ 'race_show.notes_empty'|trans }}</p>
+        {% endif %}
+    </section>
+    </div>
+
+</div>
+
+{% include 'race/_race_modal.html.twig' %}
+
+<style>
+.rs-back { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--sp-muted); text-decoration: none; margin-bottom: 14px; }
+.rs-back:hover { color: var(--sp-orange); }
+
+.rs-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.rs-header-main { display: flex; align-items: flex-start; gap: 14px; min-width: 0; flex: 1; }
+.rs-intent-icon { width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; }
+.rs-heading { min-width: 0; }
+.rs-title { font-size: 24px; font-weight: 800; color: var(--sp-text); letter-spacing: -.02em; margin: 0 0 8px; overflow-wrap: anywhere; }
+.rs-header--done .rs-title { text-decoration: line-through; opacity: .7; }
+.rs-badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rs-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; background: rgba(22,23,42,.07); color: var(--sp-dark); border: none; }
+button.rs-badge { cursor: pointer; }
+button.rs-badge:hover { background: rgba(22,23,42,.12); }
+.rs-chevron { font-size: 9px; opacity: .6; }
+.rs-badge--trail { background: rgba(34,197,94,.12); color: #15803D; }
+.rs-badge--countdown { background: rgba(232,64,12,.1); color: var(--sp-orange); }
+.rs-badge--done { background: rgba(34,197,94,.12); color: #15803D; }
+.rs-menu { font-size: 13px; padding: 6px; border-radius: 10px; border-color: var(--sp-border); min-width: 200px; }
+.rs-menu .dropdown-item { display: flex; align-items: center; gap: 8px; border-radius: 6px; padding: 6px 10px; }
+.rs-menu .dropdown-item.active, .rs-menu .dropdown-item:active { background: rgba(0,0,0,.06); color: var(--sp-text); font-weight: 600; }
+
+.rs-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.rs-btn-ghost { background: var(--sp-card); color: var(--sp-text); border: 1px solid var(--sp-border); }
+.rs-btn-ghost:hover { border-color: var(--sp-dark); }
+.rs-btn-danger:hover { color: var(--sp-red); border-color: var(--sp-red); }
+
+.rs-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.rs-plan { padding: 22px; }
+.rs-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.rs-info, .rs-notes { padding: 18px 20px; }
+@media (max-width: 991.98px) { .rs-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.rs-plan-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 18px; }
+.rs-plan-icon { width: 42px; height: 42px; border-radius: 11px; background: rgba(232,64,12,.1); color: var(--sp-orange); display: inline-flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0; }
+.rs-plan-title { font-size: 17px; font-weight: 800; color: var(--sp-text); margin: 0 0 4px; }
+.rs-plan-sub { font-size: 13px; color: var(--sp-muted); margin: 0; line-height: 1.45; }
+.rs-plan--empty { border: 2px dashed rgba(232,64,12,.35); }
+.rs-plan-steps { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 10px; }
+.rs-plan-steps li { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--sp-text); }
+.rs-plan-steps li span { width: 22px; height: 22px; border-radius: 50%; background: var(--sp-dark); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rs-plan-steps .rs-plan-step-next { color: var(--sp-muted); }
+.rs-plan-steps .rs-plan-step-next span { background: var(--sp-border); color: var(--sp-muted); }
+.rs-plan-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+.rs-plan-stats > div { background: var(--sp-bg); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; }
+.rs-val { font-size: 17px; font-weight: 800; color: var(--sp-text); }
+.rs-note { margin-top: 2px; font-size: 10px; font-weight: 600; color: var(--sp-muted); cursor: help; }
+.rs-lbl { font-size: 10px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .05em; }
+@media (max-width: 575.98px) { .rs-plan-stats { grid-template-columns: repeat(2, 1fr); } }
+.rs-route { margin-bottom: 18px; }
+.rs-route-map { height: 280px; border-radius: 10px; overflow: hidden; }
+.rs-route-profile { position: relative; height: 110px; margin-top: 10px; }
+@media (max-width: 575.98px) { .rs-route-map { height: 220px; } }
+.rs-cp-pin {
+    width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--sp-dark); color: #fff; font-size: 10px; font-weight: 800;
+    border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+.rs-cp-pin--aid_station { background: var(--sp-teal); border-radius: 6px; }
+.rs-plan-cta { width: 100%; justify-content: center; gap: 8px; padding: 12px 18px; font-size: 14px; }
+
+.rs-section-title { font-size: 14px; font-weight: 700; color: var(--sp-text); margin: 0 0 12px; }
+.rs-info-list { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.rs-info-list > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.rs-info-list dt { font-weight: 600; color: var(--sp-muted); display: flex; align-items: center; gap: 6px; }
+.rs-info-list dd { margin: 0; font-weight: 700; color: var(--sp-text); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.rs-link { color: var(--sp-teal); text-decoration: none; }
+.rs-link:hover { text-decoration: underline; }
+.rs-notes-text { margin: 0; font-size: 13px; color: var(--sp-text); white-space: pre-line; line-height: 1.5; overflow-wrap: anywhere; }
+.rs-empty-hint { margin: 10px 0 0; font-size: 12px; color: var(--sp-muted); }
+.rs-notes .rs-empty-hint { margin-top: 0; }
+</style>
+
+{% endblock %}

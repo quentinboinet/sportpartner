@@ -26,6 +26,22 @@
             </button>
         </div>
     </form>
+
+    {# Import par lien : le serveur télécharge le fichier (adresses internes refusées) #}
+    <div class="rp-url-sep"><span>{{ 'race_plan.url_or'|trans }}</span></div>
+    <form method="post" action="{{ path('app_race_route_import', {id: race.id}) }}" class="rp-url-form" data-gpx-url-form>
+        <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
+        <label class="sp-form-label" for="{{ idPrefix }}-url">{{ 'race_plan.url_label'|trans }}</label>
+        <div class="rp-url-row">
+            <input type="url" id="{{ idPrefix }}-url" name="gpx_url" class="sp-form-input" required
+                   maxlength="2048" pattern="https?://.+" inputmode="url" autocomplete="url"
+                   placeholder="https://…/parcours.gpx">
+            <button type="submit" class="sp-btn sp-btn-primary" data-importing="{{ 'race_plan.importing'|trans }}">
+                <i class="bi bi-link-45deg"></i> {{ 'race_plan.btn_import_url'|trans }}
+            </button>
+        </div>
+        <div class="rp-url-hint">{{ 'race_plan.url_hint'|trans }}</div>
+    </form>
 {% endmacro %}
 
 {# ── Cellules « depuis le précédent » d'une ligne du tableau ── #}
@@ -33,12 +49,12 @@
     {% if seg %}
         <td class="rp-num-cell">{{ (seg.distanceM / 1000)|number_format(1, dec, th) }} km</td>
         <td class="rp-num-cell rp-up">+{{ seg.gainM|number_format(0, dec, th) }} m</td>
-        <td class="rp-num-cell rp-down">−{{ seg.lossM|number_format(0, dec, th) }} m</td>
+        <td class="rp-num-cell rp-down">-{{ seg.lossM|number_format(0, dec, th) }} m</td>
         <td class="rp-num-cell">
             {% if seg.avgGradePct is not null %}
                 {% set g = seg.avgGradePct %}
                 <span class="rp-grade {{ g >= 8 ? 'rp-grade--up' : (g <= -8 ? 'rp-grade--down' : '') }}">
-                    {{ g > 0 ? '+' : (g < 0 ? '−' : '') }}{{ g|abs|number_format(1, dec, th) }} %
+                    {{ g > 0 ? '+' : (g < 0 ? '-' : '') }}{{ g|abs|number_format(1, dec, th) }} %
                 </span>
             {% else %}-{% endif %}
         </td>
@@ -62,8 +78,8 @@
 {% set _maxKmLabel = _maxKm|number_format(3, '.', '')|trim('0', 'right')|trim('.', 'right')|replace({'.': _dec}) %}
 {% set _cpPlaceholder = 999999999 %}
 
-<a href="{{ path('app_races') }}" class="sp-back-link">
-    <i class="bi bi-arrow-left"></i> {{ 'race_plan.back'|trans }}
+<a href="{{ path('app_races_show', {id: race.id}) }}" class="sp-back-link">
+    <i class="bi bi-arrow-left"></i> {{ race.name }}
 </a>
 
 {# ── En-tête ─────────────────────────────────────── #}
@@ -132,12 +148,21 @@
                 <div class="rp-stat-val">{{ (routeData.distanceM / 1000)|number_format(1, _dec, _th) }} <span>km</span></div>
             </div>
             <div class="rp-stat">
+                {# D+ officiel de la course en priorité ; celui du GPX en complément s'il diffère
+                   (tracés issus d'un modèle de terrain : tunnels, ponts… peuvent gonfler le D+) #}
+                {% set _gpxGain = routeData.gainM %}
+                {% set _gain = race.elevationGain ?? _gpxGain %}
                 <div class="rp-stat-label">{{ 'race_plan.stat_gain'|trans }}</div>
-                <div class="rp-stat-val">+{{ routeData.gainM|number_format(0, _dec, _th) }} <span>m</span></div>
+                <div class="rp-stat-val">+{{ _gain|number_format(0, _dec, _th) }} <span>m</span></div>
+                {% if race.elevationGain is not null and (race.elevationGain - _gpxGain)|abs > 10 %}
+                    <div class="rp-stat-note" title="{{ 'race_plan.gain_gpx_title'|trans }}">
+                        {{ 'race_plan.gain_gpx'|trans({'%gain%': _gpxGain|number_format(0, _dec, _th)}) }}
+                    </div>
+                {% endif %}
             </div>
             <div class="rp-stat">
                 <div class="rp-stat-label">{{ 'race_plan.stat_loss'|trans }}</div>
-                <div class="rp-stat-val">−{{ routeData.lossM|number_format(0, _dec, _th) }} <span>m</span></div>
+                <div class="rp-stat-val">-{{ routeData.lossM|number_format(0, _dec, _th) }} <span>m</span></div>
             </div>
             <div class="rp-stat">
                 <div class="rp-stat-label">{{ 'race_plan.stat_min'|trans }}</div>
@@ -153,11 +178,27 @@
             </div>
         </div>
         <div class="rp-file">
-            <div class="rp-file-name" title="{{ routeData.fileName }}">
-                <i class="bi bi-file-earmark-arrow-up"></i>
-                <span>{{ routeData.fileName }}</span>
+            <div class="rp-file-name" title="{{ routeData.sourceUrl ?? routeData.fileName }}">
+                {% if routeData.sourceUrl %}
+                    <i class="bi bi-link-45deg"></i>
+                    <a href="{{ routeData.sourceUrl }}" target="_blank" rel="noopener noreferrer nofollow">{{ routeData.fileName }}</a>
+                {% else %}
+                    <i class="bi bi-file-earmark-arrow-up"></i>
+                    <span>{{ routeData.fileName }}</span>
+                {% endif %}
             </div>
             <div class="rp-file-actions">
+                {% if routeData.sourceUrl %}
+                    {# Réimporte depuis le même lien (l'organisation a pu mettre la trace à jour) #}
+                    <form method="post" action="{{ path('app_race_route_import', {id: race.id}) }}" data-gpx-url-form>
+                        <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
+                        <input type="hidden" name="gpx_url" value="{{ routeData.sourceUrl }}">
+                        <button type="submit" class="sp-btn-ghost rp-btn-sm" data-importing="{{ 'race_plan.importing'|trans }}"
+                                title="{{ 'race_plan.btn_refresh_url_title'|trans }}">
+                            <i class="bi bi-cloud-download"></i> {{ 'race_plan.btn_refresh_url'|trans }}
+                        </button>
+                    </form>
+                {% endif %}
                 <button type="button" class="sp-btn-ghost rp-btn-sm" data-bs-toggle="modal" data-bs-target="#routeModal">
                     <i class="bi bi-arrow-repeat"></i> {{ 'race_plan.btn_replace'|trans }}
                 </button>
@@ -191,7 +232,17 @@
                     {% endfor %}
                 </span>
             </div>
-            <div class="rp-map" data-race-route-target="map"></div>
+            <div class="rp-map-wrap">
+                <div class="rp-map" data-race-route-target="map"></div>
+                {# Mode visée (bouton « Pointer sur le tracé » de la modale repère) #}
+                <div class="rp-pick-banner" data-race-route-target="pickBanner" role="status" hidden>
+                    <i class="bi bi-crosshair"></i>
+                    <span>{{ 'race_plan.pick_banner'|trans }}</span>
+                    <button type="button" class="rp-pick-cancel" data-action="race-route#cancelPicking">
+                        {{ 'race_plan.pick_cancel'|trans }}
+                    </button>
+                </div>
+            </div>
         </div>
 
         <div class="sp-card rp-viz-card">
@@ -420,6 +471,11 @@
                                 <span>km</span>
                             </div>
                             <div class="sp-form-help">{{ 'race_plan.field_distance_max'|trans({'%max%': _maxKmLabel}) }}</div>
+                            {% if route %}
+                                <button type="button" class="rp-pick-btn" id="cp-pick">
+                                    <i class="bi bi-crosshair"></i> {{ 'race_plan.pick_on_track'|trans }}
+                                </button>
+                            {% endif %}
                         </div>
                         <div class="col-6" id="cp-stop-wrap" hidden>
                             <label class="sp-form-label" for="cp-stop">{{ 'race_plan.field_stop'|trans }}</label>
@@ -538,10 +594,50 @@
 .rp-upload-error { margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--sp-red); }
 .rp-upload-actions { margin-top: 14px; display: flex; justify-content: flex-end; }
 .rp-upload-actions .sp-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* Mode visée sur la carte */
+.rp-map-wrap { position: relative; }
+.rp-pick-banner {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000;
+    display: flex; align-items: center; gap: 10px; max-width: calc(100% - 20px);
+    padding: 8px 8px 8px 14px; border-radius: 10px; background: var(--sp-dark); color: #fff;
+    font-size: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+}
+.rp-pick-banner[hidden] { display: none; }
+.rp-pick-banner i { color: var(--sp-orange); font-size: 15px; }
+.rp-pick-cancel {
+    border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff;
+    border-radius: 7px; padding: 3px 10px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.rp-pick-cancel:hover { background: rgba(255,255,255,.12); }
+.rp-viz--picking .rp-map { box-shadow: 0 0 0 3px var(--sp-orange); border-radius: 10px; }
+/* Plus spécifique que .rp-map--near (curseur main près du tracé) : viseur sur toute la carte en mode visée */
+.rp-map.rp-map--picking.leaflet-grab, .rp-map.rp-map--picking.rp-map--near.leaflet-grab, .rp-map.rp-map--picking .leaflet-interactive { cursor: crosshair; }
+.rp-pick-btn {
+    margin-top: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
+    border: 1px dashed var(--sp-orange); border-radius: 8px; background: rgba(232,64,12,.06);
+    color: var(--sp-orange); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.rp-pick-btn:hover { background: rgba(232,64,12,.12); }
+.leaflet-tooltip.rp-hover-tip {
+    background: var(--sp-dark); color: #fff; border: none; border-radius: 6px;
+    font-size: 11px; font-weight: 700; padding: 3px 7px; box-shadow: none;
+}
+.leaflet-tooltip.rp-hover-tip::before { border-top-color: var(--sp-dark); }
+
+.rp-url-sep { display: flex; align-items: center; gap: 10px; margin: 18px 0 12px; font-size: 11px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .06em; }
+.rp-url-sep::before, .rp-url-sep::after { content: ''; flex: 1; height: 1px; background: var(--sp-border); }
+.rp-url-row { display: flex; gap: 8px; }
+.rp-url-row .sp-form-input { flex: 1; min-width: 0; }
+.rp-url-row .sp-btn { flex-shrink: 0; white-space: nowrap; }
+.rp-url-hint { margin-top: 6px; font-size: 11px; color: var(--sp-muted); line-height: 1.45; }
+.rp-file-name a { color: var(--sp-teal); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-file-name a:hover { text-decoration: underline; }
+@media (max-width: 575.98px) { .rp-url-row { flex-direction: column; } }
 .rp-replace-body { padding-bottom: 22px; }
 .rp-replace-help { font-size: 12px; color: var(--sp-muted); margin: 0 0 14px; line-height: 1.5; }
 
 /* Résumé */
+.rp-stat-note { margin-top: 2px; font-size: 11px; font-weight: 600; color: var(--sp-muted); cursor: help; }
 .rp-summary { padding: 0; overflow: hidden; margin-bottom: 16px; }
 .rp-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .rp-stat { padding: 16px 20px; border-right: 1px solid var(--sp-border); min-width: 0; }
@@ -790,6 +886,17 @@ document.querySelectorAll('[data-gpx-dropzone]').forEach((zone) => {
     });
 });
 
+// Import par lien : retour visuel pendant le téléchargement côté serveur
+document.querySelectorAll('[data-gpx-url-form]').forEach((form) => {
+    form.addEventListener('submit', () => {
+        const submit = form.querySelector('button[type="submit"]');
+        submit.disabled = true;
+        const spinner = document.createElement('span');
+        spinner.className = 'spinner-border spinner-border-sm';
+        submit.replaceChildren(spinner, document.createTextNode(' ' + submit.dataset.importing));
+    });
+});
+
 // ── Modale repère : ajout / modification ─────────────────────────────────────
 const modalEl  = document.getElementById('checkpointModal');
 const form     = document.getElementById('checkpointForm');
@@ -857,11 +964,34 @@ modalEl.addEventListener('show.bs.modal', (e) => {
     const id = e.relatedTarget.dataset.checkpointId;
     fill(id ? (byId.get(id) ?? null) : null);
 });
-modalEl.addEventListener('shown.bs.modal', () => f('name').focus());
+modalEl.addEventListener('shown.bs.modal', () => {
+    (resumeFocus ?? f('name')).focus();
+    resumeFocus = null;
+});
 
 // Clic sur le profil ou près du tracé : nouveau repère pré-rempli avec le km
 document.addEventListener('race-route:pick', (e) => {
     fill(null, e.detail.distanceKm);
+    modal.show();
+});
+
+// "Pointer sur le tracé" : la modale s'efface (saisie conservée), la carte passe en mode visée,
+// puis la modale revient avec le km choisi (ou inchangé si annulé)
+let resumeFocus = null;
+document.getElementById('cp-pick')?.addEventListener('click', () => {
+    modalEl.addEventListener('hidden.bs.modal', () => {
+        document.dispatchEvent(new CustomEvent('race-route:start-picking'));
+    }, { once: true });
+    modal.hide();
+});
+document.addEventListener('race-route:picked', (e) => {
+    distIn.value = fmtKm(e.detail.distanceKm);
+    checkDistance();
+    resumeFocus = distIn;
+    modal.show();   // sans relatedTarget : le formulaire n'est pas réinitialisé
+});
+document.addEventListener('race-route:pick-cancel', () => {
+    resumeFocus = distIn;
     modal.show();
 });
 

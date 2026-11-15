@@ -52,7 +52,7 @@ php vendor/bin/phpunit --filter testMethodName
 - **PHPStan niveau 6 doit rester à 0 erreur** (imposé par la CI, sans baseline). Ne pas ajouter de baseline, d'`ignoreErrors` ni de `@phpstan-ignore`, et ne pas baisser le niveau.
 - Dans un controller protégé, récupérer l'utilisateur avec `#[CurrentUser] User $user` plutôt que `$this->getUser()` (typé `UserInterface|null`).
 - PHP-CS-Fixer n'est **pas** imposé par la CI. Ne pas reformater du code que l'on ne modifie pas.
-- **Tirets : uniquement le tiret classique `-`.** Jamais de tiret cadratin (U+2014) ni de tiret demi-cadratin (U+2013), nulle part dans le projet : code, commentaires, templates, traductions, doc, messages de commit. Exception : les fichiers tiers dans `vendor/`, `assets/vendor/` et `assets/lib/`. Vérification en bash (ne doit rien renvoyer, indépendant de la locale) : `grep -rn $'\xe2\x80\x94\|\xe2\x80\x93' --exclude-dir={vendor,var,.git,lib} . | grep -v "^./assets/vendor"`
+- **Tirets : uniquement le tiret classique `-`.** Jamais de tiret cadratin (U+2014), de tiret demi-cadratin (U+2013) ni de signe moins typographique (U+2212, y compris pour un D- ou une marge négative), nulle part dans le projet : code, commentaires, templates, traductions, doc, messages de commit. Exception : les fichiers tiers dans `vendor/`, `assets/vendor/` et `assets/lib/`. Vérification en bash (ne doit rien renvoyer, indépendant de la locale) : `grep -rn $'\xe2\x80\x94\|\xe2\x80\x93\|\xe2\x88\x92' --exclude-dir={vendor,var,.git,lib} . | grep -v "^./assets/vendor"`
 
 ## Architecture
 

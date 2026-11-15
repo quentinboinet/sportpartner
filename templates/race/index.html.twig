@@ -140,6 +140,7 @@
 
                         {# Checkbox toggle done #}
                         <form method="post" action="{{ path('app_races_toggle', {id: race.id}) }}" class="sp-race-toggle-form">
+                            <input type="hidden" name="_token" value="{{ csrf_token('race_action') }}">
                             <button type="submit" class="sp-race-check {{ race.isDone ? 'sp-race-check--checked' : '' }}" title="{{ race.isDone ? 'races.unmark_done'|trans : 'races.mark_done'|trans }}">
                                 <i class="bi {{ race.isDone ? 'bi-check-circle-fill' : 'bi-circle' }}"></i>
                             </button>
@@ -154,6 +155,7 @@
                             </button>
                             <form method="post" action="{{ path('app_races_intent', {id: race.id}) }}"
                                   class="dropdown-menu sp-race-intent-menu">
+                                <input type="hidden" name="_token" value="{{ csrf_token('race_action') }}">
                                 <div class="sp-race-intent-menu-title">{{ 'races.change_intent'|trans }}</div>
                                 {% for intent in intents %}
                                     <button type="submit" name="intent" value="{{ intent.value }}"
@@ -165,12 +167,9 @@
                             </form>
                         </div>
 
-                        {# Contenu principal - un clic sur le nom ouvre l'édition #}
+                        {# Contenu principal - un clic sur le nom ouvre la page de la course #}
                         <div class="sp-race-body">
-                            <button type="button" class="sp-race-name"
-                                    data-bs-toggle="modal" data-bs-target="#raceModal"
-                                    data-race="{{ racesData[race.id]|json_encode }}"
-                                    title="{{ 'races.edit'|trans }}">{{ race.name }}</button>
+                            <a href="{{ path('app_races_show', {id: race.id}) }}" class="sp-race-name">{{ race.name }}</a>
                             <div class="sp-race-meta">
                                 {# Date précise, sinon année #}
                                 {% if race.raceDate %}
@@ -232,6 +231,7 @@
                             {{ _self.edit_button(race, racesData, '') }}
                             <form method="post" action="{{ path('app_races_delete', {id: race.id}) }}" class="sp-race-delete-form"
                                   onsubmit="return confirm('{{ 'races.confirm_delete'|trans|e('js') }}')">
+                                <input type="hidden" name="_token" value="{{ csrf_token('race_action') }}">
                                 <button type="submit" class="sp-race-delete-btn" title="{{ 'races.delete'|trans }}">
                                     <i class="bi bi-trash3"></i>
                                 </button>
@@ -247,130 +247,7 @@
 
 {% endif %}
 
-{# ── Modal : ajouter / modifier une course ────────── #}
-<div class="modal fade" id="raceModal" tabindex="-1" aria-hidden="true" aria-labelledby="raceModalTitle"
-     data-add-url="{{ path('app_races_add') }}"
-     data-edit-url="{{ path('app_races_edit', {id: '__ID__'}) }}"
-     data-title-add="{{ 'races.modal_title'|trans }}"
-     data-title-edit="{{ 'races.modal_title_edit'|trans }}"
-     data-submit-add="{{ 'races.save'|trans }}"
-     data-submit-edit="{{ 'races.save_edit'|trans }}"
-     data-default-year="{{ defaultYear }}">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content sp-modal">
-            <div class="modal-header sp-modal-header">
-                <h5 class="modal-title" id="raceModalTitle">{{ 'races.modal_title'|trans }}</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="post" action="{{ path('app_races_add') }}" id="raceForm">
-                <div class="modal-body sp-modal-body">
-
-                    {# Statut - affiché en premier car structurant #}
-                    <div class="mb-3">
-                        <label class="sp-form-label">{{ 'races.field_intent'|trans }}</label>
-                        <div class="sp-intent-options">
-                            {% for intent in intents %}
-                                <label class="sp-intent-option {{ loop.first ? 'sp-intent-option--active' : '' }}">
-                                    <input type="radio" name="intent" value="{{ intent.value }}" {{ loop.first ? 'checked' : '' }} hidden>
-                                    <i class="bi {{ intent.icon }}" style="color:{{ intent.color }}"></i>
-                                    <div>
-                                        <div class="sp-intent-option-title">{{ intent.labelKey|trans }}</div>
-                                        <div class="sp-intent-option-sub">{{ intent.descriptionKey|trans }}</div>
-                                    </div>
-                                </label>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    {# Type de course : route / trail #}
-                    <div class="mb-3">
-                        <span class="sp-form-label" id="race-type-label">{{ 'races.field_type'|trans }}</span>
-                        <div class="sp-type-options" role="radiogroup" aria-labelledby="race-type-label">
-                            {% for type in types %}
-                                <label class="sp-type-option">
-                                    <input type="radio" name="race_type" value="{{ type.value }}" {{ loop.first ? 'checked' : '' }}>
-                                    <i class="bi {{ type.icon }}"></i> {{ type.labelKey|trans }}
-                                </label>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    {# Nom #}
-                    <div class="mb-3">
-                        <label class="sp-form-label" for="race-name">{{ 'races.field_name'|trans }} <span style="color:var(--sp-orange)">*</span></label>
-                        <input type="text" id="race-name" name="name" class="sp-form-input"
-                               placeholder="{{ 'races.field_name_placeholder'|trans }}" required maxlength="200">
-                    </div>
-
-                    {# Date (optionnelle) + Année #}
-                    <div class="row mb-3">
-                        <div class="col-7">
-                            <label class="sp-form-label" for="race-date">{{ 'races.field_date'|trans }}</label>
-                            <input type="date" id="race-date" name="race_date" class="sp-form-input">
-                        </div>
-                        <div class="col-5">
-                            {# Libellé selon le statut : "Année souhaitée" sauf si déjà inscrit #}
-                            <label class="sp-form-label" for="race-year"><span id="race-year-label"
-                                   data-label-default="{{ 'races.field_year'|trans }}"
-                                   data-label-registered="{{ 'races.field_year_registered'|trans }}">{{ 'races.field_year'|trans }}</span> <span style="color:var(--sp-orange)">*</span></label>
-                            <select id="race-year" name="year" class="sp-form-input">
-                                {% for y in range(defaultYear, defaultYear + 5) %}
-                                    <option value="{{ y }}" {{ y == defaultYear ? 'selected' : '' }}>{{ y }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-12 sp-form-help">{{ 'races.field_date_help'|trans }}</div>
-                    </div>
-
-                    {# Lieu + Distance + Dénivelé #}
-                    <div class="row g-3 mb-3">
-                        <div class="col-12 col-sm-6">
-                            <label class="sp-form-label" for="race-location">{{ 'races.field_location'|trans }}</label>
-                            <input type="text" id="race-location" name="location" class="sp-form-input"
-                                   placeholder="{{ 'races.field_location_placeholder'|trans }}" maxlength="200">
-                        </div>
-                        <div class="col-6 col-sm-3">
-                            <label class="sp-form-label" for="race-distance">{{ 'races.field_distance'|trans }}</label>
-                            <div class="sp-input-unit">
-                                <input type="number" id="race-distance" name="distance_km" class="sp-form-input"
-                                       placeholder="42.2" min="0" max="9999" step="0.1">
-                                <span>km</span>
-                            </div>
-                        </div>
-                        <div class="col-6 col-sm-3">
-                            <label class="sp-form-label" for="race-elevation">{{ 'races.field_elevation'|trans }}</label>
-                            <div class="sp-input-unit">
-                                <input type="number" id="race-elevation" name="elevation_gain" class="sp-form-input"
-                                       placeholder="1200" min="0" max="30000" step="1">
-                                <span>m</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {# Site web #}
-                    <div class="mb-3">
-                        <label class="sp-form-label" for="race-website">{{ 'races.field_website'|trans }}</label>
-                        <input type="url" id="race-website" name="website" class="sp-form-input"
-                               placeholder="https://…" maxlength="500">
-                    </div>
-
-                    {# Notes #}
-                    <div class="mb-0">
-                        <label class="sp-form-label" for="race-notes">{{ 'races.field_notes'|trans }}</label>
-                        <textarea id="race-notes" name="notes" class="sp-form-input" rows="2"
-                                  placeholder="{{ 'races.field_notes_placeholder'|trans }}" maxlength="1000"></textarea>
-                    </div>
-
-                </div>
-                <div class="modal-footer sp-modal-footer">
-                    <button type="button" class="sp-btn" style="background:transparent;color:var(--sp-muted);border:1px solid var(--sp-border)"
-                            data-bs-dismiss="modal">{{ 'races.cancel'|trans }}</button>
-                    <button type="submit" class="sp-btn sp-btn-primary" id="raceSubmit">{{ 'races.save'|trans }}</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+{% include 'race/_race_modal.html.twig' %}
 
 {# ── Styles spécifiques à la page ─────────────────── #}
 <style>
@@ -414,7 +291,7 @@
 
 .sp-race-body { flex: 1; min-width: 0; }
 .sp-race-name {
-    display: block; background: none; border: none; padding: 0; text-align: left; cursor: pointer;
+    display: block; background: none; border: none; padding: 0; text-align: left; cursor: pointer; text-decoration: none;
     font-size: 14px; font-weight: 600; color: var(--sp-text);
     margin-bottom: 5px; line-height: 1.3;
 }
@@ -433,21 +310,6 @@
 }
 .sp-race-badge--road  { background: rgba(22,23,42,.05); color: var(--sp-muted); }
 .sp-race-badge--trail { background: rgba(34,197,94,.12); color: #15803D; }
-
-/* Sélecteur route / trail (segmenté) */
-.sp-type-options {
-    display: inline-flex; padding: 3px; border-radius: 10px;
-    background: var(--sp-bg); border: 1px solid var(--sp-border);
-}
-.sp-type-option {
-    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-    padding: 6px 16px; border-radius: 8px;
-    font-size: 13px; font-weight: 600; color: var(--sp-muted);
-    transition: background .15s, color .15s;
-}
-.sp-type-option input { position: absolute; opacity: 0; pointer-events: none; }
-.sp-type-option:has(input:checked) { background: var(--sp-dark); color: #fff; }
-.sp-type-option:has(input:focus-visible) { outline: 2px solid var(--sp-orange); outline-offset: 2px; }
 
 .sp-race-meta-item {
     display: inline-flex; align-items: center; gap: 4px;
@@ -549,143 +411,12 @@
 .sp-race-undated-item:hover { border-color: var(--sp-orange); }
 .sp-race-undated-pencil { color: var(--sp-muted); font-size: 11px; }
 
-/* Modal */
-.sp-modal { background: var(--sp-card); border-radius: 14px; border: none; overflow: hidden; }
-.sp-modal-header {
-    background: var(--sp-dark); color: #fff; border-bottom: none;
-    padding: 18px 22px;
-}
-.sp-modal-header .modal-title { font-size: 15px; font-weight: 700; }
-.sp-modal-body { padding: 22px 22px 10px; }
-.sp-modal-footer { border-top: 1px solid var(--sp-border); padding: 14px 22px; gap: 10px; }
-
-.sp-form-label { font-size: 11px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 6px; }
-.sp-form-input {
-    display: block; width: 100%;
-    background: var(--sp-bg); border: 1px solid var(--sp-border);
-    border-radius: 8px; padding: 9px 12px;
-    font-size: 13px; color: var(--sp-text);
-    outline: none; transition: border-color .15s;
-}
-.sp-form-input:focus { border-color: var(--sp-orange); }
-.sp-form-input:disabled { opacity: .55; cursor: not-allowed; }
-textarea.sp-form-input { resize: vertical; }
-.sp-form-help { font-size: 11px; color: var(--sp-muted); margin-top: 6px; }
-
-.sp-input-unit { position: relative; }
-.sp-input-unit .sp-form-input { padding-right: 34px; }
-.sp-input-unit span {
-    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-    color: var(--sp-muted); font-size: 12px; pointer-events: none;
-}
-
-/* Sélecteur de statut */
-.sp-intent-options { display: flex; gap: 10px; }
-.sp-intent-option {
-    flex: 1; display: flex; align-items: flex-start; gap: 10px;
-    padding: 12px; border-radius: 10px; cursor: pointer;
-    border: 2px solid var(--sp-border); background: var(--sp-bg);
-    transition: border-color .15s, background .15s;
-}
-.sp-intent-option--active {
-    border-color: var(--sp-orange); background: rgba(232,64,12,.05);
-}
-.sp-intent-option i { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-.sp-intent-option-title { font-size: 13px; font-weight: 600; color: var(--sp-text); }
-.sp-intent-option-sub { font-size: 11px; color: var(--sp-muted); margin-top: 2px; line-height: 1.3; }
-@media (max-width: 575.98px) {
-    .sp-intent-options { flex-direction: column; }
-}
 </style>
 
 <script type="module">
-import { Modal } from 'bootstrap';
-
-const modalEl = document.getElementById('raceModal');
-const form    = document.getElementById('raceForm');
-const f       = (name) => form.elements.namedItem(name);
-const options = modalEl.querySelectorAll('.sp-intent-option');
-const yearSel = f('year');
-const dateIn  = f('race_date');
-
-const yearLabel = document.getElementById('race-year-label');
-
-function syncIntentStyle() {
-    options.forEach(opt => {
-        opt.classList.toggle('sp-intent-option--active', opt.querySelector('input').checked);
-    });
-    const registered = form.querySelector('input[name="intent"]:checked')?.value === 'registered';
-    yearLabel.textContent = registered ? yearLabel.dataset.labelRegistered : yearLabel.dataset.labelDefault;
-}
-options.forEach(opt => {
-    opt.addEventListener('click', () => { opt.querySelector('input').checked = true; syncIntentStyle(); });
-});
-
-// L'année doit exister dans la liste (courses passées ou lointaines)
-function setYear(year) {
-    const y = String(year);
-    if (![...yearSel.options].some(o => o.value === y)) {
-        const opt = new Option(y, y);
-        const after = [...yearSel.options].find(o => Number(o.value) > Number(y));
-        yearSel.add(opt, after || null);
-    }
-    yearSel.value = y;
-}
-
-// Une date précise fixe l'année
-function syncYearFromDate() {
-    if (dateIn.value) {
-        setYear(dateIn.value.slice(0, 4));
-        yearSel.disabled = true;
-    } else {
-        yearSel.disabled = false;
-    }
-}
-dateIn.addEventListener('change', syncYearFromDate);
-
-function fill(race) {
-    const ds = modalEl.dataset;
-    const editing = !!race;
-    form.action = editing ? ds.editUrl.replace('__ID__', race.id) : ds.addUrl;
-    modalEl.querySelector('.modal-title').textContent = editing ? ds.titleEdit : ds.titleAdd;
-    document.getElementById('raceSubmit').textContent = editing ? ds.submitEdit : ds.submitAdd;
-
-    const r = race || {};
-    f('name').value           = r.name ?? '';
-    f('race_date').value      = r.raceDate ?? '';
-    f('location').value       = r.location ?? '';
-    f('distance_km').value    = r.distanceKm ?? '';
-    f('elevation_gain').value = r.elevationGain ?? '';
-    f('website').value        = r.website ?? '';
-    f('notes').value          = r.notes ?? '';
-    setYear(r.year ?? ds.defaultYear);
-
-    const intent = r.intent ?? options[0].querySelector('input').value;
-    options.forEach(opt => { const i = opt.querySelector('input'); i.checked = i.value === intent; });
-    syncIntentStyle();
-
-    // Type : "route" par défaut à l'ajout ; une ancienne course sans type reste sans sélection
-    // (rien n'est envoyé, le serveur conserve alors la valeur existante)
-    const type = editing ? r.type : 'road';
-    form.querySelectorAll('input[name="race_type"]').forEach(i => { i.checked = i.value === type; });
-    syncYearFromDate();
-}
-
-// Ouverture via un bouton : data-race présent = modification, sinon ajout
-// (sans relatedTarget = ouverture depuis le calendrier, déjà remplie par fill())
-modalEl.addEventListener('show.bs.modal', (e) => {
-    if (!e.relatedTarget) return;
-    const raw = e.relatedTarget.dataset.race;
-    fill(raw ? JSON.parse(raw) : null);
-});
-
-// Le select désactivé n'est pas envoyé : on le réactive juste avant l'envoi
-form.addEventListener('submit', () => { yearSel.disabled = false; });
-
-// Clic sur une course du calendrier
+// Vue calendrier : un clic sur une course ouvre sa page (et non plus la modale d'édition)
 document.addEventListener('race-calendar:select', (e) => {
-    fill(e.detail);
-    Modal.getOrCreateInstance(modalEl).show();
+    if (e.detail && e.detail.url) window.location.href = e.detail.url;
 });
 </script>
 

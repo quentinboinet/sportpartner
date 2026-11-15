@@ -9,6 +9,9 @@ use App\Repository\RaceCheckpointRepository;
 use App\Repository\RaceRouteRepository;
 use App\Service\Route\GpxParser;
 use App\Service\Route\InvalidGpxException;
+use App\Service\Route\ParsedRoute;
+use App\Service\Route\RemoteGpxException;
+use App\Service\Route\RemoteGpxFetcher;
 use App\Service\Route\RouteAnalyzer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -95,6 +98,7 @@ final class RacePlanController extends AbstractController
                 'minEle'    => $route->getMinEle(),
                 'maxEle'    => $route->getMaxEle(),
                 'fileName'  => $route->getFileName(),
+                'sourceUrl' => $route->getSourceUrl(),
             ] : null,
             'checkpointsData' => $data,
             'checkpointTypes' => CheckpointType::cases(),
@@ -102,7 +106,7 @@ final class RacePlanController extends AbstractController
     }
 
     #[Route('/route', name: 'app_race_route_import', methods: ['POST'])]
-    public function importRoute(Race $race, Request $request, GpxParser $parser): Response
+    public function importRoute(Race $race, Request $request, GpxParser $parser, RemoteGpxFetcher $fetcher): Response
     {
         $this->denyUnlessOwner($race);
 
@@ -115,6 +119,13 @@ final class RacePlanController extends AbstractController
         }
 
         $file = $request->files->get('gpx');
+        $url  = trim((string) $request->request->get('gpx_url', ''));
+
+        // Import par lien (champ gpx_url) quand aucun fichier n'est envoyé
+        if ((!$file instanceof UploadedFile || $file->getError() === UPLOAD_ERR_NO_FILE) && $url !== '') {
+            return $this->importFromUrl($race, $url, $parser, $fetcher);
+        }
+
         if (!$file instanceof UploadedFile || $file->getError() === UPLOAD_ERR_NO_FILE) {
             return $this->fail($race, 'race_plan.flash_gpx_missing');
         }
@@ -142,6 +153,36 @@ final class RacePlanController extends AbstractController
         }
         unset($xml);
 
+        return $this->storeRoute($race, $parsed, self::sanitizeFileName($file->getClientOriginalName()), null);
+    }
+
+    /** Télécharge le GPX (protection SSRF dans RemoteGpxFetcher), le parse et l'enregistre. */
+    private function importFromUrl(Race $race, string $url, GpxParser $parser, RemoteGpxFetcher $fetcher): Response
+    {
+        try {
+            $remote = $fetcher->fetch($url);
+        } catch (RemoteGpxException $e) {
+            return $this->fail($race, match ($e->getCode()) {
+                RemoteGpxException::INVALID_URL => 'race_plan.flash_url_invalid',
+                RemoteGpxException::BLOCKED     => 'race_plan.flash_url_blocked',
+                RemoteGpxException::HTTP_ERROR  => 'race_plan.flash_url_http_error',
+                RemoteGpxException::TOO_LARGE   => 'race_plan.flash_gpx_too_large',
+                RemoteGpxException::NOT_GPX     => 'race_plan.flash_url_not_gpx',
+                default                         => 'race_plan.flash_url_unreachable',
+            });
+        }
+
+        try {
+            $parsed = $parser->parse($remote->content);
+        } catch (InvalidGpxException $e) {
+            return $this->fail($race, $e->getCode() === InvalidGpxException::TOO_LARGE ? 'race_plan.flash_gpx_too_large' : 'race_plan.flash_url_not_gpx');
+        }
+
+        return $this->storeRoute($race, $parsed, self::sanitizeFileName($remote->fileName), $remote->sourceUrl);
+    }
+
+    private function storeRoute(Race $race, ParsedRoute $parsed, string $fileName, ?string $sourceUrl): Response
+    {
         if (count($parsed->points) < 2 || $parsed->distanceM <= 0) {
             return $this->fail($race, 'race_plan.flash_gpx_invalid');
         }
@@ -149,7 +190,8 @@ final class RacePlanController extends AbstractController
         // Remplace le parcours existant (une seule ligne par course) ; les repères sont conservés
         $route = $this->routes->findOneByRace($race) ?? (new RaceRoute())->setRace($race);
         $route
-            ->setFileName(self::sanitizeFileName($file->getClientOriginalName()))
+            ->setFileName($fileName)
+            ->setSourceUrl($sourceUrl)
             ->setPoints($parsed->points)
             ->setDistanceM($parsed->distanceM)
             ->setGainM($parsed->gainM)

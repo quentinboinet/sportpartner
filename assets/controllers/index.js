@@ -13,6 +13,7 @@ import BalanceChartController   from './balance_chart_controller.js';
 import RaceCalendarController   from './race_calendar_controller.js';
 import RaceRouteController      from './race_route_controller.js';
 import TrainingCalendarController from './training_calendar_controller.js';
+import RoutePreviewController   from './route_preview_controller.js';
 
 application.register('weekly-chart',    WeeklyChartController);
 application.register('elevation-chart', ElevationChartController);
@@ -28,3 +29,4 @@ application.register('heartrate-chart', HeartrateChartController);
 application.register('race-calendar',   RaceCalendarController);
 application.register('race-route',      RaceRouteController);
 application.register('training-calendar', TrainingCalendarController);
+application.register('route-preview',   RoutePreviewController);

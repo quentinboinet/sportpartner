@@ -22,6 +22,8 @@ topbar:
 
 # ── Page dashboard ───────────────────────────
 dashboard:
+    next_race_title: "Next race you are registered for"
+    next_race_today: Race day
     page_title: "Dashboard - SportPartner"
     title: Dashboard
     sub: Your week at a glance
@@ -126,7 +128,7 @@ calendar:
     qv_details: View details
     qv_close: Close
     qv_plan: Race plan
-    qv_races: My races
+    qv_races: View race
     qv_location: Location
     qv_website: Official website
     qv_done: Done
@@ -351,7 +353,34 @@ races:
     flash_added: "Race added successfully."
     flash_deleted: "Race deleted."
     flash_name_required: "Race name is required."
+    flash_csrf: "Your session expired, please try again."
     plan_link: Race plan
+
+# ── Race page ───────────────────────────────────────────────────────────────
+race_show:
+    route_map_label: "Course map"
+    route_profile_label: "Course elevation profile"
+    back: My races
+    done: Done
+    plan_title: Race plan
+    plan_sub_empty: "Import the course (GPX) to place your checkpoints and prepare your race."
+    plan_sub_ready: "Course imported. Open the map, the profile and your checkpoints."
+    plan_create: Create the race plan
+    plan_open: Open the race plan
+    step_gpx: "Import the course GPX (file or link)"
+    step_checkpoints: "Place checkpoints: aid stations, passes, cut-offs"
+    step_times: "Set your split times (coming soon)"
+    checkpoints: checkpoints
+    aid_stations: aid stations
+    info_title: Details
+    date: Date
+    location: Location
+    distance: Distance
+    elevation: Elevation gain
+    website: Official website
+    info_empty: "Add the location, distance or website with “Edit”."
+    notes_title: Notes
+    notes_empty: "No notes yet. Use “Edit” to add some (registration info, logistics…)."
 
 # ── Race plan (GPX course + checkpoints) ──────────────────────────────────────
 race_plan:
@@ -381,6 +410,8 @@ race_plan:
     # Summary
     stat_distance: Distance
     stat_gain: Gain
+    gain_gpx: "GPX: +%gain% m"
+    gain_gpx_title: "Elevation gain computed from the GPX track. It may differ from the official value (tunnels, bridges or terrain poorly rendered by the file)."
     stat_loss: Loss
     stat_min: Min alt.
     stat_max: Max alt.
@@ -447,6 +478,20 @@ race_plan:
     flash_gpx_invalid: "Invalid or unreadable GPX file."
     flash_gpx_too_large: "File too large (15 MB max)."
     flash_gpx_missing: "Choose a GPX file to import."
+    flash_url_invalid: "Invalid link: paste a full address starting with http:// or https://."
+    flash_url_blocked: "This link points to an internal or private address and cannot be imported."
+    flash_url_unreachable: "Could not download the file (site unreachable or too slow). Try again later."
+    flash_url_http_error: "The site refused the download (page not found or protected access)."
+    flash_url_not_gpx: "This link leads to a web page, not a GPX file. Copy the link of the GPX download button."
+    url_or: or from a link
+    url_label: Link to the GPX file
+    btn_import_url: Import link
+    url_hint: "Direct link to the .gpx (organiser website, Dropbox, shared Google Drive…). The link is kept so you can re-import the track if it changes."
+    btn_refresh_url: Re-import
+    btn_refresh_url_title: "Download the GPX again from the original link"
+    pick_on_track: Point on the track
+    pick_banner: "Click the track or the profile to place the checkpoint"
+    pick_cancel: Cancel
     flash_route_deleted: "Course deleted."
     flash_checkpoint_saved: "Checkpoint saved."
     flash_checkpoint_deleted: "Checkpoint deleted."
@@ -487,3 +532,67 @@ nutrition:
         pre_workout: Pre-workout snack
         dinner: Dinner
         evening_snack: Evening snack
+
+# ── Race plan printout (sheet and pace band) ─────────────────────────────────
+race_print:
+    page_title: "%race% - %scenario% - Race sheet"
+    page_title_empty: "%race% - Race sheet"
+    toolbar: Print options
+    back: Back to the plan
+    scenario: Scenario
+    format: Format
+    format_sheet: Sheet
+    format_band: Pace band
+    print: Print
+    eyebrow: Race plan
+    start_at: "Start %time%"
+    # Summary
+    distance: Distance
+    gain: Elev. gain
+    start_time: Start time
+    target: Target
+    avg_pace: Average pace
+    avg_pace_title: "Moving pace: target time minus stops, divided by the distance"
+    total_stops: Planned stops
+    no_times: "No times entered for this scenario yet: fill in the boxes by hand."
+    incomplete: "Incomplete plan: fill in the empty boxes by hand."
+    # Table
+    col_name: Checkpoint
+    col_km: Km
+    col_gain: Cum. gain
+    col_segment: Segment
+    col_time: Split
+    col_clock: Time of day
+    col_stop: Stop
+    col_pace: Pace
+    col_cutoff: Cutoff / margin
+    start: Start
+    finish: Finish
+    aid_tag: Aid
+    departure: "out %time%"
+    minutes: "%n% min"
+    hours_minutes: "%h% h %m%"
+    day_offset: "+%n%d"
+    # Cutoffs
+    cutoff_ok: OK
+    cutoff_tight: Tight
+    cutoff_missed: Missed
+    legend_title: Cutoffs
+    legend_ok: "15 min margin or more"
+    legend_tight: "less than 15 min margin"
+    legend_missed: "cutoff missed"
+    # Inconsistencies
+    error_not_increasing: "Time not after the previous checkpoint"
+    error_after_finish: "Time after the target finish"
+    error_stops_exceed_target: "Planned stops exceed the target time: check the target and the stop times in the plan."
+    # Pace band
+    band_hint: "Cut each strip along the dotted lines, wrap it around your wrist and secure it with clear tape."
+    band_target: Target
+    band_start: Start
+    band_cutoff: "Cutoff %time%"
+    # Footer / empty state
+    generated_by: Generated by
+    printed_on: "Printed on %date%"
+    empty_title: No scenario to print
+    empty_text: "First create a scenario (a target time) in the race plan: its split times can then be printed as a sheet or a pace band."
+    empty_cta: Go to the race plan

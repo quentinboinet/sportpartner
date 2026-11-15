@@ -69,7 +69,7 @@
                     {% for race in upcomingRaces %}
                         {% set _days = ((race.raceDate|date('U') - 'today'|date('U')) / 86400)|round %}
                         <li>
-                            <a href="{{ path('app_races', {view: 'calendar', year: race.year}) }}">
+                            <a href="{{ path('app_races_show', {id: race.id}) }}">
                                 <i class="bi {{ race.intent.icon }}" style="color:{{ race.intent.color }}"></i>
                                 <span class="sp-cal-upcoming-body">
                                     <span class="sp-cal-upcoming-name">{{ race.name }}</span>

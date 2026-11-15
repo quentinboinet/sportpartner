@@ -89,6 +89,19 @@
         </h1>
     </div>
     <div class="sp-header-btns">
+        {# Compte à rebours vers la prochaine course où l'on est inscrit (absent sinon) #}
+        {% if nextRace and nextRaceDays is not null %}
+            <a href="{{ path('app_races_show', {id: nextRace.id}) }}" class="sp-next-race"
+               title="{{ 'dashboard.next_race_title'|trans }}">
+                <span class="sp-next-race-days">
+                    {{ nextRaceDays == 0 ? 'dashboard.next_race_today'|trans : 'J-' ~ nextRaceDays }}
+                </span>
+                <span class="sp-next-race-body">
+                    <span class="sp-next-race-name">{{ nextRace.name }}</span>
+                    <span class="sp-next-race-date">{{ nextRace.raceDate|date('d/m/Y') }}{% if nextRace.location %} · {{ nextRace.location }}{% endif %}</span>
+                </span>
+            </a>
+        {% endif %}
         <a href="{{ app.user.stravaAccessToken ? path('app_strava_sync') : path('app_oauth_strava') }}" class="sp-btn sp-btn-outline">
             <i class="bi bi-arrow-repeat"></i>
             {{ 'dashboard.sync'|trans }}

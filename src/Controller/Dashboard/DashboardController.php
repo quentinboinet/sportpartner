@@ -4,6 +4,7 @@ namespace App\Controller\Dashboard;
 
 use App\Entity\User;
 use App\Repository\ActivityRepository;
+use App\Repository\RaceRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -14,10 +15,16 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class DashboardController extends AbstractController
 {
     #[Route('/', name: 'app_dashboard')]
-    public function index(ActivityRepository $activityRepo, #[CurrentUser] User $user): Response
+    public function index(ActivityRepository $activityRepo, RaceRepository $raceRepo, #[CurrentUser] User $user): Response
     {
         $recentActivities = $activityRepo->findByUserPaginated($user, 1, 10);
         $weeklyVolume = $activityRepo->findWeeklyVolume($user, 12);
+
+        // Compte à rebours "J-xxx" vers la prochaine course où l'on est inscrit (rien si aucune)
+        $nextRace = $raceRepo->findNextRegistered($user);
+        $nextRaceDays = $nextRace?->getRaceDate()
+            ? (int) (new \DateTimeImmutable('today'))->diff($nextRace->getRaceDate())->format('%r%a')
+            : null;
 
         $profile = $user->getProfile();
 
@@ -36,6 +43,8 @@ class DashboardController extends AbstractController
             'weeklyVolume'    => $weeklyVolume,
             'stravaConnected' => $user->isStravaConnected(),
             'isPro'           => $user->isPro(),
+            'nextRace'        => $nextRace,
+            'nextRaceDays'    => $nextRaceDays,
             'weeklyGoals'     => [
                 'distanceKm' => $profile?->getWeeklyDistanceGoalKm() ?? 150,
                 'sessions'   => $profile?->getWeeklySessionsGoal() ?? 7,

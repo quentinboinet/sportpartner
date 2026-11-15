@@ -64,6 +64,26 @@ class RaceRepository extends ServiceEntityRepository
     }
 
     /**
+     * Prochaine course datée à laquelle l'utilisateur est inscrit (aujourd'hui inclus, non faite).
+     */
+    public function findNextRegistered(User $user): ?Race
+    {
+        return $this->createQueryBuilder('r')
+            ->where('r.user = :user')
+            ->andWhere('r.intent = :intent')
+            ->andWhere('r.raceDate >= :today')
+            ->andWhere('r.isDone = false')
+            ->setParameter('user', $user)
+            ->setParameter('intent', RaceIntent::Registered->value)
+            ->setParameter('today', (new \DateTimeImmutable('today'))->format('Y-m-d'))
+            ->orderBy('r.raceDate', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * Prochaines courses datées (aujourd'hui inclus), non faites.
      *
      * @return list<Race>

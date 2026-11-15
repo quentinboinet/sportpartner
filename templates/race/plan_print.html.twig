@@ -1,0 +1,26 @@
+{# Fiche imprimable du plan de course : version provisoire (remplacée par l'interface de la phase 2). #}
+<!doctype html>
+<html lang="{{ app.request.locale }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ race.name }} - SportPartner</title>
+</head>
+<body>
+    <h1>{{ race.name }}</h1>
+    {% if scenario is null or calc is null %}
+        <p data-empty-state>-</p>
+    {% else %}
+        <h2 data-scenario-id="{{ scenario.id }}">{{ scenario.name }}</h2>
+        <table>
+            {% for row in calc.rows|merge([calc.finish]) %}
+                <tr data-checkpoint-id="{{ row.checkpointId }}">
+                    <td>{{ row.name }}</td>
+                    <td>{{ (row.distanceM / 1000)|number_format(1) }} km</td>
+                    <td>{{ row.arrivalSeconds|race_duration }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+</body>
+</html>
