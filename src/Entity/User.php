@@ -23,6 +23,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Assert\NotBlank]
     private ?string $email = null;
 
+    /** @var list<string> */
     #[ORM\Column]
     private array $roles = [];
 
@@ -89,6 +90,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setEmail(string $email): static { $this->email = $email; return $this; }
     public function getUserIdentifier(): string { return (string) $this->email; }
     public function getRoles(): array { return array_unique(array_merge($this->roles, ['ROLE_USER'])); }
+    /** @param list<string> $roles */
     public function setRoles(array $roles): static { $this->roles = $roles; return $this; }
     public function getPassword(): ?string { return $this->password; }
     public function setPassword(string $password): static { $this->password = $password; return $this; }
@@ -119,6 +121,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getEmailVerificationToken(): ?string { return $this->emailVerificationToken; }
     public function setEmailVerificationToken(?string $token): static { $this->emailVerificationToken = $token; return $this; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
+    public function getUpdatedAt(): ?\DateTimeImmutable { return $this->updatedAt; }
 
     public function getProfile(): ?AthleteProfile { return $this->profile; }
     public function setProfile(?AthleteProfile $profile): static

@@ -6,6 +6,9 @@ use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
+/**
+ * @extends ServiceEntityRepository<Meal>
+ */
 class MealRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
@@ -13,6 +16,7 @@ class MealRepository extends ServiceEntityRepository
         parent::__construct($registry, Meal::class);
     }
 
+    /** @return list<Meal> */
     public function findByUserAndDate(User $user, \DateTimeImmutable $date): array
     {
         return $this->createQueryBuilder('m')
@@ -25,7 +29,11 @@ class MealRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** Returns array keyed by 'Y-m-d' => kcal total */
+    /**
+     * Returns array keyed by 'Y-m-d' => kcal total.
+     *
+     * @return array<string, int>
+     */
     public function getDailyIntake(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $conn = $this->getEntityManager()->getConnection();

@@ -2,50 +2,52 @@
 
 namespace App\Controller\Stats;
 
+use App\Entity\User;
 use App\Repository\ActivityRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_USER')]
 class StatsController extends AbstractController
 {
     #[Route('/stats', name: 'app_stats')]
-    public function index(Request $request, ActivityRepository $activityRepo): Response
+    public function index(Request $request, ActivityRepository $activityRepo, #[CurrentUser] User $user): Response
     {
-        $user = $this->getUser();
         $now  = new \DateTimeImmutable();
         $to   = $now;
 
         $fromParam = $request->query->get('from');
         $toParam   = $request->query->get('to');
 
+        // Preset period (default); overridden below when a valid custom range is given.
+        $period = $request->query->get('period', 'season');
+        $from   = match ($period) {
+            '7d'    => new \DateTimeImmutable('-7 days midnight'),
+            'month' => new \DateTimeImmutable($now->format('Y-m-01')),
+            'all'   => new \DateTimeImmutable('2000-01-01'),
+            default => new \DateTimeImmutable($now->format('Y') . '-01-01'),
+        };
+        $granularity = match ($period) {
+            '7d', 'month' => 'day',
+            default       => 'month',
+        };
+
         if ($fromParam && $toParam) {
             try {
-                $from  = new \DateTimeImmutable($fromParam . ' midnight');
-                $to    = (new \DateTimeImmutable($toParam))->setTime(23, 59, 59);
-                $days  = (int) $from->diff($to)->days;
+                $customFrom  = new \DateTimeImmutable($fromParam . ' midnight');
+                $customTo    = (new \DateTimeImmutable($toParam))->setTime(23, 59, 59);
+                $days        = (int) $customFrom->diff($customTo)->days;
+                $from        = $customFrom;
+                $to          = $customTo;
                 $granularity = $days <= 31 ? 'day' : ($days <= 120 ? 'week' : 'month');
-                $period = 'custom';
+                $period      = 'custom';
             } catch (\Throwable) {
                 $fromParam = $toParam = null;
             }
-        }
-
-        if (!$fromParam || !$toParam) {
-            $period = $request->query->get('period', 'season');
-            $from   = match ($period) {
-                '7d'    => new \DateTimeImmutable('-7 days midnight'),
-                'month' => new \DateTimeImmutable($now->format('Y-m-01')),
-                'all'   => new \DateTimeImmutable('2000-01-01'),
-                default => new \DateTimeImmutable($now->format('Y') . '-01-01'),
-            };
-            $granularity = match ($period) {
-                '7d', 'month' => 'day',
-                default       => 'month',
-            };
         }
 
         $rawVolume = match ($granularity) {
@@ -97,6 +99,10 @@ class StatsController extends AbstractController
     /**
      * Shapes raw volume rows into { labels: string[], datasets: [...] }.
      * Fills every bucket (day / week / month) in the range with 0 when no data.
+     *
+     * @param array<int, array<string, mixed>> $raw
+     *
+     * @return array{labels: list<string>, granularity: string, datasets: list<array{slug: mixed, color: mixed, data: list<float>}>}
      */
     private function shapeVolumeChart(array $raw, string $granularity, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {

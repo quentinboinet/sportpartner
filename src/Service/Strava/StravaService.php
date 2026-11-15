@@ -37,6 +37,7 @@ class StravaService
         ]);
     }
 
+    /** @return array<string, mixed> */
     public function exchangeCodeForTokens(string $code): array
     {
         $response = $this->httpClient->request('POST', self::TOKEN_URL, [
@@ -78,6 +79,7 @@ class StravaService
         return $user->getStravaTokenExpiresAt() < new \DateTimeImmutable('+5 minutes');
     }
 
+    /** @param array<string, mixed> $tokenData */
     public function connectUser(User $user, array $tokenData): void
     {
         $user->setStravaAthleteId($tokenData['athlete']['id'] ?? null);

@@ -1,6 +1,6 @@
 {
     "name": "sport-health/boilerplate",
-    "description": "Symfony 7 + Vue.js 3 SaaS boilerplate for sport & health apps",
+    "description": "SportPartner — tableau de bord sportif connecté à Strava (Symfony 7, Twig, Stimulus)",
     "type": "project",
     "license": "proprietary",
     "require": {
@@ -11,9 +11,6 @@
         "doctrine/doctrine-bundle": "^2.11",
         "doctrine/doctrine-migrations-bundle": "^3.3",
         "doctrine/orm": "^3.0",
-        "lexik/jwt-authentication-bundle": "^3.0",
-        "nelmio/cors-bundle": "^2.4",
-        "stripe/stripe-php": "^13.0",
         "symfony/asset": "^7.4",
         "symfony/asset-mapper": "^7.0",
         "symfony/console": "^7.0",
@@ -67,7 +64,7 @@
         }
     },
     "scripts": {
-        "test": "bin/phpunit",
+        "test": "vendor/bin/phpunit",
         "analyse": "vendor/bin/phpstan analyse",
         "cs-fix": "vendor/bin/php-cs-fixer fix",
         "cs-check": "vendor/bin/php-cs-fixer fix --dry-run --diff"

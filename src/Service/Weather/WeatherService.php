@@ -138,7 +138,7 @@ class WeatherService
     /**
      * Build display-ready array from stored raw weather data.
      *
-     * @param array{temperature:int,weather_code:int,precipitation:float,wind_speed:int} $raw
+     * @param array{temperature:int,weather_code:int,precipitation:float,wind_speed:int}|array{} $raw
      * @return array{icon:string,description:string,temperature:int,wind_speed:int,precipitation:float}|null
      */
     public function getDisplay(array $raw, string $locale): ?array

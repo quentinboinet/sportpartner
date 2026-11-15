@@ -2,20 +2,20 @@
 
 namespace App\Controller\Dashboard;
 
+use App\Entity\User;
 use App\Repository\ActivityRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_USER')]
 class DashboardController extends AbstractController
 {
     #[Route('/', name: 'app_dashboard')]
-    public function index(ActivityRepository $activityRepo): Response
+    public function index(ActivityRepository $activityRepo, #[CurrentUser] User $user): Response
     {
-        $user = $this->getUser();
-
         $recentActivities = $activityRepo->findByUserPaginated($user, 1, 10);
         $weeklyVolume = $activityRepo->findWeeklyVolume($user, 12);
 

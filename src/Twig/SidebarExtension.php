@@ -22,6 +22,7 @@ class SidebarExtension extends AbstractExtension
         ];
     }
 
+    /** @return array{distanceKm: float|null, tss: int|null} */
     public function todayStats(): array
     {
         $user = $this->security->getUser();

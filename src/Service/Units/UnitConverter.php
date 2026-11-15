@@ -37,7 +37,9 @@ class UnitConverter
     public function metersPerSecondToPaceKm(float $mps): string
     {
         if ($mps <= 0) return '--:--';
-        $paceSeconds = 1000 / $mps;
-        return sprintf('%d:%02d', floor($paceSeconds / 60), $paceSeconds % 60);
+        // Round to the nearest whole second first, then split: 239.6 s -> "4:00", never "3:59" or "3:60".
+        $paceSeconds = (int) round(1000 / $mps);
+
+        return sprintf('%d:%02d', intdiv($paceSeconds, 60), $paceSeconds % 60);
     }
 }

@@ -40,4 +40,31 @@ class UnitConverterTest extends TestCase
         $pace = $this->converter->metersPerSecondToPaceKm(1000 / 240);
         $this->assertSame('4:00', $pace);
     }
+
+    public function testPaceExactValues(): void
+    {
+        $this->assertSame('5:00', $this->converter->metersPerSecondToPaceKm(1000 / 300));
+        $this->assertSame('3:30', $this->converter->metersPerSecondToPaceKm(1000 / 210));
+        $this->assertSame('5:01', $this->converter->metersPerSecondToPaceKm(1000 / 301));
+        $this->assertSame('65:00', $this->converter->metersPerSecondToPaceKm(1000 / 3900));
+    }
+
+    public function testPaceRoundsToNearestSecond(): void
+    {
+        // 239.6 s/km -> rounds up to the next minute, never "3:59" nor "3:60"
+        $this->assertSame('4:00', $this->converter->metersPerSecondToPaceKm(1000 / 239.6));
+        // 299.5 s/km -> rounds half up
+        $this->assertSame('5:00', $this->converter->metersPerSecondToPaceKm(1000 / 299.5));
+        // 299.4 s/km -> rounds down
+        $this->assertSame('4:59', $this->converter->metersPerSecondToPaceKm(1000 / 299.4));
+        // 330.4 s/km -> 5:30
+        $this->assertSame('5:30', $this->converter->metersPerSecondToPaceKm(1000 / 330.4));
+    }
+
+    public function testPaceWithZeroOrNegativeSpeed(): void
+    {
+        $this->assertSame('--:--', $this->converter->metersPerSecondToPaceKm(0));
+        $this->assertSame('--:--', $this->converter->metersPerSecondToPaceKm(0.0));
+        $this->assertSame('--:--', $this->converter->metersPerSecondToPaceKm(-3.5));
+    }
 }

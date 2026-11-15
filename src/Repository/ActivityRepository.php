@@ -7,6 +7,9 @@ use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
+/**
+ * @extends ServiceEntityRepository<Activity>
+ */
 class ActivityRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
@@ -14,6 +17,7 @@ class ActivityRepository extends ServiceEntityRepository
         parent::__construct($registry, Activity::class);
     }
 
+    /** @return list<Activity> */
     public function findByUserPaginated(User $user, int $page = 1, int $perPage = 20): array
     {
         return $this->createQueryBuilder('a')
@@ -26,6 +30,7 @@ class ActivityRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** @return list<array<string, mixed>> */
     public function findWeeklyVolume(User $user, int $weeks = 12): array
     {
         $since = new \DateTimeImmutable("-{$weeks} weeks");
@@ -52,6 +57,7 @@ class ActivityRepository extends ServiceEntityRepository
         );
     }
 
+    /** @return list<Activity> */
     public function findByUserFiltered(User $user, ?string $sportSlug = null, int $page = 1, int $perPage = 50, ?\DateTimeImmutable $since = null): array
     {
         $qb = $this->createQueryBuilder('a')
@@ -75,6 +81,7 @@ class ActivityRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
+    /** @return array<string, mixed> */
     public function getAggregateStats(User $user, ?string $sportSlug = null, ?\DateTimeImmutable $since = null): array
     {
         $qb = $this->createQueryBuilder('a')
@@ -96,6 +103,7 @@ class ActivityRepository extends ServiceEntityRepository
         return $qb->getQuery()->getArrayResult()[0] ?? [];
     }
 
+    /** @return list<Activity> */
     public function findByMonthForCalendar(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         return $this->createQueryBuilder('a')
@@ -111,6 +119,7 @@ class ActivityRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** @return list<array<string, mixed>> */
     public function findTodayStatsForSidebar(User $user): array
     {
         $conn = $this->getEntityManager()->getConnection();
@@ -128,7 +137,11 @@ class ActivityRepository extends ServiceEntityRepository
         return $this->findOneBy(['stravaId' => $stravaId]);
     }
 
-    /** Returns all already-imported Strava IDs for a user (for duplicate-check before sync). */
+    /**
+     * Returns all already-imported Strava IDs for a user (for duplicate-check before sync).
+     *
+     * @return list<int>
+     */
     public function findExistingStravaIds(User $user): array
     {
         $rows = $this->createQueryBuilder('a')
@@ -144,6 +157,7 @@ class ActivityRepository extends ServiceEntityRepository
 
     // ── Stats page queries ─────────────────────────────────────────────────
 
+    /** @return array<string, mixed> */
     public function getSeasonStats(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $conn = $this->getEntityManager()->getConnection();
@@ -160,6 +174,7 @@ class ActivityRepository extends ServiceEntityRepository
         return $row ?: ['cnt' => 0, 'total_distance' => 0, 'total_time' => 0, 'total_elevation' => 0];
     }
 
+    /** @return list<array<string, mixed>> */
     public function getDailyVolumeBySport(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $conn = $this->getEntityManager()->getConnection();
@@ -179,6 +194,7 @@ class ActivityRepository extends ServiceEntityRepository
         );
     }
 
+    /** @return list<array<string, mixed>> */
     public function getWeeklyVolumeBySport(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $conn = $this->getEntityManager()->getConnection();
@@ -198,6 +214,7 @@ class ActivityRepository extends ServiceEntityRepository
         );
     }
 
+    /** @return list<array<string, mixed>> */
     public function getMonthlyVolumeBySport(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $conn = $this->getEntityManager()->getConnection();
@@ -218,6 +235,7 @@ class ActivityRepository extends ServiceEntityRepository
         );
     }
 
+    /** @return list<array<string, mixed>> */
     public function getSportDistribution(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $conn = $this->getEntityManager()->getConnection();
@@ -243,6 +261,7 @@ class ActivityRepository extends ServiceEntityRepository
         return $rows;
     }
 
+    /** @return list<array<string, mixed>> */
     public function getWeeklyAvgPaceForSport(User $user, string $slug, \DateTimeImmutable $from): array
     {
         $conn = $this->getEntityManager()->getConnection();
@@ -265,6 +284,7 @@ class ActivityRepository extends ServiceEntityRepository
         return array_reverse($rows);
     }
 
+    /** @return array<string, mixed> */
     public function getWeightedHrStats(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $conn = $this->getEntityManager()->getConnection();
@@ -280,6 +300,7 @@ class ActivityRepository extends ServiceEntityRepository
         return $row ?: ['weighted_avg_hr' => null, 'max_hr' => null];
     }
 
+    /** @return list<array<string, mixed>> */
     public function getPersonalRecords(User $user): array
     {
         $conn    = $this->getEntityManager()->getConnection();
@@ -346,6 +367,7 @@ class ActivityRepository extends ServiceEntityRepository
         return $records;
     }
 
+    /** @return list<Activity> */
     public function findByUserAndDay(User $user, \DateTimeImmutable $date): array
     {
         $from = $date->setTime(0, 0, 0);
@@ -360,7 +382,11 @@ class ActivityRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** Returns array keyed by 'Y-m-d' => estimated kcal expenditure from activities */
+    /**
+     * Returns array keyed by 'Y-m-d' => estimated kcal expenditure from activities.
+     *
+     * @return array<string, int>
+     */
     public function getDailyActivityKcal(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $conn = $this->getEntityManager()->getConnection();

@@ -2,6 +2,7 @@
 
 namespace App\Controller\Activities;
 
+use App\Entity\User;
 use App\Repository\ActivityRepository;
 use App\Repository\SportRepository;
 use App\Service\Strava\StravaService;
@@ -10,6 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_USER')]
@@ -105,13 +107,16 @@ class ActivitiesController extends AbstractController
     }
 
     #[Route('/activities', name: 'app_activities')]
-    public function index(Request $request, ActivityRepository $activityRepo, SportRepository $sportRepo): Response
-    {
-        $user       = $this->getUser();
+    public function index(
+        Request $request,
+        ActivityRepository $activityRepo,
+        SportRepository $sportRepo,
+        #[CurrentUser] User $user,
+    ): Response {
         $filterSlug = $request->query->get('sport');
         $sport      = $filterSlug ? $sportRepo->findBySlug($filterSlug) : null;
         $perPage    = 20;
-        $page       = max(1, (int) $request->query->get('page', 1));
+        $page       = max(1, (int) $request->query->get('page', '1'));
 
         $period = $request->query->get('period');
         $since  = match ($period) {

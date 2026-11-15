@@ -2,20 +2,21 @@
 
 namespace App\Controller\Calendar;
 
+use App\Entity\User;
 use App\Repository\ActivityRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_USER')]
 class CalendarController extends AbstractController
 {
     #[Route('/calendar', name: 'app_calendar')]
-    public function index(Request $request, ActivityRepository $activityRepo): Response
+    public function index(Request $request, ActivityRepository $activityRepo, #[CurrentUser] User $user): Response
     {
-        $user = $this->getUser();
         $now  = new \DateTimeImmutable();
 
         $year  = max(2020, min(2030, (int)($request->query->get('year',  $now->format('Y')))));
