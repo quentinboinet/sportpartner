@@ -1,0 +1,61 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'health.history.title'|trans }} - SportPartner{% endblock %}
+
+{# Historique des séances Santé, la plus récente d'abord (20 par page). #}
+{% block body %}
+<div class="sp-health" {{ include('health/_tray_labels.html.twig') }}>
+
+    <div class="sp-page-header">
+        <div>
+            <h1 class="sp-greeting">{{ 'health.history.title'|trans }}</h1>
+            <p class="sp-health-sub">{{ 'health.history.subtitle'|trans({'%count%': total}) }}</p>
+        </div>
+    </div>
+
+    {{ include('health/_tabs.html.twig') }}
+
+    {% if sessions is empty %}
+        <div class="sp-card sp-health-empty-card">
+            <i class="bi bi-clock-history" aria-hidden="true"></i>
+            <p>{{ 'health.history.empty'|trans }}</p>
+            <a href="{{ path('app_health') }}" class="sp-btn sp-btn-primary">{{ 'health.history.empty_cta'|trans }}</a>
+        </div>
+    {% else %}
+        <ul class="sp-health-history">
+            {% for s in sessions %}
+                {% set _start = s.localStart %}
+                <li>
+                    <a href="{{ path('app_health_history_show', {id: s.id}) }}" class="sp-card sp-health-history-item">
+                        <span class="sp-health-history-date">
+                            <span class="sp-health-history-day">{{ _start|date('d', false) }}</span>
+                            <span class="sp-health-history-month">{{ ('health.month.' ~ _start|date('n', false))|trans }}</span>
+                        </span>
+                        <span class="sp-health-history-main">
+                            <span class="sp-health-history-name">{{ s.name }}</span>
+                            <span class="sp-health-history-meta">
+                                <span><i class="bi bi-clock" aria-hidden="true"></i> {{ s.durationSeconds|health_duration }}</span>
+                                <span>{{ 'health.history.exercises'|trans({'%count%': s.exercises|length}) }}</span>
+                                <span>{{ 'health.history.sets'|trans({'%count%': s.countSetsDone}) }}</span>
+                                {% if s.rpe %}<span>{{ 'health.history.rpe'|trans({'%rpe%': s.rpe}) }}</span>{% endif %}
+                            </span>
+                        </span>
+                        <span class="sp-health-history-side">
+                            {% if s.activity %}<span class="sp-health-badge sp-health-badge--activity" title="{{ 'health.history.has_activity'|trans }}"><i class="bi bi-lightning-fill" aria-hidden="true"></i> {{ 'health.history.activity_badge'|trans }}</span>{% endif %}
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </span>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+
+        {% if pages > 1 %}
+            <nav class="sp-health-pager" aria-label="{{ 'health.history.pages'|trans }}">
+                {% if page > 1 %}<a class="sp-btn sp-btn-outline" href="{{ path('app_health_history', {page: page - 1}) }}"><i class="bi bi-chevron-left" aria-hidden="true"></i> {{ 'health.history.newer'|trans }}</a>{% endif %}
+                <span>{{ 'health.history.page'|trans({'%page%': page, '%pages%': pages}) }}</span>
+                {% if page < pages %}<a class="sp-btn sp-btn-outline" href="{{ path('app_health_history', {page: page + 1}) }}">{{ 'health.history.older'|trans }} <i class="bi bi-chevron-right" aria-hidden="true"></i></a>{% endif %}
+            </nav>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

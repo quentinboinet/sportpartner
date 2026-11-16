@@ -4,6 +4,7 @@ import { Controller } from '@hotwired/stimulus';
  * Plan de course, phase 2 : scénarios et temps de passage (templates/race/_scenarios.html.twig).
  *
  *  - onglets accessibles (role tablist/tab/tabpanel, flèches, Début/Fin), onglet actif lu dans l'URL (#scenario-{id}) ;
+ *    chaque changement d'onglet émet "race-splits:select" (detail.id), suivi par la section Nutrition ;
  *  - recalcul EN DIRECT du tableau pendant la saisie, sans aller-retour serveur : fillAuto() et compute() ci-dessous
  *    sont les miroirs exacts de App\Service\Route\SplitCalculator::fillAutoFromEfforts() et compute(),
  *    parseDuration() celui de DurationFormat::parse() ;
@@ -535,6 +536,8 @@ export default class extends Controller {
         this.panelTargets.forEach((panel) => { panel.hidden = panel.dataset.scenarioId !== id; });
         if (focus && current) current.focus();
         if (current) current.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        // Section Nutrition (race_nutrition_controller.js) : elle affiche le même scénario
+        if (current) this.dispatch('select', { detail: { id } });
     }
 
     selectTab(event) {

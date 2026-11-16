@@ -6,6 +6,8 @@ use App\Entity\Race;
 use App\Entity\RaceCheckpoint;
 use App\Entity\RaceRoute;
 use App\Entity\RaceShare;
+use App\Service\Nutrition\FuelCatalog;
+use App\Service\Nutrition\RaceNutritionViewBuilder;
 use App\Service\Route\DurationFormat;
 use App\Service\Route\RouteAnalyzer;
 use App\Service\Route\ScenarioViewBuilder;
@@ -22,17 +24,26 @@ use App\Service\Route\ScenarioViewBuilder;
  * ou identifiant de l'utilisateur, notes privées (course, repères), autres scénarios, nom ou stratégie du scénario,
  * lien ou nom du fichier GPX, site, statut, données Strava, jeton du partage.
  *
+ * Nutrition (option showNutrition, désactivée par défaut) : seulement pour le scénario partagé et seulement aux points
+ * d'ASSISTANCE, ce que les proches doivent donner (liste « à emporter » de RaceNutritionCalculator::carryList() :
+ * aliments à récupérer, boissons prises sur place) et les flasques à remplir ; chaque ligne n'a que la clé d'un produit
+ * du catalogue OU le nom d'un produit personnalisé, une quantité et le type (boisson ou non). Option désactivée :
+ * "nutrition" vaut null partout, aucune donnée du plan nutrition n'est lue.
+ *
  * Horaires : "scheduled" seulement si le scénario partagé a un temps visé (sinon : "Horaires pas encore définis").
  * Les heures sont celles de SplitCalculator::compute() (mêmes valeurs que la page plan pour ce scénario) ; "at" est
  * l'heure locale "flottante" (sans fuseau, la course n'en a pas) du passage, "Y-m-d\TH:i:s", pour la mise en avant
  * du prochain passage le jour de la course (navigateur) et pour l'agenda.
  *
  * @phpstan-import-type ScenarioView from ScenarioViewBuilder
+ * @phpstan-import-type NutritionView from RaceNutritionViewBuilder
  *
  * @phpstan-type Clock array{time: string, dayOffset: int}
- * @phpstan-type PublicPoint array{kind: string, number: ?int, name: ?string, type: ?string, distanceM: int, elapsedSeconds: ?int, clock: ?Clock, at: ?string, paceSecPerKm: ?float, cutoffSeconds: ?int, cutoffClock: ?Clock, message: ?string}
+ * @phpstan-type PublicLine array{key: ?string, label: ?string, qty: int, drink: bool}
+ * @phpstan-type PublicNutrition array{give: list<PublicLine>, fill: list<array{key: ?string, label: ?string, ml: int, flasks: int}>, flasks: int, flaskMl: int}
+ * @phpstan-type PublicPoint array{kind: string, number: ?int, name: ?string, type: ?string, distanceM: int, elapsedSeconds: ?int, clock: ?Clock, at: ?string, paceSecPerKm: ?float, cutoffSeconds: ?int, cutoffClock: ?Clock, message: ?string, nutrition: ?PublicNutrition}
  * @phpstan-type PublicMap array{points: list<array{0: int, 1: float|null, 2: float, 3: float}>, checkpoints: list<array{number: int, name: string, type: string, distanceM: int, lat: float, lon: float}>}
- * @phpstan-type PublicView array{race: array{name: string, date: ?string, year: int, location: ?string}, displayName: ?string, message: ?string, showPaces: bool, showCutoffs: bool, scheduled: bool, startTime: ?string, finishClock: ?Clock, finishElapsed: ?int, finishAt: ?string, avgPaceSecPerKm: ?float, distanceM: int, gainM: ?int, hasCutoffs: bool, points: list<PublicPoint>, map: ?PublicMap}
+ * @phpstan-type PublicView array{race: array{name: string, date: ?string, year: int, location: ?string}, displayName: ?string, message: ?string, showPaces: bool, showCutoffs: bool, showNutrition: bool, scheduled: bool, startTime: ?string, finishClock: ?Clock, finishElapsed: ?int, finishAt: ?string, avgPaceSecPerKm: ?float, distanceM: int, gainM: ?int, hasCutoffs: bool, points: list<PublicPoint>, map: ?PublicMap}
  */
 final class PublicPlanBuilder
 {
@@ -70,13 +81,17 @@ final class PublicPlanBuilder
      * @param list<RaceCheckpoint> $checkpoints    repères du parcours, triés (ScenarioViewBuilder::buildWith()['checkpoints'])
      * @param int                  $routeDistanceM ScenarioViewBuilder::routeDistanceM()
      * @param ScenarioView|null    $scenario       scénario partagé (selectScenario())
+     * @param NutritionView|null   $nutrition      plan nutrition du scénario partagé (RaceNutritionViewBuilder), lu
+     *                                             seulement si l'option showNutrition est active
      *
      * @return PublicView
      */
-    public function build(Race $race, RaceShare $share, ?RaceRoute $route, array $checkpoints, int $routeDistanceM, ?array $scenario): array
+    public function build(Race $race, RaceShare $share, ?RaceRoute $route, array $checkpoints, int $routeDistanceM, ?array $scenario, ?array $nutrition = null): array
     {
         $showPaces = $share->isShowPaces();
         $showCutoffs = $share->isShowCutoffs();
+        $handover = $share->isShowNutrition() && null !== $nutrition && null !== $scenario && $nutrition['scenarioId'] === $scenario['id']
+            ? self::handover($nutrition) : null;
         $calc = null !== $scenario ? $scenario['calc'] : null;
         $target = null !== $scenario ? $scenario['targetSeconds'] : null;
         $scheduled = null !== $calc && null !== $target;
@@ -104,6 +119,7 @@ final class PublicPlanBuilder
             'cutoffSeconds' => null,
             'cutoffClock' => null,
             'message' => self::text($share->getStartMessage()),
+            'nutrition' => null,
         ]];
 
         $hasCutoffs = false;
@@ -126,6 +142,7 @@ final class PublicPlanBuilder
                 'cutoffSeconds' => $cutoff,
                 'cutoffClock' => null !== $cutoff && null !== $startClock ? DurationFormat::formatClock($startClock, $cutoff) : null,
                 'message' => self::text($cp->getPublicMessage()),
+                'nutrition' => $handover[(string) $cp->getId()] ?? null,
             ];
         }
 
@@ -146,6 +163,7 @@ final class PublicPlanBuilder
             'cutoffSeconds' => null,
             'cutoffClock' => null,
             'message' => self::text($share->getFinishMessage()),
+            'nutrition' => null,
         ];
 
         return [
@@ -159,6 +177,7 @@ final class PublicPlanBuilder
             'message' => self::text($share->getMessage()),
             'showPaces' => $showPaces,
             'showCutoffs' => $showCutoffs,
+            'showNutrition' => null !== $handover,
             'scheduled' => $scheduled,
             'startTime' => $startTime,
             'finishClock' => $finishClock,
@@ -171,6 +190,59 @@ final class PublicPlanBuilder
             'points' => $points,
             'map' => null !== $route ? $this->map($route, $checkpoints) : null,
         ];
+    }
+
+    /**
+     * Ce que les proches donnent à chaque point d'assistance (liste blanche) : aliments à récupérer (carry), boissons
+     * prises sur place (eatHere) et flasques à remplir (fill). Clé du catalogue, ou nom d'un produit personnalisé.
+     *
+     * @param NutritionView $nutrition
+     *
+     * @return array<string, PublicNutrition> checkpointId => données (points d'assistance qui ont quelque chose)
+     */
+    private static function handover(array $nutrition): array
+    {
+        $products = [];
+        foreach ($nutrition['products'] as $product) {
+            $products[$product['key']] = $product;
+        }
+        $name = static function (string $key) use ($products): array {
+            $custom = FuelCatalog::isCustomKey($key);
+
+            return [
+                'key' => $custom ? null : (string) $key,
+                'label' => $custom ? (string) ($products[$key]['label'] ?? '') : null,
+                'drink' => 'drink' === ($products[$key]['kind'] ?? 'food'),
+            ];
+        };
+
+        $out = [];
+        foreach ($nutrition['carry'] as $stop) {
+            if ('start' === $stop['type'] || !$stop['assistance']) {
+                continue;
+            }
+            $give = [];
+            foreach ($stop['carry'] ?? [] as $line) {
+                $n = $name($line['key']);
+                $give[] = ['key' => $n['key'], 'label' => $n['label'], 'qty' => (int) $line['qty'], 'drink' => $n['drink']];
+            }
+            foreach ($stop['eatHere'] as $line) {
+                $n = $name($line['key']);
+                if ($n['drink']) {
+                    $give[] = ['key' => $n['key'], 'label' => $n['label'], 'qty' => (int) $line['qty'], 'drink' => true];
+                }
+            }
+            $fill = [];
+            foreach ($stop['fill'] ?? [] as $line) {
+                $n = $name($line['key']);
+                $fill[] = ['key' => $n['key'], 'label' => $n['label'], 'ml' => (int) $line['ml'], 'flasks' => (int) $line['flasks']];
+            }
+            if ([] !== $give || [] !== $fill) {
+                $out[(string) $stop['anchor']] = ['give' => $give, 'fill' => $fill, 'flasks' => (int) $stop['flasks'], 'flaskMl' => (int) $nutrition['settings']['flaskMl']];
+            }
+        }
+
+        return $out;
     }
 
     /**

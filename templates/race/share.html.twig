@@ -161,8 +161,14 @@
                     <input type="checkbox" name="show_cutoffs" value="1" {{ form.showCutoffs ? 'checked' }} data-share-option="cutoffs">
                     <span>{{ 'race_share.show_cutoffs'|trans }}</span>
                 </label>
+                {# Plan nutrition du scénario partagé, seulement aux points d'assistance (désactivé par défaut) #}
+                <label class="rsh-check">
+                    <input type="checkbox" name="show_nutrition" value="1" {{ form.showNutrition ? 'checked' }} data-share-option="nutrition">
+                    <span>{{ 'race_nutrition.share_option'|trans }}</span>
+                </label>
                 {{ _self.error(errors, 'show_paces', 'share-paces') }}
                 {{ _self.error(errors, 'show_cutoffs', 'share-cutoffs') }}
+                {{ _self.error(errors, 'show_nutrition', 'share-nutrition') }}
             </fieldset>
         </section>
 

@@ -1,0 +1,142 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'health.library_title'|trans }} - SportPartner{% endblock %}
+
+{#
+ # Espace Santé, bibliothèque : filtres (formulaire GET, appliqué par le serveur puis en direct par
+ # health_library_controller.js), cartes des exercices groupées par catégorie, ajout au plateau de la séance
+ # (health_tray_add_controller.js) et barre « Séance en cours » en bas de l'écran.
+ #}
+{% block body %}
+{% set _countText = visibleCount == 0 ? 'health.filter.count_none'|trans : (visibleCount == 1 ? 'health.filter.count_one'|trans : 'health.filter.count_many'|trans({'%count%': visibleCount})) %}
+<div class="sp-health sp-health--with-bar" {{ include('health/_tray_labels.html.twig') }}>
+
+    <div class="sp-page-header">
+        <div>
+            <h1 class="sp-greeting">{{ 'health.title'|trans }}</h1>
+            <p class="sp-health-sub">{{ 'health.subtitle'|trans }}</p>
+        </div>
+        <div class="sp-header-btns">
+            <a href="{{ path('app_health_exercise_new') }}" class="sp-btn sp-btn-outline">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'health.new_exercise'|trans }}
+            </a>
+        </div>
+    </div>
+
+    {{ include('health/_tabs.html.twig') }}
+    {{ include('health/_disclaimer.html.twig') }}
+
+    <div data-controller="health-library"
+         data-health-library-labels-value="{{ {
+            countNone: 'health.filter.count_none'|trans,
+            countOne: 'health.filter.count_one'|trans,
+            countMany: 'health.filter.count_many'|trans,
+         }|json_encode }}">
+
+        <form class="sp-card sp-health-filters" method="get" action="{{ path('app_health') }}" role="search"
+              aria-label="{{ 'health.filter.label'|trans }}"
+              data-health-library-target="form"
+              data-action="input->health-library#apply change->health-library#apply submit->health-library#submit">
+
+            <div class="sp-health-search">
+                <label for="health-q" class="visually-hidden">{{ 'health.filter.search_label'|trans }}</label>
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input type="search" id="health-q" name="q" value="{{ filter.query }}" maxlength="80" autocomplete="off"
+                       class="form-control" placeholder="{{ 'health.filter.search_placeholder'|trans }}"
+                       data-health-library-target="query">
+            </div>
+
+            <fieldset class="sp-health-chips">
+                <legend class="visually-hidden">{{ 'health.filter.category'|trans }}</legend>
+                <input type="radio" class="btn-check" name="category" id="health-cat-all" value="" {{ filter.category is null ? 'checked' }}>
+                <label class="sp-health-chip" for="health-cat-all">{{ 'health.filter.all_categories'|trans }}</label>
+                {% for c in categories %}
+                    <input type="radio" class="btn-check" name="category" id="health-cat-{{ c.value }}" value="{{ c.value }}" {{ filter.category == c ? 'checked' }}>
+                    <label class="sp-health-chip" for="health-cat-{{ c.value }}">
+                        <i class="bi {{ c.icon }}" aria-hidden="true"></i> {{ c.labelKey|trans }}
+                    </label>
+                {% endfor %}
+            </fieldset>
+
+            <div class="sp-health-selects">
+                <div>
+                    <label class="form-label" for="health-area">{{ 'health.filter.area'|trans }}</label>
+                    <select id="health-area" name="area" class="form-select form-select-sm">
+                        <option value="">{{ 'health.filter.all_areas'|trans }}</option>
+                        {% for a in areas %}
+                            <option value="{{ a.value }}" {{ filter.area == a ? 'selected' }}>{{ a.labelKey|trans }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="health-level">{{ 'health.filter.level'|trans }}</label>
+                    <select id="health-level" name="level" class="form-select form-select-sm">
+                        <option value="">{{ 'health.filter.all_levels'|trans }}</option>
+                        {% for l in levels %}
+                            <option value="{{ l.value }}" {{ filter.level == l ? 'selected' }}>{{ l.labelKey|trans }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="health-equipment">{{ 'health.filter.equipment'|trans }}</label>
+                    <select id="health-equipment" name="equipment" class="form-select form-select-sm">
+                        <option value="">{{ 'health.filter.all_equipment'|trans }}</option>
+                        <option value="none" {{ filter.equipment == 'none' ? 'selected' }}>{{ 'health.equipment.none'|trans }}</option>
+                        {% for q in equipment %}
+                            <option value="{{ q.value }}" {{ filter.equipment == q.value ? 'selected' }}>{{ q.labelKey|trans }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="sp-health-filter-foot">
+                {% if hiddenCount > 0 %}
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="health-show-hidden" name="hidden" value="1" {{ filter.showHidden ? 'checked' }}>
+                        <label class="form-check-label" for="health-show-hidden">{{ 'health.filter.show_hidden'|trans({'%count%': hiddenCount}) }}</label>
+                    </div>
+                {% endif %}
+                <p class="sp-health-count" role="status" data-health-library-target="count">{{ _countText }}</p>
+                <a href="{{ path('app_health') }}" class="sp-health-reset" data-health-library-target="reset" data-action="health-library#reset" {% if not filter.active %}hidden{% endif %}>
+                    <i class="bi bi-x-circle" aria-hidden="true"></i> {{ 'health.filter.reset'|trans }}
+                </a>
+                <noscript><button type="submit" class="sp-btn sp-btn-outline">{{ 'health.filter.submit'|trans }}</button></noscript>
+            </div>
+        </form>
+
+        <div class="sp-health-empty" data-health-library-target="empty" {% if visibleCount > 0 %}hidden{% endif %}>
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <p>{{ 'health.filter.empty'|trans }}</p>
+        </div>
+
+        {% for c in categories %}
+            {% set _items = exercises|filter(e => e.category == c) %}
+            {% if _items is not empty %}
+                {% set _shown = _items|filter(e => visibleIds[e.id] is defined)|length > 0 %}
+                <section class="sp-health-group" data-health-library-target="group" aria-labelledby="health-group-{{ c.value }}" {% if not _shown %}hidden{% endif %}>
+                    <h2 class="sp-health-group-title" id="health-group-{{ c.value }}">
+                        <i class="bi {{ c.icon }}" aria-hidden="true"></i> {{ c.labelKey|trans }}
+                    </h2>
+                    <ul class="sp-health-grid">
+                        {% for e in _items %}
+                            {{ include('health/_exercise_card.html.twig', {e: e, shown: visibleIds[e.id] is defined}) }}
+                        {% endfor %}
+                    </ul>
+                </section>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="sp-health-traybar" data-health-tray-add-target="bar" hidden>
+        <i class="bi bi-list-check" aria-hidden="true"></i>
+        <span class="sp-health-traybar-text">
+            <strong>{{ 'health.tray.title'|trans }}</strong>
+            <span data-health-tray-add-target="barText"></span>
+        </span>
+        <a href="{{ path('app_health_session') }}" class="sp-btn sp-btn-primary">
+            {{ 'health.tray.open'|trans }} <i class="bi bi-arrow-right" aria-hidden="true"></i>
+        </a>
+    </div>
+    <p class="visually-hidden" role="status" data-health-tray-add-target="status"></p>
+</div>
+{% endblock %}

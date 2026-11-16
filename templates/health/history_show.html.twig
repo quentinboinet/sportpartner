@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ session.name }} - SportPartner{% endblock %}
+
+{#
+ # Détail d'une séance Santé : exercices (prévu / fait), ressenti, notes, activité liée, « Refaire cette séance »
+ # (préremplit le plateau : app_health_session?refaire=id) et suppression (avec ou sans l'activité liée).
+ #}
+{% block body %}
+{% set s = session %}
+{% set _start = s.localStart %}
+<div class="sp-health" {{ include('health/_tray_labels.html.twig') }}>
+
+    <a href="{{ path('app_health_history') }}" class="sp-back-link"><i class="bi bi-arrow-left" aria-hidden="true"></i> {{ 'health.back_history'|trans }}</a>
+
+    {{ include('health/_tabs.html.twig') }}
+
+    <div class="sp-card sp-health-detail-head">
+        <p class="sp-health-phase">{{ _start|date('d/m/Y', false) }} · {{ _start|date('H:i', false) }}</p>
+        <h1 class="sp-health-sheet-title">{{ s.name }}</h1>
+        <dl class="sp-health-facts">
+            <div><dt>{{ 'health.end.duration'|trans }}</dt><dd>{{ s.durationSeconds|health_duration }}</dd></div>
+            {% if s.elapsedSeconds > s.durationSeconds + 59 %}
+                <div><dt>{{ 'health.history.elapsed'|trans }}</dt><dd>{{ s.elapsedSeconds|health_duration }}</dd></div>
+            {% endif %}
+            <div><dt>{{ 'health.end.sets'|trans }}</dt><dd>{{ s.countSetsDone }}</dd></div>
+            <div><dt>{{ 'health.end.rpe_short'|trans }}</dt><dd>{{ s.rpe ? 'health.history.rpe_value'|trans({'%rpe%': s.rpe}) : 'health.history.rpe_none'|trans }}</dd></div>
+        </dl>
+        <div class="sp-health-sheet-actions">
+            <a href="{{ path('app_health_session', {refaire: s.id}) }}" class="sp-btn sp-btn-primary">
+                <i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ 'health.history.replay'|trans }}
+            </a>
+            {% if s.activity %}
+                <a href="{{ path('app_activity_show', {id: s.activity.id}) }}" class="sp-btn sp-btn-outline">
+                    <i class="bi bi-lightning-fill" aria-hidden="true"></i> {{ 'health.history.see_activity'|trans }}
+                </a>
+            {% endif %}
+            <button type="button" class="sp-btn sp-btn-outline sp-health-danger" data-bs-toggle="modal" data-bs-target="#health-delete-session">
+                <i class="bi bi-trash" aria-hidden="true"></i> {{ 'health.history.delete'|trans }}
+            </button>
+        </div>
+        {% if not s.activity %}<p class="form-text mb-0">{{ 'health.history.no_activity'|trans }}</p>{% endif %}
+    </div>
+
+    {% if s.notes %}
+        <div class="sp-card sp-health-notes">
+            <h2 class="sp-health-h2">{{ 'health.end.notes'|trans }}</h2>
+            <p>{{ s.notes|nl2br }}</p>
+        </div>
+    {% endif %}
+
+    <div class="sp-card">
+        <h2 class="sp-health-h2">{{ 'health.history.exercises_title'|trans }}</h2>
+        <ol class="sp-health-summary">
+            {% for x in s.exercises %}
+                {% set _done = x.performed %}
+                <li class="{{ _done is empty ? 'is-skipped' }}">
+                    {% if x.exercise %}
+                        <strong><a href="{{ path('app_health_exercise_show', {id: x.exercise.id}) }}">{{ x.name }}</a></strong>
+                    {% else %}
+                        <strong>{{ x.name }}</strong> <span class="sp-health-badge">{{ 'health.history.deleted_exercise'|trans }}</span>
+                    {% endif %}
+                    <span class="sp-health-summary-plan">{{ 'health.history.planned'|trans }} {{ health_dose(x.sets, x.value, x.mode, x.unilateral) }} · {{ 'health.history.rest'|trans({'%rest%': x.restSeconds|health_seconds}) }}</span>
+                    <span class="sp-health-summary-done">
+                        {% if _done is empty %}
+                            {{ 'health.end.not_done'|trans }}
+                        {% else %}
+                            {{ 'health.history.done_sets'|trans({'%done%': _done|length, '%sets%': x.sets}) }} :
+                            {{ _done|map(v => x.mode.value == 'time' ? v|health_seconds : v)|join(' / ') }}
+                            {% if x.unilateral %}({{ 'health.dose.each_side'|trans }}){% endif %}
+                        {% endif %}
+                    </span>
+                </li>
+            {% endfor %}
+        </ol>
+    </div>
+
+    <div class="modal fade" id="health-delete-session" tabindex="-1" aria-labelledby="health-delete-session-title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content" method="post" action="{{ path('app_health_history_delete', {id: s.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('health') }}">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="health-delete-session-title">{{ 'health.history.delete_title'|trans }}</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'health.cancel'|trans }}"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{{ 'health.history.delete_text'|trans }}</p>
+                    {% if s.activity %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="delete_activity" value="1" id="health-delete-activity" checked>
+                            <label class="form-check-label" for="health-delete-activity">{{ 'health.history.delete_activity'|trans }}</label>
+                        </div>
+                        <p class="form-text">{{ 'health.history.delete_activity_help'|trans }}</p>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="sp-btn sp-btn-outline" data-bs-dismiss="modal">{{ 'health.cancel'|trans }}</button>
+                    <button type="submit" class="sp-btn sp-btn-primary sp-health-danger-fill">{{ 'health.history.delete_confirm'|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

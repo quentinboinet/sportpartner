@@ -11,6 +11,8 @@ use App\Repository\RaceCheckpointRepository;
 use App\Repository\RaceRouteRepository;
 use App\Repository\RaceScenarioRepository;
 use App\Repository\RaceScenarioSplitRepository;
+use App\Service\Nutrition\RaceNutritionStore;
+use App\Service\Nutrition\RaceNutritionViewBuilder;
 use App\Service\Route\DurationFormat;
 use App\Service\Route\ScenarioViewBuilder;
 use App\Service\Route\SplitCalculator;
@@ -46,6 +48,7 @@ final class RaceScenarioController extends AbstractController
         private readonly ScenarioViewBuilder $builder,
         private readonly SplitCalculator $calculator,
         private readonly TranslatorInterface $translator,
+        private readonly RaceNutritionStore $nutrition,
     ) {
     }
 
@@ -210,6 +213,8 @@ final class RaceScenarioController extends AbstractController
                     ->setCheckpoint($this->em->getReference(RaceCheckpoint::class, $checkpointId))
                     ->setElapsedSeconds($seconds));
             }
+            // Plan nutrition : réglages, produits et lignes manuelles (les apports auto sont recalculés)
+            $this->nutrition->copy($source, $copy);
         });
         $this->addFlash('success', 'race_plan.flash_scenario_duplicated');
 
@@ -234,7 +239,7 @@ final class RaceScenarioController extends AbstractController
 
     /** Fiche imprimable d'un scénario (?scenario={sid}, par défaut le premier). */
     #[Route('/plan/print', name: 'app_race_plan_print', methods: ['GET'])]
-    public function print(Race $race, Request $request): Response
+    public function print(Race $race, Request $request, RaceNutritionViewBuilder $nutritionBuilder): Response
     {
         $this->denyUnlessOwner($race);
         $view = $this->builder->build($race);
@@ -261,6 +266,8 @@ final class RaceScenarioController extends AbstractController
             'scenarios' => array_map(static fn (array $s): RaceScenario => $s['scenario'], $view['scenarios']),
             'calc' => $selected['calc'] ?? null,
             'checkpoints' => $view['checkpoints'],
+            // Plan nutrition du scénario imprimé (colonne « À manger », liste à emporter, bracelet)
+            'nutrition' => null !== $selected ? ($nutritionBuilder->build($race, $view)[$selected['id']] ?? null) : null,
         ]);
     }
 

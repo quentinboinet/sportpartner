@@ -349,6 +349,7 @@
                                 <span class="rp-name">
                                     <i class="bi {{ cp.type.icon }}" style="color:{{ cp.type.color }}" title="{{ cp.type.labelKey|trans }}"></i>
                                     {{ cp.name }}
+                                    {% if cp.hasAssistance %}<span class="rp-assist" role="img" aria-label="{{ 'race_nutrition.tag_assistance'|trans }}" title="{{ 'race_nutrition.tag_assistance'|trans }}" data-assistance><i class="bi bi-bag-heart-fill" aria-hidden="true"></i></span>{% endif %}
                                 </span>
                                 {% if row.beyondRoute %}
                                     <span class="rp-badge-warn" title="{{ 'race_plan.beyond_route_title'|trans }}">
@@ -432,6 +433,9 @@
 
 {# ── Temps de passage : scénarios (phase 2) ─────── #}
 {% include 'race/_scenarios.html.twig' %}
+
+{# ── Nutrition : ce qui est prévu à chaque point et sur chaque tronçon, par scénario ─ #}
+{% include 'race/_nutrition.html.twig' %}
 
 {# ── Modale : ajouter / modifier un repère ──────── #}
 <div class="modal fade" id="checkpointModal" tabindex="-1" aria-hidden="true" aria-labelledby="checkpointModalTitle"
@@ -526,6 +530,17 @@
                                   aria-describedby="cp-notes-help"
                                   placeholder="{{ 'race_plan.field_notes_placeholder'|trans }}"></textarea>
                         <div class="sp-form-help" id="cp-notes-help"><i class="bi bi-lock"></i> {{ 'race_plan.field_notes_private'|trans }}</div>
+                    </div>
+
+                    {# Assistance / sac d'allègement : ses propres produits récupérables ici (plan nutrition, liste à emporter).
+                       Champ caché "0" + case "1" : le serveur garde la valeur inchangée si le champ est absent #}
+                    <div class="mb-3">
+                        <input type="hidden" name="assistance" value="0">
+                        <label class="rp-check" for="cp-assistance">
+                            <input type="checkbox" id="cp-assistance" name="assistance" value="1" aria-describedby="cp-assistance-help">
+                            <span>{{ 'race_nutrition.field_assistance'|trans }}</span>
+                        </label>
+                        <div class="sp-form-help" id="cp-assistance-help"><i class="bi bi-bag-heart"></i> {{ 'race_nutrition.field_assistance_help'|trans }}</div>
                     </div>
 
                     {# Message pour les proches (plan partagé, voir RaceShareController) #}
@@ -830,6 +845,9 @@ textarea.sp-form-input { resize: vertical; }
 .sp-intent-option-title { font-size: 13px; font-weight: 600; color: var(--sp-text); }
 .sp-intent-option-sub { font-size: 11px; color: var(--sp-muted); margin-top: 2px; line-height: 1.3; }
 .rp-cutoff-input { font-variant-numeric: tabular-nums; }
+.rp-check { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; font-weight: 600; color: var(--sp-text); cursor: pointer; }
+.rp-check input { width: 16px; height: 16px; accent-color: var(--sp-orange); flex-shrink: 0; }
+.rp-assist { display: inline-flex; align-items: center; margin-left: 4px; color: var(--sp-orange); font-size: 13px; cursor: help; }
 .rp-modal-delete {
     background: none; border: none; padding: 6px 4px; cursor: pointer;
     color: var(--sp-muted); font-size: 13px; font-weight: 600;
@@ -990,6 +1008,7 @@ function fill(cp, km = null) {
     f('cutoff').value       = c.cutoff ?? '';
     f('notes').value        = c.notes ?? '';
     f('public_message').value = c.publicMessage ?? '';
+    document.getElementById('cp-assistance').checked = c.assistance === true;
 
     const type = c.type ?? options[0].querySelector('input').value;
     options.forEach(opt => { const i = opt.querySelector('input'); i.checked = i.value === type; });

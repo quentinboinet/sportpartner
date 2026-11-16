@@ -8,9 +8,13 @@
   de ScenarioViewBuilder), scenarios (list<RaceScenario>), calc (SplitCalculator::compute() ou null),
   checkpoints (list<RaceCheckpoint> du parcours, triés). Le résumé de la fiche rappelle la stratégie d'allure
   (scenarioView.strategy / intensity) qui a façonné les temps calculés.
+  nutrition (?array, RaceNutritionViewBuilder : plan nutrition ENREGISTRÉ du scénario) : ligne « À manger » sous chaque
+  point (en route depuis le point précédent, au point), bilan et liste « à emporter » sur la fiche ; texte très court
+  par case sur le bracelet (« 1 gel + 250 ml », « ici 1 barre »).
   Page autonome : n'étend pas base.html.twig (pas de sidebar, pas d'importmap).
 #}
 {% import _self as m %}
+{% import 'race/_nutrition_macros.html.twig' as nm %}
 
 {% macro clock(c) %}{% if c %}{{ c.time }}{% if c.dayOffset > 0 %}<span class="pp-day">{{ 'race_print.day_offset'|trans({'%n%': c.dayOffset}) }}</span>{% endif %}{% endif %}{% endmacro %}
 
@@ -177,6 +181,19 @@
         .pp-notes td { padding-top: 0; font-size: 7.5pt; color: #374151; }
         .pp-notes-text { display: block; white-space: pre-line; overflow-wrap: anywhere; border-left: 1.5pt solid var(--pp-line); padding-left: 2mm; }
         .pp-notes-text i { margin-right: 1mm; }
+        .pp-table tbody.pp-has-fuel tr:not(:last-child) td { border-bottom: 0; padding-bottom: .4mm; }
+        .pp-fuel td { padding-top: 0; font-size: 7.5pt; color: var(--pp-ink); }
+        .pp-fuel-text { display: block; overflow-wrap: anywhere; border-left: 1.5pt solid var(--sp-orange); padding-left: 2mm; }
+        .pp-fuel-text i { margin-right: 1mm; color: var(--sp-orange); }
+        .pp-fuel-text strong { font-weight: 800; }
+        .pp-nutrition { margin-top: 4mm; border: .75pt solid var(--pp-ink); border-radius: 2mm; padding: 2mm 3mm; break-inside: avoid; }
+        .pp-nutrition h2 { display: flex; align-items: center; gap: 1.5mm; margin: 0 0 1mm; font-size: 10pt; font-weight: 800; }
+        .pp-nutrition h2 i { color: var(--sp-orange); }
+        .pp-nutrition p { margin: .6mm 0; font-size: 8pt; }
+        .pp-nutrition ol { margin: 1mm 0 0; padding-left: 4mm; font-size: 8pt; }
+        .pp-nutrition li { margin: .5mm 0; overflow-wrap: anywhere; }
+        .pp-nutrition li strong { font-weight: 800; }
+        .pp-nutrition-label { color: #4B5563; font-weight: 700; }
         .pp-err { display: block; margin-top: .6mm; font-size: 6.8pt; font-weight: 700; }
         .pp-err i { margin-right: .6mm; }
 
@@ -241,6 +258,7 @@
         .pp-cell-clock .pp-day { font-size: 5.6pt; margin-left: .5mm; }
         .pp-cell--finish .pp-day { background: #fff; color: #111; }
         .pp-cell-cut { font-size: 6pt; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pp-cell-fuel { font-size: 6pt; font-weight: 800; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
         .pp-cell .pp-blank { width: 100%; height: 4.6mm; border-bottom-color: #000; }
         .pp-cell .pp-blank--sm { height: 3.2mm; }
         .pp-cell--finish .pp-blank { border-bottom-color: #fff; }
@@ -334,6 +352,15 @@
     {% set _hasTimes = calc.rows|filter(r => r.arrivalSeconds is not null)|length > 0 or _target is not null %}
     {% set _stopsError = calc.errors|filter(e => e.code == 'stops_exceed_target')|length > 0 %}
     {% set _hasCutoffs = calc.rows|filter(r => r.cutoffSeconds is not null)|length > 0 %}
+    {# Plan nutrition : lignes par clé ("p:start", "s:<id>", "p:<id>", "s:finish") et produits par clé #}
+    {% set _fmt = {dp: _dec, ts: _th} %}
+    {% set _nrows = {} %}
+    {% set _npmap = {} %}
+    {% if nutrition %}
+        {% for r in nutrition.result.rows %}{% set _nrows = _nrows|merge({(r.key): r}) %}{% endfor %}
+        {% for p in nutrition.products %}{% set _npmap = _npmap|merge({(p.key): p}) %}{% endfor %}
+    {% endif %}
+    {% set _hasFuel = nutrition and nutrition.result.totals.products is not empty %}
 
     {# ═══════════════════════ FICHE ═══════════════════════ #}
     <div class="pp-page pp-sheet" data-scenario-id="{{ scenario.id }}">
@@ -434,7 +461,8 @@
                     </tr>
                 </thead>
 
-                <tbody class="pp-row--start">
+                {% set _startFuel = (_nrows['p:start'] ?? null) ? _nrows['p:start'].items : [] %}
+                <tbody class="pp-row--start{{ _startFuel is not empty ? ' pp-has-fuel' }}">
                     <tr>
                         <td class="pp-c"><span class="pp-pin pp-pin--start"><i class="bi bi-play-fill"></i></span></td>
                         <td class="pp-cp-name">{{ 'race_print.start'|trans }}</td>
@@ -445,13 +473,23 @@
                         <td class="pp-r"><span class="pp-clock">{{ _start ?: m.blank('pp-blank--sm') }}</span></td>
                         <td></td><td></td><td></td>
                     </tr>
+                    {% if _startFuel is not empty %}
+                        <tr class="pp-fuel" data-pp-fuel="p:start">
+                            <td></td>
+                            <td colspan="{{ _hasRoute ? 9 : 8 }}"><span class="pp-fuel-text"><i class="bi bi-egg-fried"></i><strong>{{ 'race_nutrition.print_here'|trans }}</strong> {{ nm.lines(_startFuel, _npmap, _fmt) }}</span></td>
+                        </tr>
+                    {% endif %}
                 </tbody>
 
                 {% for row in calc.rows|merge([calc.finish]) %}
                     {% set _isFinish = row.type == 'finish' %}
                     {% set _isAid = row.type == 'aid_station' %}
                     {% set _note = not _isFinish and _notes['cp' ~ row.checkpointId] is defined ? _notes['cp' ~ row.checkpointId] : null %}
-                    <tbody class="pp-row--{{ row.type }}{{ _note ? ' pp-has-notes' }}" data-checkpoint-id="{{ row.checkpointId }}">
+                    {% set _anchor = _isFinish ? 'finish' : row.checkpointId %}
+                    {% set _legFuel = (_nrows['s:' ~ _anchor] ?? null) ? _nrows['s:' ~ _anchor].items : [] %}
+                    {% set _hereFuel = not _isFinish and (_nrows['p:' ~ _anchor] ?? null) ? _nrows['p:' ~ _anchor].items : [] %}
+                    {% set _fuel = _legFuel is not empty or _hereFuel is not empty %}
+                    <tbody class="pp-row--{{ row.type }}{{ _note ? ' pp-has-notes' }}{{ _fuel ? ' pp-has-fuel' }}" data-checkpoint-id="{{ row.checkpointId }}">
                         <tr>
                             <td class="pp-c">
                                 {% if _isFinish %}
@@ -507,6 +545,16 @@
                             </td>
                             <td>{{ m.cutoff(row) }}</td>
                         </tr>
+                        {% if _fuel %}
+                            {# À manger : sur le tronçon qui arrive ici, puis à ce point #}
+                            <tr class="pp-fuel" data-pp-fuel="{{ _anchor }}">
+                                <td></td>
+                                <td colspan="{{ _hasRoute ? 9 : 8 }}"><span class="pp-fuel-text"><i class="bi bi-egg-fried"></i>
+                                    {%- if _legFuel is not empty %}<strong>{{ 'race_nutrition.print_leg'|trans }}</strong> {{ nm.lines(_legFuel, _npmap, _fmt) }}{% endif -%}
+                                    {%- if _hereFuel is not empty %}{{ _legFuel is not empty ? ' · ' : '' }}<strong>{{ 'race_nutrition.print_here'|trans }}</strong> {{ nm.lines(_hereFuel, _npmap, _fmt) }}{% endif -%}
+                                </span></td>
+                            </tr>
+                        {% endif %}
                         {% if _note %}
                             <tr class="pp-notes">
                                 <td></td>
@@ -525,6 +573,36 @@
                 <span><span class="pp-cut pp-cut--tight"><span class="pp-cut-sym">!</span><span class="pp-cut-label">{{ 'race_print.cutoff_tight'|trans }}</span></span> {{ 'race_print.legend_tight'|trans }}</span>
                 <span><span class="pp-cut pp-cut--missed"><span class="pp-cut-sym">✗</span><span class="pp-cut-label">{{ 'race_print.cutoff_missed'|trans }}</span></span> {{ 'race_print.legend_missed'|trans }}</span>
             </div>
+        {% endif %}
+
+        {% if _hasFuel %}
+            {# Plan nutrition : bilan et liste à emporter #}
+            {% set _nt = nutrition.result.totals %}
+            {% set _dl = (_nt.fluidMl * 2 + 100) // 200 %}
+            {% set _names = {start: 'race_print.start'|trans} %}
+            {% for cp in checkpoints %}{% set _names = _names|merge({('c' ~ cp.id): cp.name}) %}{% endfor %}
+            <section class="pp-nutrition" data-pp-nutrition>
+                <h2><i class="bi bi-egg-fried"></i> {{ 'race_nutrition.print_title'|trans }}</h2>
+                <p>
+                    <strong>{{ 'race_nutrition.print_summary'|trans({'%carbs%': _nt.carbs|number_format(0, _dec, _th), '%liters%': (_dl // 10)|number_format(0, _dec, _th) ~ _dec ~ (_dl % 10)}) }}</strong>
+                    {%- if _nt.carbsPerHour is not null %} · {{ 'race_nutrition.print_rates'|trans({'%rate%': _nt.carbsPerHour, '%frate%': _nt.fluidPerHour}) }}{% endif %}
+                </p>
+                <p>{{ nm.lines(_nt.products, _npmap, _fmt) }}</p>
+                {% if not nutrition.result.ready %}<p><i class="bi bi-pencil"></i> {{ 'race_nutrition.print_not_ready'|trans }}</p>{% endif %}
+                <p class="pp-nutrition-label">{{ 'race_nutrition.carry_title'|trans }}</p>
+                <ol>
+                    {% for stop in nutrition.carry %}
+                        {% set _here = stop.eatHere|filter(l => stop.carry is null or (_npmap[l.key].kind ?? 'food') == 'drink') %}
+                        <li data-pp-stop="{{ stop.anchor }}"><strong>{{ _names[stop.anchor == 'start' ? 'start' : 'c' ~ stop.anchor] ?? '' }}</strong>
+                            {%- if stop.carry is not null %} · {{ (stop.type == 'start' ? 'race_nutrition.carry_take' : 'race_nutrition.carry_pickup')|trans }} {% if stop.carry is empty %}{{ 'race_nutrition.carry_nothing'|trans }}{% else %}{{ nm.lines(stop.carry, _npmap, _fmt) }}{% endif %}{% endif -%}
+                            {%- if _here is not empty %} · {{ (stop.carry is null ? 'race_nutrition.carry_on_site' : 'race_nutrition.carry_eat')|trans }} {{ nm.lines(_here, _npmap, _fmt) }}{% endif -%}
+                            {%- if stop.fill is not empty %} · {{ 'race_nutrition.carry_fill'|trans }}
+                                {% for f in stop.fill %}{{ loop.first ? '' : ', ' }}{{ (f.flasks == 1 ? 'race_nutrition.flasks_one' : 'race_nutrition.flasks')|trans({'%count%': f.flasks, '%flask%': nutrition.settings.flaskMl, '%what%': 'race_nutrition.line_drink'|trans({'%ml%': f.ml|number_format(0, _dec, _th), '%name%': (_npmap[f.key].label ?? null) is not null ? _npmap[f.key].label : ('race_nutrition.drink_names.' ~ f.key)|trans})}) }}{% endfor %}
+                            {%- endif %}
+                        </li>
+                    {% endfor %}
+                </ol>
+            </section>
         {% endif %}
 
         <footer class="pp-footer">
@@ -568,6 +646,16 @@
                                 <div class="pp-cell-cut">
                                     {{- 'race_print.band_cutoff'|trans({'%time%': _cutClock ? _cutClock.time : row.cutoffSeconds|race_duration}) -}}
                                     {%- if _cutClock and _cutClock.dayOffset > 0 %}<span class="pp-day">{{ 'race_print.day_offset'|trans({'%n%': _cutClock.dayOffset}) }}</span>{% endif -%}
+                                </div>
+                            {% endif %}
+                            {# Nutrition très courte : tronçon qui arrive ici, puis au point (« ici 1 barre ») #}
+                            {% set _bAnchor = _isFinish ? 'finish' : row.checkpointId %}
+                            {% set _bLeg = (_nrows['s:' ~ _bAnchor] ?? null) ? _nrows['s:' ~ _bAnchor].items : [] %}
+                            {% set _bHere = not _isFinish and (_nrows['p:' ~ _bAnchor] ?? null) ? _nrows['p:' ~ _bAnchor].items : [] %}
+                            {% if _bLeg is not empty or _bHere is not empty %}
+                                <div class="pp-cell-fuel" data-pp-band-fuel="{{ _bAnchor }}">
+                                    {{- nm.band(_bLeg, _npmap, _fmt) -}}
+                                    {%- if _bHere is not empty %}{{ _bLeg is not empty ? ' · ' : '' }}{{ 'race_nutrition.band_here'|trans({'%items%': ''}) }}{{ nm.band(_bHere, _npmap, _fmt) }}{% endif -%}
                                 </div>
                             {% endif %}
                         </div>

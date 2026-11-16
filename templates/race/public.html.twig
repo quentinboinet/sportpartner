@@ -8,6 +8,7 @@
   Tout texte saisi passe par l'échappement automatique de Twig (jamais |raw).
 #}
 {% import _self as m %}
+{% import 'race/_nutrition_macros.html.twig' as nm %}
 
 {% macro clock(c) %}{{ c.time }}{% if c.dayOffset > 0 %} <span class="pub-day" title="{{ 'race_public.day_offset_title'|trans({'%n%': c.dayOffset}) }}">{{ 'race_public.day_offset'|trans({'%n%': c.dayOffset}) }}</span>{% endif %}{% endmacro %}
 
@@ -113,6 +114,10 @@
         .pub-day { display: inline-block; margin-left: 2px; padding: 0 6px; border-radius: 20px; background: var(--sp-dark); color: #fff; font-size: 10px; font-weight: 800; vertical-align: 3px; cursor: help; }
         .pub-point-message { grid-column: 2 / span 2; margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: rgba(232,64,12,.07); font-size: 13px; white-space: pre-line; overflow-wrap: anywhere; }
         .pub-point-message i { color: var(--sp-orange); margin-right: 4px; }
+        .pub-point-fuel { grid-column: 2 / span 2; margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: rgba(6,182,212,.08); font-size: 13px; overflow-wrap: anywhere; }
+        .pub-point-fuel p { margin: 0; }
+        .pub-point-fuel p + p { margin-top: 4px; }
+        .pub-point-fuel i { color: #0E7490; margin-right: 2px; }
         .pub-point.is-past { opacity: .55; }
         .pub-point.is-next { background: rgba(232,64,12,.06); border-radius: 12px; box-shadow: 0 0 0 2px var(--sp-orange); }
         .pub-point.is-next .pub-marker { box-shadow: 0 0 0 3px rgba(232,64,12,.35); }
@@ -254,6 +259,20 @@
                     </span>
                     {% if p.message %}
                         <p class="pub-point-message" data-pub-point-message><i class="bi bi-chat-quote-fill" aria-hidden="true"></i>{{ p.message }}</p>
+                    {% endif %}
+                    {% if p.nutrition %}
+                        {# Option « nutrition » du partage : ce que les proches donnent à ce point d'assistance #}
+                        {% set _fmt = {dp: _dec, ts: _th} %}
+                        <div class="pub-point-fuel" data-pub-nutrition>
+                            {% if p.nutrition.give is not empty %}
+                                <p><i class="bi bi-bag-heart-fill" aria-hidden="true"></i> <strong>{{ 'race_nutrition.public_give'|trans }}</strong>
+                                    {% for l in p.nutrition.give %}{{ loop.first ? '' : ', ' }}{{ nm.line_text(l, {kind: l.drink ? 'drink' : 'food', key: l.key, label: l.label}, _fmt) }}{% endfor %}</p>
+                            {% endif %}
+                            {% if p.nutrition.fill is not empty %}
+                                <p><i class="bi bi-droplet-fill" aria-hidden="true"></i> <strong>{{ 'race_nutrition.public_fill'|trans }}</strong>
+                                    {% for f in p.nutrition.fill %}{{ loop.first ? '' : ', ' }}{{ (f.flasks == 1 ? 'race_nutrition.flasks_one' : 'race_nutrition.flasks')|trans({'%count%': f.flasks, '%flask%': p.nutrition.flaskMl, '%what%': 'race_nutrition.line_drink'|trans({'%ml%': f.ml|number_format(0, _dec, _th), '%name%': f.label ?? ('race_nutrition.drink_names.' ~ f.key)|trans})}) }}{% endfor %}</p>
+                            {% endif %}
+                        </div>
                     {% endif %}
                 </li>
             {% endfor %}

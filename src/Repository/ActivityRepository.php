@@ -222,7 +222,8 @@ class ActivityRepository extends ServiceEntityRepository
              FROM activities
              WHERE user_id = :userId
                AND startDate BETWEEN :from AND :to',
-            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]
+            // Heure de fin gardée : $to = 23:59:59 du dernier jour (le jour de fin était exclu avec 'Y-m-d')
+            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d H:i:s')]
         );
         return $row ?: ['cnt' => 0, 'total_distance' => 0, 'total_time' => 0, 'total_elevation' => 0];
     }
@@ -243,7 +244,7 @@ class ActivityRepository extends ServiceEntityRepository
                AND a.distanceMeters IS NOT NULL
              GROUP BY day, sport, color
              ORDER BY day ASC',
-            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]
+            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d H:i:s')]
         );
     }
 
@@ -263,7 +264,7 @@ class ActivityRepository extends ServiceEntityRepository
                AND a.distanceMeters IS NOT NULL
              GROUP BY week_start, sport, color
              ORDER BY week_start ASC',
-            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]
+            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d H:i:s')]
         );
     }
 
@@ -284,7 +285,7 @@ class ActivityRepository extends ServiceEntityRepository
                AND a.distanceMeters IS NOT NULL
              GROUP BY yr, mo, sport, color
              ORDER BY yr ASC, mo ASC',
-            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]
+            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d H:i:s')]
         );
     }
 
@@ -303,7 +304,7 @@ class ActivityRepository extends ServiceEntityRepository
                AND a.distanceMeters IS NOT NULL
              GROUP BY slug, color
              ORDER BY km DESC',
-            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]
+            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d H:i:s')]
         );
 
         $total = array_sum(array_column($rows, 'km'));
@@ -348,7 +349,7 @@ class ActivityRepository extends ServiceEntityRepository
              WHERE user_id        = :userId
                AND startDate      BETWEEN :from AND :to
                AND averageHeartrate IS NOT NULL',
-            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]
+            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d H:i:s')]
         );
         return $row ?: ['weighted_avg_hr' => null, 'max_hr' => null];
     }
@@ -449,7 +450,8 @@ class ActivityRepository extends ServiceEntityRepository
              WHERE user_id = :userId
                AND startDate BETWEEN :from AND :to
              GROUP BY d',
-            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]
+            // Jours inclus : $to compte jusqu'à 23:59:59 (sinon le dernier jour, le dimanche de la semaine, était exclu)
+            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d').' 00:00:00', 'to' => $to->format('Y-m-d').' 23:59:59']
         );
         $result = [];
         foreach ($rows as $row) {
@@ -460,17 +462,19 @@ class ActivityRepository extends ServiceEntityRepository
 
     /**
      * Activités parties depuis $since, la plus récente d'abord, réduites à ce que regarde la liste « À faire »
-     * de la cloche : sport, durées, matériel rattaché, ravitaillement noté. Une seule requête, sans les flux JSON.
+     * de la cloche : sport, durées, matériel rattaché, ravitaillement noté, séance Santé d'origine. Une seule
+     * requête, sans les flux JSON.
      *
      * @return list<RecentActivityRow>
      */
     public function findRecentTodoRows(User $user, \DateTimeImmutable $since, int $limit = 300): array
     {
-        /** @var list<array{id: int|string, name: ?string, startDate: \DateTimeImmutable, movingTimeSeconds: int|string|null, elapsedTimeSeconds: int|string|null, gearId: int|string|null, sportSlug: ?string, fuelRows: int|string}> $rows */
+        /** @var list<array{id: int|string, name: ?string, startDate: \DateTimeImmutable, movingTimeSeconds: int|string|null, elapsedTimeSeconds: int|string|null, gearId: int|string|null, sportSlug: ?string, fuelRows: int|string, healthRows: int|string}> $rows */
         $rows = $this->getEntityManager()->createQuery(
             'SELECT a.id, a.name, a.startDate, a.movingTimeSeconds, a.elapsedTimeSeconds,
                     IDENTITY(a.gear) AS gearId, s.slug AS sportSlug,
-                    (SELECT COUNT(f.id) FROM App\Entity\ActivityFuel f WHERE f.activity = a) AS fuelRows
+                    (SELECT COUNT(f.id) FROM App\Entity\ActivityFuel f WHERE f.activity = a) AS fuelRows,
+                    (SELECT COUNT(h.id) FROM App\Entity\HealthSession h WHERE h.activity = a) AS healthRows
                FROM App\Entity\Activity a
                LEFT JOIN a.sport s
               WHERE a.user = :user
@@ -491,6 +495,7 @@ class ActivityRepository extends ServiceEntityRepository
             elapsedSeconds: $row['elapsedTimeSeconds'] !== null ? (int) $row['elapsedTimeSeconds'] : null,
             hasGear: $row['gearId'] !== null,
             hasFuel: (int) $row['fuelRows'] > 0,
+            fromHealthSession: (int) $row['healthRows'] > 0,
         ), $rows);
     }
 
@@ -526,5 +531,71 @@ class ActivityRepository extends ServiceEntityRepository
         }
 
         return $totals;
+    }
+
+    /**
+     * Totaux par jour et par sport des activités parties dans l'une des périodes données (bornes incluses),
+     * en une requête : comparaison de périodes des statistiques (PeriodComparator). Sport = slug, "other"
+     * pour les activités sans sport. Allure : activités de plus de 100 m avec un temps en mouvement, comme
+     * getWeeklyAvgPaceForSport() ; FC : moyenne pondérée par le temps en mouvement des activités avec FC.
+     *
+     * @param list<array{0: \DateTimeImmutable, 1: \DateTimeImmutable}> $ranges
+     *
+     * @return list<array{day: string, sport: string, sessions: int, distanceM: float, movingSeconds: int, elevationM: float, maxDistanceM: float, maxElevationM: float, hrWeighted: float, hrSeconds: int, paceDistanceM: float, paceSeconds: int}>
+     */
+    public function sumByDayAndSport(User $user, array $ranges): array
+    {
+        if ($ranges === []) {
+            return [];
+        }
+
+        $params = ['userId' => $user->getId()];
+        $where = [];
+        foreach ($ranges as $i => [$from, $to]) {
+            $where[] = "(a.startDate BETWEEN :from{$i} AND :to{$i})";
+            $params['from'.$i] = $from->format('Y-m-d H:i:s');
+            $params['to'.$i] = $to->format('Y-m-d H:i:s');
+        }
+
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT DATE(a.startDate)                              AS day,
+                    COALESCE(s.slug, \'other\')                    AS sport,
+                    COUNT(*)                                       AS sessions,
+                    COALESCE(SUM(a.distanceMeters), 0)             AS distanceM,
+                    COALESCE(SUM(a.movingTimeSeconds), 0)          AS movingSeconds,
+                    COALESCE(SUM(a.totalElevationGain), 0)         AS elevationM,
+                    COALESCE(MAX(a.distanceMeters), 0)             AS maxDistanceM,
+                    COALESCE(MAX(a.totalElevationGain), 0)         AS maxElevationM,
+                    COALESCE(SUM(CASE WHEN a.averageHeartrate IS NOT NULL AND a.movingTimeSeconds > 0
+                                      THEN a.averageHeartrate * a.movingTimeSeconds END), 0) AS hrWeighted,
+                    COALESCE(SUM(CASE WHEN a.averageHeartrate IS NOT NULL AND a.movingTimeSeconds > 0
+                                      THEN a.movingTimeSeconds END), 0)                     AS hrSeconds,
+                    COALESCE(SUM(CASE WHEN a.distanceMeters > 100 AND a.movingTimeSeconds > 0
+                                      THEN a.distanceMeters END), 0)                        AS paceDistanceM,
+                    COALESCE(SUM(CASE WHEN a.distanceMeters > 100 AND a.movingTimeSeconds > 0
+                                      THEN a.movingTimeSeconds END), 0)                     AS paceSeconds
+             FROM activities a
+             LEFT JOIN sports s ON a.sport_id = s.id
+             WHERE a.user_id = :userId
+               AND ('.implode(' OR ', $where).')
+             GROUP BY day, sport
+             ORDER BY day ASC, sport ASC',
+            $params
+        );
+
+        return array_map(static fn (array $row): array => [
+            'day'           => (string) $row['day'],
+            'sport'         => (string) $row['sport'],
+            'sessions'      => (int) $row['sessions'],
+            'distanceM'     => (float) $row['distanceM'],
+            'movingSeconds' => (int) $row['movingSeconds'],
+            'elevationM'    => (float) $row['elevationM'],
+            'maxDistanceM'  => (float) $row['maxDistanceM'],
+            'maxElevationM' => (float) $row['maxElevationM'],
+            'hrWeighted'    => (float) $row['hrWeighted'],
+            'hrSeconds'     => (int) $row['hrSeconds'],
+            'paceDistanceM' => (float) $row['paceDistanceM'],
+            'paceSeconds'   => (int) $row['paceSeconds'],
+        ], $rows);
     }
 }

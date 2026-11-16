@@ -1,0 +1,186 @@
+{% extends 'base.html.twig' %}
+
+{% set _edit = exercise is not null %}
+{% block title %}{{ (_edit ? 'health.form.title_edit' : 'health.form.title_new')|trans }} - SportPartner{% endblock %}
+
+{#
+ # Création / modification d'un exercice personnel (HealthExerciseForm). Erreurs par champ (is-invalid +
+ # aria-describedby), saisie conservée. Étapes et erreurs fréquentes : une par ligne.
+ #}
+{% macro error(errors, field) %}
+    {% if errors[field] is defined %}
+        <div class="invalid-feedback d-block" id="err-{{ field }}">{{ errors[field].key|trans(errors[field].params) }}</div>
+    {% endif %}
+{% endmacro %}
+{% macro cls(errors, field) %}{{ errors[field] is defined ? ' is-invalid' }}{% endmacro %}
+{% macro aria(errors, field, help = null) %}{% if errors[field] is defined %} aria-invalid="true"{% endif %}{% if errors[field] is defined or help %} aria-describedby="{{ [help, errors[field] is defined ? 'err-' ~ field : null]|filter(v => v)|join(' ') }}"{% endif %}{% endmacro %}
+
+{% block body %}
+{% import _self as f %}
+<div class="sp-health" {{ include('health/_tray_labels.html.twig') }}>
+
+    <a href="{{ _edit ? path('app_health_exercise_show', {id: exercise.id}) : path('app_health') }}" class="sp-back-link">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i> {{ (_edit ? 'health.back_sheet' : 'health.back_library')|trans }}
+    </a>
+
+    <div class="sp-page-header">
+        <div>
+            <h1 class="sp-greeting">{{ (_edit ? 'health.form.title_edit' : 'health.form.title_new')|trans }}</h1>
+            <p class="sp-health-sub">{{ 'health.form.intro'|trans }}</p>
+        </div>
+    </div>
+
+    {% if errors is not empty %}
+        <div class="alert alert-danger" role="alert" tabindex="-1" id="health-form-errors">
+            {{ 'health.form.has_errors'|trans({'%count%': errors|length}) }}
+        </div>
+    {% endif %}
+
+    <form method="post" class="sp-card sp-health-form" novalidate
+          action="{{ _edit ? path('app_health_exercise_edit', {id: exercise.id}) : path('app_health_exercise_new') }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('health') }}">
+
+        <fieldset>
+            <legend class="sp-health-h2">{{ 'health.form.section_main'|trans }}</legend>
+            <div class="mb-3">
+                <label class="form-label" for="hf-name">{{ 'health.form.name'|trans }} <span class="sp-health-req" aria-hidden="true">*</span></label>
+                <input type="text" class="form-control{{ f.cls(errors, 'name') }}"{{ f.aria(errors, 'name') }} id="hf-name" name="name" value="{{ form.name }}" maxlength="80" required>
+                {{ f.error(errors, 'name') }}
+            </div>
+            <div class="sp-health-form-row">
+                <div class="mb-3">
+                    <label class="form-label" for="hf-category">{{ 'health.form.category'|trans }}</label>
+                    <select class="form-select{{ f.cls(errors, 'category') }}"{{ f.aria(errors, 'category') }} id="hf-category" name="category">
+                        {% for c in categories %}<option value="{{ c.value }}" {{ form.category == c.value ? 'selected' }}>{{ c.labelKey|trans }}</option>{% endfor %}
+                    </select>
+                    {{ f.error(errors, 'category') }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="hf-level">{{ 'health.form.level'|trans }}</label>
+                    <select class="form-select{{ f.cls(errors, 'level') }}"{{ f.aria(errors, 'level') }} id="hf-level" name="level">
+                        {% for l in levels %}<option value="{{ l.value }}" {{ form.level == l.value ? 'selected' }}>{{ l.labelKey|trans }}</option>{% endfor %}
+                    </select>
+                    {{ f.error(errors, 'level') }}
+                </div>
+            </div>
+            <fieldset class="mb-3"{% if errors.areas is defined %} aria-describedby="err-areas"{% endif %}>
+                <legend class="form-label">{{ 'health.form.areas'|trans }} <span class="sp-health-req" aria-hidden="true">*</span></legend>
+                <div class="sp-health-checks">
+                    {% for a in areas %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="areas[]" value="{{ a.value }}" id="hf-area-{{ a.value }}" {{ a.value in form.areas ? 'checked' }}>
+                            <label class="form-check-label" for="hf-area-{{ a.value }}">{{ a.labelKey|trans }}</label>
+                        </div>
+                    {% endfor %}
+                </div>
+                {{ f.error(errors, 'areas') }}
+            </fieldset>
+            <fieldset class="mb-3"{% if errors.equipment is defined %} aria-describedby="err-equipment"{% endif %}>
+                <legend class="form-label">{{ 'health.form.equipment'|trans }}</legend>
+                <p class="form-text mt-0">{{ 'health.form.equipment_help'|trans }}</p>
+                <div class="sp-health-checks">
+                    {% for q in equipment %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="equipment[]" value="{{ q.value }}" id="hf-eq-{{ q.value }}" {{ q.value in form.equipment ? 'checked' }}>
+                            <label class="form-check-label" for="hf-eq-{{ q.value }}">{{ q.labelKey|trans }}</label>
+                        </div>
+                    {% endfor %}
+                </div>
+                {{ f.error(errors, 'equipment') }}
+            </fieldset>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="unilateral" value="1" id="hf-unilateral" {{ form.unilateral ? 'checked' }} aria-describedby="hf-unilateral-help">
+                <label class="form-check-label" for="hf-unilateral">{{ 'health.form.unilateral'|trans }}</label>
+                <div class="form-text" id="hf-unilateral-help">{{ 'health.form.unilateral_help'|trans }}</div>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend class="sp-health-h2">{{ 'health.form.section_dosage'|trans }}</legend>
+            <fieldset class="mb-3">
+                <legend class="form-label">{{ 'health.form.mode'|trans }}</legend>
+                {% for m in modes %}
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="mode" value="{{ m.value }}" id="hf-mode-{{ m.value }}" {{ form.mode == m.value ? 'checked' }}>
+                        <label class="form-check-label" for="hf-mode-{{ m.value }}">{{ ('health.form.mode_' ~ m.value)|trans }}</label>
+                    </div>
+                {% endfor %}
+                {{ f.error(errors, 'mode') }}
+            </fieldset>
+            <div class="sp-health-form-row sp-health-form-row--3">
+                <div class="mb-3">
+                    <label class="form-label" for="hf-sets">{{ 'health.form.sets'|trans }}</label>
+                    <input type="number" inputmode="numeric" class="form-control{{ f.cls(errors, 'sets') }}"{{ f.aria(errors, 'sets') }} id="hf-sets" name="sets" value="{{ form.sets }}" min="{{ limits.setsMin }}" max="{{ limits.setsMax }}">
+                    {{ f.error(errors, 'sets') }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="hf-value">{{ 'health.form.value'|trans }}</label>
+                    <input type="number" inputmode="numeric" class="form-control{{ f.cls(errors, 'value') }}"{{ f.aria(errors, 'value') }} id="hf-value" name="value" value="{{ form.value }}" min="1" max="600">
+                    {{ f.error(errors, 'value') }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="hf-rest">{{ 'health.form.rest'|trans }}</label>
+                    <input type="number" inputmode="numeric" class="form-control{{ f.cls(errors, 'rest') }}"{{ f.aria(errors, 'rest') }} id="hf-rest" name="rest" value="{{ form.rest }}" min="{{ limits.restMin }}" max="{{ limits.restMax }}" step="5">
+                    {{ f.error(errors, 'rest') }}
+                </div>
+            </div>
+            <p class="form-text">{{ 'health.form.value_help'|trans }}</p>
+        </fieldset>
+
+        <fieldset>
+            <legend class="sp-health-h2">{{ 'health.form.section_texts'|trans }}</legend>
+            <p class="form-text mt-0">{{ 'health.form.language_note'|trans }}</p>
+            <div class="mb-3">
+                <label class="form-label" for="hf-muscles">{{ 'health.form.muscles'|trans }}</label>
+                <input type="text" class="form-control{{ f.cls(errors, 'muscles') }}"{{ f.aria(errors, 'muscles') }} id="hf-muscles" name="muscles" value="{{ form.muscles }}" maxlength="160">
+                {{ f.error(errors, 'muscles') }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="hf-start">{{ 'health.form.start'|trans }}</label>
+                <textarea class="form-control{{ f.cls(errors, 'start') }}"{{ f.aria(errors, 'start') }} id="hf-start" name="start" rows="2" maxlength="500">{{ form.start }}</textarea>
+                {{ f.error(errors, 'start') }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="hf-steps">{{ 'health.form.steps'|trans }} <span class="sp-health-req" aria-hidden="true">*</span></label>
+                <textarea class="form-control{{ f.cls(errors, 'steps') }}"{{ f.aria(errors, 'steps', 'hf-steps-help') }} id="hf-steps" name="steps" rows="4">{{ form.steps }}</textarea>
+                <div class="form-text" id="hf-steps-help">{{ 'health.form.lines_help'|trans({'%max%': limits.steps}) }}</div>
+                {{ f.error(errors, 'steps') }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="hf-breathing">{{ 'health.form.breathing'|trans }}</label>
+                <input type="text" class="form-control{{ f.cls(errors, 'breathing') }}"{{ f.aria(errors, 'breathing') }} id="hf-breathing" name="breathing" value="{{ form.breathing }}" maxlength="255">
+                {{ f.error(errors, 'breathing') }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="hf-mistakes">{{ 'health.form.mistakes'|trans }}</label>
+                <textarea class="form-control{{ f.cls(errors, 'mistakes') }}"{{ f.aria(errors, 'mistakes', 'hf-mistakes-help') }} id="hf-mistakes" name="mistakes" rows="3">{{ form.mistakes }}</textarea>
+                <div class="form-text" id="hf-mistakes-help">{{ 'health.form.lines_help'|trans({'%max%': limits.mistakes}) }}</div>
+                {{ f.error(errors, 'mistakes') }}
+            </div>
+            <div class="sp-health-form-row">
+                <div class="mb-3">
+                    <label class="form-label" for="hf-easier">{{ 'health.form.easier'|trans }}</label>
+                    <textarea class="form-control{{ f.cls(errors, 'easier') }}"{{ f.aria(errors, 'easier') }} id="hf-easier" name="easier" rows="2" maxlength="300">{{ form.easier }}</textarea>
+                    {{ f.error(errors, 'easier') }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="hf-harder">{{ 'health.form.harder'|trans }}</label>
+                    <textarea class="form-control{{ f.cls(errors, 'harder') }}"{{ f.aria(errors, 'harder') }} id="hf-harder" name="harder" rows="2" maxlength="300">{{ form.harder }}</textarea>
+                    {{ f.error(errors, 'harder') }}
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="hf-video">{{ 'health.form.video'|trans }}</label>
+                <input type="url" inputmode="url" class="form-control{{ f.cls(errors, 'video_url') }}"{{ f.aria(errors, 'video_url', 'hf-video-help') }} id="hf-video" name="video_url" value="{{ form.videoUrl }}" maxlength="{{ limits.video }}" placeholder="https://">
+                <div class="form-text" id="hf-video-help">{{ 'health.video.help'|trans }}</div>
+                {{ f.error(errors, 'video_url') }}
+            </div>
+        </fieldset>
+
+        <div class="sp-health-form-actions">
+            <a href="{{ _edit ? path('app_health_exercise_show', {id: exercise.id}) : path('app_health') }}" class="sp-btn sp-btn-outline">{{ 'health.cancel'|trans }}</a>
+            <button type="submit" class="sp-btn sp-btn-primary">{{ (_edit ? 'health.form.save' : 'health.form.create')|trans }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

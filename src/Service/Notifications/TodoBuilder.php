@@ -41,18 +41,22 @@ use App\Service\Weather\RaceWeatherService;
  * Objectifs par sport (semaine ISO en cours, WeeklyGoalProgress) :
  *  - toutes les cibles atteintes : « Objectif vélo atteint cette semaine », goal:{sport}:{2026-W47}:reached ;
  *  - le dimanche seulement, objectif non atteint : « Course : il te reste 12 km et 1 séance » (attention),
- *    goal:{sport}:{semaine}:left ; lien vers la carte des objectifs du tableau de bord.
+ *    goal:{sport}:{semaine}:left ; lien vers la carte des objectifs du tableau de bord ;
+ *  - renfo (weight_training) avec une cible en séances et aucune séance faite, du jeudi au samedi :
+ *    « 0 / 2 séances de renfo cette semaine » (info), health:strength:{semaine}, lien vers l'espace Santé ; le
+ *    dimanche, le rappel « il te reste » ci-dessus prend le relais.
  *
  * Ravitaillement : activités des 14 derniers jours d'au moins 1h30 (temps en mouvement, sinon temps écoulé,
- * comme la carte), d'un sport qui a la carte Ravitaillement (FuelCatalog), sans aucune ligne enregistrée.
- * Les 3 plus récentes, une par activité (info), clé fuel:activity:{id}, lien vers la carte de l'activité.
+ * comme la carte), d'un sport qui a la carte Ravitaillement (FuelCatalog), sans aucune ligne enregistrée, hors
+ * activités créées par une séance Santé (elles n'ont pas la carte). Les 3 plus récentes, une par activité (info),
+ * clé fuel:activity:{id}, lien vers la carte de l'activité.
  *
  * Strava : compte non connecté « Connecte ton compte Strava » (strava:connect, en dernier) ; connecté mais jeton
  * expiré sans jeton de rafraîchissement « Reconnecte Strava » (strava:reconnect, attention), voir StravaState.
  *
  * Ordre : urgent, puis attention, puis info (les bonnes nouvelles avec les infos) ; à gravité égale, courses
- * (la plus proche d'abord), usure (la plus forte d'abord), reconnexion Strava, objectif à finir, ravitaillement,
- * activités sans matériel, objectifs atteints, connexion Strava.
+ * (la plus proche d'abord), usure (la plus forte d'abord), reconnexion Strava, objectif à finir, renfo à faire,
+ * ravitaillement, activités sans matériel, objectifs atteints, connexion Strava.
  */
 final class TodoBuilder
 {
@@ -65,6 +69,9 @@ final class TodoBuilder
     /** Ravitaillement : activités d'au moins 1h30. */
     public const FUEL_MIN_SECONDS = 5400;
     public const FUEL_MAX_ITEMS = 3;
+    /** Rappel des séances de renfo (espace Santé) : sport concerné, et à partir du jeudi (ISO 4). */
+    public const STRENGTH_SPORT_SLUG = 'weight_training';
+    public const STRENGTH_REMINDER_FROM_DAY = 4;
 
     private const SEVERITY_RANK = [
         TodoItem::URGENT  => 0,
@@ -77,6 +84,7 @@ final class TodoBuilder
     private const CAT_GEAR_WEAR = 20;
     private const CAT_STRAVA_RECONNECT = 30;
     private const CAT_GOAL_LEFT = 40;
+    private const CAT_STRENGTH_REMINDER = 45;
     private const CAT_FUEL = 50;
     private const CAT_GEAR_MISSING = 60;
     private const CAT_GOAL_REACHED = 70;
@@ -250,6 +258,10 @@ final class TodoBuilder
                 continue;
             }
             if (!$sunday) {
+                $reminder = self::strengthReminder($progress, $now, $week);
+                if ($reminder !== null) {
+                    $out[] = $reminder;
+                }
                 continue;
             }
 
@@ -267,6 +279,32 @@ final class TodoBuilder
         }
 
         return $out;
+    }
+
+    /**
+     * Objectif de renfo en séances sans aucune séance faite, du jeudi au samedi : invitation à une séance guidée
+     * de l'espace Santé. Le dimanche n'est pas concerné (rappel « il te reste » de goals()).
+     *
+     * @return array{rank: int, item: TodoItem}|null
+     */
+    private static function strengthReminder(SportGoalProgress $progress, \DateTimeImmutable $now, string $week): ?array
+    {
+        $day = (int) $now->format('N');
+        if ($progress->sport->getSlug() !== self::STRENGTH_SPORT_SLUG || $day < self::STRENGTH_REMINDER_FROM_DAY || $day > 6) {
+            return null;
+        }
+        foreach ($progress->metrics as $metric) {
+            if ($metric->kind === GoalMetric::SESSIONS && $metric->target > 0 && (int) $metric->current === 0) {
+                return self::ranked(self::CAT_STRENGTH_REMINDER, new TodoItem(
+                    "health:strength:$week", TodoItem::INFO, 'bi-heart-pulse',
+                    new TodoText('notifications.health_strength_none', ['%count%' => (int) $metric->target]),
+                    new TodoText('notifications.health_strength_none_sub'),
+                    'app_health',
+                ));
+            }
+        }
+
+        return null;
     }
 
     private static function leftPart(GoalMetric $metric): TodoText
@@ -306,7 +344,7 @@ final class TodoBuilder
         $out = [];
         foreach (self::byMostRecent($recent) as $activity) {
             $seconds = ActivityFuelCalculator::durationSeconds($activity->movingSeconds, $activity->elapsedSeconds);
-            if ($activity->hasFuel || $seconds === null || $seconds < self::FUEL_MIN_SECONDS || !FuelCatalog::supportsSportSlug($activity->sportSlug)) {
+            if ($activity->hasFuel || $activity->fromHealthSession || $seconds === null || $seconds < self::FUEL_MIN_SECONDS || !FuelCatalog::supportsSportSlug($activity->sportSlug)) {
                 continue;
             }
 

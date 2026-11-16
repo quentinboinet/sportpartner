@@ -632,4 +632,99 @@ final class TodoBuilderTest extends TestCase
         self::assertSame(array_fill(8, 8, 'j15'), array_slice($buckets, 8, 8, true));
         self::assertSame(array_fill(16, 6, 'j21'), array_slice($buckets, 16, 6, true));
     }
+
+    // ── Renfo (espace Santé) ──────────────────────────────────────────
+
+    /** @return iterable<string, array{string, bool}> */
+    public static function strengthReminderDayProvider(): iterable
+    {
+        // Semaine ISO 2026-W47 : lundi 16 -> dimanche 22 novembre
+        yield 'lundi'               => ['2026-11-16 10:00:00', false];
+        yield 'mercredi soir'       => ['2026-11-18 23:59:59', false];
+        yield 'jeudi minuit'        => ['2026-11-19 00:00:00', true];
+        yield 'vendredi'            => ['2026-11-20 12:00:00', true];
+        yield 'samedi soir'         => ['2026-11-21 23:59:59', true];
+        yield 'dimanche'            => ['2026-11-22 08:00:00', false];
+    }
+
+    #[DataProvider('strengthReminderDayProvider')]
+    public function testStrengthReminderFromThursdayToSaturday(string $at, bool $expected): void
+    {
+        $goal = new SportGoalProgress(self::sport('weight_training', 7), [new GoalMetric(GoalMetric::SESSIONS, 0, 2)]);
+        $items = self::build(new TodoInput(goals: [$goal]), self::now($at));
+
+        if (!$expected) {
+            self::assertNotContains('health:strength:2026-W47', self::keys($items), $at);
+
+            return;
+        }
+        self::assertSame(['health:strength:2026-W47'], self::keys($items), $at);
+        $item = $items[0];
+        self::assertSame(TodoItem::INFO, $item->severity);
+        self::assertSame('bi-heart-pulse', $item->icon);
+        self::assertSame(['notifications.health_strength_none', ['%count%' => 2]], [$item->title->key, $item->title->params]);
+        self::assertSame('notifications.health_strength_none_sub', $item->subtitle?->key);
+        self::assertSame(['app_health', [], null], [$item->route, $item->routeParams, $item->fragment]);
+    }
+
+    public function testStrengthReminderOnSundayIsTheUsualGoalLeftReminder(): void
+    {
+        $goal = new SportGoalProgress(self::sport('weight_training', 7), [new GoalMetric(GoalMetric::SESSIONS, 0, 2)]);
+
+        self::assertSame(['goal:weight_training:2026-W47:left'], self::keys(self::build(new TodoInput(goals: [$goal]), self::now(self::SUNDAY))));
+    }
+
+    /** @return iterable<string, array{SportGoalProgress}> */
+    public static function noStrengthReminderProvider(): iterable
+    {
+        yield 'une séance déjà faite'   => [new SportGoalProgress(self::sport('weight_training', 7), [new GoalMetric(GoalMetric::SESSIONS, 1, 2)])];
+        yield 'autre sport'             => [new SportGoalProgress(self::sport('run', 1), [new GoalMetric(GoalMetric::SESSIONS, 0, 2)])];
+        yield 'cible en durée seulement' => [new SportGoalProgress(self::sport('weight_training', 7), [new GoalMetric(GoalMetric::DURATION, 0, 60)])];
+        yield 'objectif atteint'        => [new SportGoalProgress(self::sport('weight_training', 7), [new GoalMetric(GoalMetric::SESSIONS, 2, 2)])];
+    }
+
+    #[DataProvider('noStrengthReminderProvider')]
+    public function testNoStrengthReminder(SportGoalProgress $goal): void
+    {
+        $keys = self::keys(self::build(new TodoInput(goals: [$goal]), self::now('2026-11-20 12:00:00')));
+
+        self::assertSame([], array_values(array_filter($keys, static fn (string $k): bool => str_starts_with($k, 'health:'))), implode(',', $keys));
+    }
+
+    public function testStrengthReminderWithOtherTargetsKeepsOneItemAndAStableWeeklyKey(): void
+    {
+        $goal = new SportGoalProgress(self::sport('weight_training', 7), [new GoalMetric(GoalMetric::DURATION, 0, 90), new GoalMetric(GoalMetric::SESSIONS, 0, 3)]);
+        $thursday = self::keys(self::build(new TodoInput(goals: [$goal]), self::now('2026-11-19 09:00:00')));
+        $saturday = self::keys(self::build(new TodoInput(goals: [$goal]), self::now('2026-11-21 20:00:00')));
+        $nextWeek = self::keys(self::build(new TodoInput(goals: [$goal]), self::now('2026-11-26 09:00:00')));
+
+        self::assertSame(['health:strength:2026-W47'], $thursday);
+        self::assertSame($thursday, $saturday);
+        self::assertSame(['health:strength:2026-W48'], $nextWeek);
+        self::assertMatchesRegularExpression('/^health:strength:\d{4}-W\d{2}$/', $thursday[0]);
+    }
+
+    public function testStrengthReminderRanksWithInfoItemsBeforeFuel(): void
+    {
+        $items = self::build(new TodoInput(
+            recentActivities: [self::activity(2, 0, 'run', 6000)],
+            goals: [
+                new SportGoalProgress(self::sport('ride', 3), [new GoalMetric(GoalMetric::SESSIONS, 3, 2)]),
+                new SportGoalProgress(self::sport('weight_training', 7), [new GoalMetric(GoalMetric::SESSIONS, 0, 2)]),
+            ],
+            strava: new StravaState(connected: false, hasAccessToken: false, hasRefreshToken: false),
+        ), self::now('2026-11-19 09:00:00'));
+
+        self::assertSame(['health:strength:2026-W47', 'fuel:activity:2', 'goal:ride:2026-W47:reached', 'strava:connect'], self::keys($items));
+    }
+
+    public function testActivitiesCreatedByAHealthSessionNeverAskForFuel(): void
+    {
+        $start = self::now()->modify('-1 day');
+        $health = new RecentActivityRow(5, 'Mobilité longue', $start, 'other', 6000, 6200, false, false, true);
+        $plain = new RecentActivityRow(6, 'Autre sortie', $start, 'other', 6000, 6200, false, false);
+
+        self::assertSame(['fuel:activity:6'], self::keys(self::build(new TodoInput(recentActivities: [$health, $plain]))));
+        self::assertFalse($plain->fromHealthSession);
+    }
 }

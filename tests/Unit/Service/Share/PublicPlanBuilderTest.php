@@ -61,11 +61,13 @@ final class PublicPlanBuilderTest extends TestCase
     {
         [$view] = $this->buildDefault();
 
-        self::assertSame(['race', 'displayName', 'message', 'showPaces', 'showCutoffs', 'scheduled', 'startTime', 'finishClock', 'finishElapsed', 'finishAt', 'avgPaceSecPerKm', 'distanceM', 'gainM', 'hasCutoffs', 'points', 'map'], array_keys($view));
+        self::assertSame(['race', 'displayName', 'message', 'showPaces', 'showCutoffs', 'showNutrition', 'scheduled', 'startTime', 'finishClock', 'finishElapsed', 'finishAt', 'avgPaceSecPerKm', 'distanceM', 'gainM', 'hasCutoffs', 'points', 'map'], array_keys($view));
         self::assertSame(['name', 'date', 'year', 'location'], array_keys($view['race']));
         foreach ($view['points'] as $point) {
-            self::assertSame(['kind', 'number', 'name', 'type', 'distanceM', 'elapsedSeconds', 'clock', 'at', 'paceSecPerKm', 'cutoffSeconds', 'cutoffClock', 'message'], array_keys($point));
+            self::assertSame(['kind', 'number', 'name', 'type', 'distanceM', 'elapsedSeconds', 'clock', 'at', 'paceSecPerKm', 'cutoffSeconds', 'cutoffClock', 'message', 'nutrition'], array_keys($point));
+            self::assertNull($point['nutrition'], 'nutrition option is off by default');
         }
+        self::assertFalse($view['showNutrition']);
         self::assertSame(['points', 'checkpoints'], array_keys($view['map']));
         foreach ($view['map']['checkpoints'] as $mark) {
             self::assertSame(['number', 'name', 'type', 'distanceM', 'lat', 'lon'], array_keys($mark));

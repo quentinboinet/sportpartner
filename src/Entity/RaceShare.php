@@ -54,6 +54,13 @@ class RaceShare
     #[ORM\Column]
     private bool $showCutoffs = true;
 
+    /**
+     * Nutrition sur la page publique : ce que les proches doivent donner aux points d'assistance (scénario partagé
+     * seulement). Désactivé par défaut ; défaut SQL 0 (migration Version20240031_CreateRaceNutrition).
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $showNutrition = false;
+
     #[ORM\Column(length: self::MAX_MESSAGE_LENGTH, nullable: true)]
     private ?string $message = null;
 
@@ -96,6 +103,9 @@ class RaceShare
 
     public function isShowCutoffs(): bool { return $this->showCutoffs; }
     public function setShowCutoffs(bool $show): static { $this->showCutoffs = $show; return $this; }
+
+    public function isShowNutrition(): bool { return $this->showNutrition; }
+    public function setShowNutrition(bool $show): static { $this->showNutrition = $show; return $this; }
 
     public function getMessage(): ?string { return $this->message; }
     public function setMessage(?string $message): static { $this->message = $message; return $this; }

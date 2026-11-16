@@ -17,6 +17,8 @@ final class RecentActivityRow
         public readonly ?int $elapsedSeconds,
         public readonly bool $hasGear,
         public readonly bool $hasFuel,
+        /** Activité créée par une séance de l'espace Santé (pas de carte Ravitaillement). */
+        public readonly bool $fromHealthSession = false,
     ) {
     }
 }

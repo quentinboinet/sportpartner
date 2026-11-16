@@ -331,7 +331,20 @@
 </div>
 {% endif %}
 
+{# Activité créée par une séance de l'espace Santé : lien vers la séance, pas de carte Ravitaillement #}
+{% set _healthSession = health_session_for_activity(activity) %}
+{% if _healthSession %}
+<div class="sp-card sp-health-activity-link">
+    <i class="bi bi-heart-pulse" aria-hidden="true"></i>
+    <div>
+        <strong>{{ 'health.activity_link.title'|trans }}</strong>
+        <p>{{ 'health.activity_link.text'|trans }}</p>
+    </div>
+    <a href="{{ path('app_health_history_show', {id: _healthSession.id}) }}" class="sp-btn sp-btn-outline">{{ 'health.activity_link.cta'|trans }}</a>
+</div>
+{% else %}
 {{ include('activities/_fuel.html.twig') }}
+{% endif %}
 
 {# ── Fréquence cardiaque ──────────────────────── #}
 {% if hrData is not empty %}

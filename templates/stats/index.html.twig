@@ -17,6 +17,8 @@
     </div>
 </div>
 
+{{ include('stats/_view_tabs.html.twig', {current: 'overview'}) }}
+
 {# ── Filtre de période ────────────────────────── #}
 <div class="sp-stats-filter-row">
     <div class="sp-stats-period-tabs">
@@ -62,7 +64,8 @@
 {% set _km   = totals.total_distance ? (totals.total_distance / 1000) : 0 %}
 {% set _h    = totals.total_time     ? (totals.total_time / 3600)|round : 0 %}
 {% set _elev = totals.total_elevation ? totals.total_elevation|round : 0 %}
-{% set _cal  = _km > 0 ? (_km * 70 / 1000)|round(1) : 0 %}
+{# Estimation : ~70 kcal par km #}
+{% set _cal  = _km > 0 ? (_km * 70)|round : 0 %}
 
 <div class="sp-stats-totals-bar">
 
@@ -71,6 +74,7 @@
         <div>
             <div class="sp-stats-total-label">{{ 'stats.total_distance'|trans }}</div>
             <div class="sp-stats-total-val">{{ _km|number_format(0, '.', ' ') }} <sup>km</sup></div>
+            {% if overviewDeltas %}{{ include('stats/_overview_delta.html.twig', {m: overviewDeltas.distance}) }}{% endif %}
         </div>
     </div>
 
@@ -79,6 +83,7 @@
         <div>
             <div class="sp-stats-total-label">{{ 'stats.total_time'|trans }}</div>
             <div class="sp-stats-total-val">{{ _h }} <sup>h</sup></div>
+            {% if overviewDeltas %}{{ include('stats/_overview_delta.html.twig', {m: overviewDeltas.time}) }}{% endif %}
         </div>
     </div>
 
@@ -87,6 +92,7 @@
         <div>
             <div class="sp-stats-total-label">{{ 'stats.total_elevation'|trans }}</div>
             <div class="sp-stats-total-val">{{ _elev|number_format(0, '.', ' ') }} <sup>m</sup></div>
+            {% if overviewDeltas %}{{ include('stats/_overview_delta.html.twig', {m: overviewDeltas.elevation}) }}{% endif %}
         </div>
     </div>
 
@@ -95,6 +101,7 @@
         <div>
             <div class="sp-stats-total-label">{{ 'stats.total_sessions'|trans }}</div>
             <div class="sp-stats-total-val">{{ totals.cnt }}</div>
+            {% if overviewDeltas %}{{ include('stats/_overview_delta.html.twig', {m: overviewDeltas.sessions}) }}{% endif %}
         </div>
     </div>
 
@@ -102,10 +109,22 @@
         <div class="sp-stats-total-icon" style="color:#FB923C"><i class="bi bi-fire"></i></div>
         <div>
             <div class="sp-stats-total-label">{{ 'stats.total_calories'|trans }}</div>
-            <div class="sp-stats-total-val">{{ _cal }} <sup>k</sup></div>
+            <div class="sp-stats-total-val">{{ _cal|number_format(0, '.', ' ') }} <sup>kcal</sup></div>
         </div>
     </div>
 
+</div>
+
+{# ── Écart avec la période précédente + lien vers la vue Comparer ── #}
+<div class="sp-stats-compare-row">
+    <span class="sp-stats-compare-caption">
+        {% if overviewDeltas %}
+            {{ ('stats.compare.overview_caption_' ~ period)|trans({'%range%': previousRange}) }}
+        {% endif %}
+    </span>
+    <a href="{{ path('app_stats_compare', compareParams) }}" class="sp-stats-compare-link">
+        {{ 'stats.compare.overview_link'|trans }} <i class="bi bi-arrow-right" aria-hidden="true"></i>
+    </a>
 </div>
 
 {# ── 1ère rangée : volume mensuel + donut ─────── #}

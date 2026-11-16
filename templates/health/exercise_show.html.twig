@@ -1,0 +1,179 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ exercise.name }} - SportPartner{% endblock %}
+
+{#
+ # Fiche d'un exercice de l'espace Santé : dosage par défaut, zones, matériel, muscles, position de départ, étapes,
+ # respiration, erreurs fréquentes, variantes, lien vidéo (jamais intégré : simple lien, nouvel onglet).
+ # Exercice personnel : modifier / supprimer ; exercice fourni : masquer / réafficher, lien vidéo personnel.
+ #}
+{% block body %}
+{% set e = exercise %}
+{% set _lang = e.textLocale != app.request.locale ? e.textLocale : null %}
+<div class="sp-health" {{ include('health/_tray_labels.html.twig') }}>
+
+    <a href="{{ path('app_health') }}" class="sp-back-link"><i class="bi bi-arrow-left" aria-hidden="true"></i> {{ 'health.back_library'|trans }}</a>
+
+    {{ include('health/_tabs.html.twig') }}
+
+    <article class="sp-health-sheet"{% if _lang %} lang="{{ _lang }}"{% endif %}>
+        <header class="sp-card sp-health-sheet-head">
+            <div class="sp-health-card-head">
+                <span class="sp-health-cat sp-health-cat--{{ e.category.value }}" lang="{{ app.request.locale }}">
+                    <i class="bi {{ e.category.icon }}" aria-hidden="true"></i>{{ e.category.labelKey|trans }}
+                </span>
+                <span class="sp-health-badges" lang="{{ app.request.locale }}">
+                    {% if e.custom %}<span class="sp-health-badge sp-health-badge--custom">{{ 'health.badge_custom'|trans }}</span>{% endif %}
+                    {% if e.hidden %}<span class="sp-health-badge">{{ 'health.badge_hidden'|trans }}</span>{% endif %}
+                </span>
+            </div>
+            <h1 class="sp-health-sheet-title">{{ e.name }}</h1>
+
+            <dl class="sp-health-facts" lang="{{ app.request.locale }}">
+                <div><dt>{{ 'health.sheet.dosage'|trans }}</dt><dd>{{ health_dose(e.sets, e.value, e.mode, e.unilateral) }}</dd></div>
+                <div><dt>{{ 'health.sheet.rest'|trans }}</dt><dd>{{ e.rest|health_seconds }}</dd></div>
+                <div><dt>{{ 'health.sheet.level'|trans }}</dt><dd>{{ e.level.labelKey|trans }}</dd></div>
+                <div><dt>{{ 'health.sheet.areas'|trans }}</dt><dd>{{ e.areas|map(a => a.labelKey|trans)|join(', ') }}</dd></div>
+                <div><dt>{{ 'health.sheet.equipment'|trans }}</dt><dd>{% if e.needsNoEquipment %}{{ 'health.equipment.none'|trans }}{% else %}{{ e.equipment|map(q => q.labelKey|trans)|join(', ') }}{% endif %}</dd></div>
+                {% if e.unilateral %}<div><dt>{{ 'health.sheet.sides'|trans }}</dt><dd>{{ 'health.sheet.each_side'|trans }}</dd></div>{% endif %}
+            </dl>
+
+            <div class="sp-health-sheet-actions" lang="{{ app.request.locale }}">
+                <button type="button" class="sp-btn sp-btn-primary"
+                        data-action="health-tray-add#add"
+                        data-health-tray-add-id-param="{{ e.id }}"
+                        data-health-tray-add-sets-param="{{ e.sets }}"
+                        data-health-tray-add-value-param="{{ e.value }}"
+                        data-health-tray-add-rest-param="{{ e.rest }}"
+                        data-health-name="{{ e.name }}">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'health.add_to_session'|trans }}
+                </button>
+                <span class="sp-health-intray" data-health-tray-add-target="badge" data-id="{{ e.id }}" hidden>
+                    <i class="bi bi-check2-circle" aria-hidden="true"></i> {{ 'health.in_tray'|trans }}
+                </span>
+                {% if e.custom %}
+                    <a href="{{ path('app_health_exercise_edit', {id: e.id}) }}" class="sp-btn sp-btn-outline">
+                        <i class="bi bi-pencil" aria-hidden="true"></i> {{ 'health.sheet.edit'|trans }}
+                    </a>
+                    <button type="button" class="sp-btn sp-btn-outline sp-health-danger" data-bs-toggle="modal" data-bs-target="#health-delete-exercise">
+                        <i class="bi bi-trash" aria-hidden="true"></i> {{ 'health.sheet.delete'|trans }}
+                    </button>
+                {% else %}
+                    <form method="post" action="{{ path('app_health_exercise_hide', {id: e.id}) }}" class="d-inline">
+                        <input type="hidden" name="_token" value="{{ csrf_token('health') }}">
+                        <button type="submit" class="sp-btn sp-btn-outline">
+                            {% if e.hidden %}
+                                <i class="bi bi-eye" aria-hidden="true"></i> {{ 'health.sheet.show'|trans }}
+                            {% else %}
+                                <i class="bi bi-eye-slash" aria-hidden="true"></i> {{ 'health.sheet.hide'|trans }}
+                            {% endif %}
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+            <p class="visually-hidden" role="status" data-health-tray-add-target="status"></p>
+        </header>
+
+        <div class="sp-health-sheet-grid">
+            <div class="sp-card sp-health-sheet-body">
+                {% if e.targetMuscles %}
+                    <section>
+                        <h2 class="sp-health-h2" lang="{{ app.request.locale }}">{{ 'health.sheet.muscles'|trans }}</h2>
+                        <p>{{ e.targetMuscles }}</p>
+                    </section>
+                {% endif %}
+                {% if e.startPosition %}
+                    <section>
+                        <h2 class="sp-health-h2" lang="{{ app.request.locale }}">{{ 'health.sheet.start'|trans }}</h2>
+                        <p>{{ e.startPosition }}</p>
+                    </section>
+                {% endif %}
+                <section>
+                    <h2 class="sp-health-h2" lang="{{ app.request.locale }}">{{ 'health.sheet.steps'|trans }}</h2>
+                    <ol class="sp-health-steps">
+                        {% for step in e.steps %}<li>{{ step }}</li>{% endfor %}
+                    </ol>
+                </section>
+                {% if e.breathing %}
+                    <section>
+                        <h2 class="sp-health-h2" lang="{{ app.request.locale }}">{{ 'health.sheet.breathing'|trans }}</h2>
+                        <p><i class="bi bi-wind" aria-hidden="true"></i> {{ e.breathing }}</p>
+                    </section>
+                {% endif %}
+                {% if e.mistakes is not empty %}
+                    <section>
+                        <h2 class="sp-health-h2" lang="{{ app.request.locale }}">{{ 'health.sheet.mistakes'|trans }}</h2>
+                        <ul class="sp-health-mistakes">
+                            {% for m in e.mistakes %}<li>{{ m }}</li>{% endfor %}
+                        </ul>
+                    </section>
+                {% endif %}
+                {% if e.easier or e.harder %}
+                    <section>
+                        <h2 class="sp-health-h2" lang="{{ app.request.locale }}">{{ 'health.sheet.variations'|trans }}</h2>
+                        <dl class="sp-health-variations">
+                            {% if e.easier %}<div><dt lang="{{ app.request.locale }}"><i class="bi bi-arrow-down-circle" aria-hidden="true"></i> {{ 'health.sheet.easier'|trans }}</dt><dd>{{ e.easier }}</dd></div>{% endif %}
+                            {% if e.harder %}<div><dt lang="{{ app.request.locale }}"><i class="bi bi-arrow-up-circle" aria-hidden="true"></i> {{ 'health.sheet.harder'|trans }}</dt><dd>{{ e.harder }}</dd></div>{% endif %}
+                        </dl>
+                    </section>
+                {% endif %}
+            </div>
+
+            <aside class="sp-card sp-health-video" id="health-video" aria-labelledby="health-video-title" lang="{{ app.request.locale }}">
+                <h2 class="sp-health-h2" id="health-video-title"><i class="bi bi-play-btn" aria-hidden="true"></i> {{ 'health.video.title'|trans }}</h2>
+                {% if e.videoUrl %}
+                    <p>
+                        <a href="{{ e.videoUrl }}" target="_blank" rel="noopener noreferrer" class="sp-health-video-link">
+                            {{ 'health.video.open'|trans }} <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                            <span class="visually-hidden">{{ 'health.video.new_tab'|trans }}</span>
+                        </a>
+                    </p>
+                    <p class="sp-health-video-url">{{ e.videoUrl }}</p>
+                {% else %}
+                    <p class="sp-health-muted">{{ (e.custom ? 'health.video.none_custom' : 'health.video.none')|trans }}</p>
+                {% endif %}
+                <form method="post" action="{{ path('app_health_exercise_video', {id: e.id}) }}" class="sp-health-video-form">
+                    <input type="hidden" name="_token" value="{{ csrf_token('health') }}">
+                    <label class="form-label" for="health-video-url">{{ (e.custom ? 'health.video.label_custom' : 'health.video.label')|trans }}</label>
+                    <input type="url" class="form-control" id="health-video-url" name="video_url" value="{{ e.videoUrl }}"
+                           maxlength="{{ videoMax }}" inputmode="url" placeholder="https://" aria-describedby="health-video-help">
+                    <p class="form-text" id="health-video-help">{{ 'health.video.help'|trans }}</p>
+                    <div class="sp-health-video-actions">
+                        <button type="submit" class="sp-btn sp-btn-outline">{{ 'health.video.save'|trans }}</button>
+                    </div>
+                </form>
+                {% if e.videoUrl %}
+                    <form method="post" action="{{ path('app_health_exercise_video', {id: e.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('health') }}">
+                        <input type="hidden" name="video_url" value="">
+                        <button type="submit" class="sp-health-linkbtn">{{ 'health.video.remove'|trans }}</button>
+                    </form>
+                {% endif %}
+            </aside>
+        </div>
+    </article>
+
+    <div lang="{{ app.request.locale }}">{{ include('health/_disclaimer.html.twig') }}</div>
+
+    {% if e.custom %}
+        <div class="modal fade" id="health-delete-exercise" tabindex="-1" aria-labelledby="health-delete-exercise-title" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" method="post" action="{{ path('app_health_exercise_delete', {id: e.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('health') }}">
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5" id="health-delete-exercise-title">{{ 'health.sheet.delete_title'|trans }}</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'health.cancel'|trans }}"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>{{ 'health.sheet.delete_text'|trans({'%name%': e.name}) }}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="sp-btn sp-btn-outline" data-bs-dismiss="modal">{{ 'health.cancel'|trans }}</button>
+                        <button type="submit" class="sp-btn sp-btn-primary sp-health-danger-fill">{{ 'health.sheet.delete_confirm'|trans }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

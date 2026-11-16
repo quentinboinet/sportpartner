@@ -23,7 +23,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Réglages du lien de partage public d'un plan de course (page /courses/{id}/partage, propriétaire seulement) :
- * activation, lien (copie, aperçu, régénération), scénario partagé, nom affiché, options (allures, barrières) et
+ * activation, lien (copie, aperçu, régénération), scénario partagé, nom affiché, options (allures, barrières,
+ * nutrition aux points d'assistance) et
  * messages pour les proches (général, départ, chaque repère, arrivée). La page publique : RacePublicController.
  *
  * Le partage (RaceShare) est créé à la première action (activation ou enregistrement), jamais à l'affichage.
@@ -90,6 +91,7 @@ final class RaceShareController extends AbstractController
                 ->setScenario($scenario)
                 ->setShowPaces($values['showPaces'])
                 ->setShowCutoffs($values['showCutoffs'])
+                ->setShowNutrition($values['showNutrition'])
                 ->setMessage($values['message'])
                 ->setStartMessage($values['startMessage'])
                 ->setFinishMessage($values['finishMessage'])
@@ -148,7 +150,7 @@ final class RaceShareController extends AbstractController
     }
 
     /**
-     * @param array{displayName: ?string, scenarioId: ?int, showPaces: bool, showCutoffs: bool, message: ?string, startMessage: ?string, finishMessage: ?string, checkpointMessages: array<int, ?string>}|null $submitted saisie réaffichée après une erreur
+     * @param array{displayName: ?string, scenarioId: ?int, showPaces: bool, showCutoffs: bool, showNutrition: bool, message: ?string, startMessage: ?string, finishMessage: ?string, checkpointMessages: array<int, ?string>}|null $submitted saisie réaffichée après une erreur
      * @param array<string, string> $errors champ => code d'erreur (ShareSettingsParser)
      */
     private function renderSettings(Race $race, User $user, ?RaceShare $share, ?array $submitted, array $errors, int $status = Response::HTTP_OK): Response
@@ -182,6 +184,7 @@ final class RaceShareController extends AbstractController
             'scenarioId' => $selected,
             'showPaces' => $share?->isShowPaces() ?? (new RaceShare())->isShowPaces(),
             'showCutoffs' => $share?->isShowCutoffs() ?? (new RaceShare())->isShowCutoffs(),
+            'showNutrition' => $share?->isShowNutrition() ?? (new RaceShare())->isShowNutrition(),
             'message' => $share?->getMessage(),
             'startMessage' => $share?->getStartMessage(),
             'finishMessage' => $share?->getFinishMessage(),

@@ -1,0 +1,21 @@
+{#
+ # Onglets de l'espace Santé (bibliothèque, séance, historique). Le nombre d'exercices du plateau est affiché par
+ # health_tray_add_controller.js (cible count) : la page qui inclut ce partial est dans son périmètre.
+ #}
+{% set _r = app.request.attributes.get('_route') %}
+{% set _tabs = [
+    {route: 'app_health', icon: 'bi-collection', label: 'health.tab_library', active: _r == 'app_health' or _r starts with 'app_health_exercise'},
+    {route: 'app_health_session', icon: 'bi-play-circle', label: 'health.tab_session', active: _r starts with 'app_health_session', count: true},
+    {route: 'app_health_history', icon: 'bi-clock-history', label: 'health.tab_history', active: _r starts with 'app_health_history'},
+] %}
+<nav class="sp-health-tabs" aria-label="{{ 'health.tabs_label'|trans }}">
+    {% for _tab in _tabs %}
+        <a href="{{ path(_tab.route) }}" class="sp-health-tab{{ _tab.active ? ' active' }}"{% if _tab.active %} aria-current="page"{% endif %}>
+            <i class="bi {{ _tab.icon }}" aria-hidden="true"></i>
+            <span>{{ _tab.label|trans }}</span>
+            {% if _tab.count is defined %}
+                <span class="sp-health-tab-count" data-health-tray-add-target="count" hidden></span>
+            {% endif %}
+        </a>
+    {% endfor %}
+</nav>

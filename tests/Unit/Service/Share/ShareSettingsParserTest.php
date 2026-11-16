@@ -47,6 +47,7 @@ final class ShareSettingsParserTest extends TestCase
             'scenarioId' => 12,
             'showPaces' => true,
             'showCutoffs' => true,
+            'showNutrition' => false,
             'message' => "Merci !\n\nÀ tout à l'heure",
             'startMessage' => null,
             'finishMessage' => null,
@@ -64,6 +65,7 @@ final class ShareSettingsParserTest extends TestCase
         self::assertNull($r['values']['scenarioId']);
         self::assertFalse($r['values']['showPaces'], 'unchecked checkbox');
         self::assertFalse($r['values']['showCutoffs']);
+        self::assertFalse($r['values']['showNutrition'], 'nutrition is not shared unless checked');
         self::assertSame([], $r['values']['checkpointMessages'], 'checkpoints absent from the POST are not modified');
     }
 
@@ -114,15 +116,16 @@ final class ShareSettingsParserTest extends TestCase
     #[DataProvider('flags')]
     public function optionParsing(mixed $value, ?bool $expected): void
     {
-        $r = self::parse(['show_paces' => $value, 'show_cutoffs' => $value]);
+        $r = self::parse(['show_paces' => $value, 'show_cutoffs' => $value, 'show_nutrition' => $value]);
         if (null === $expected) {
-            self::assertSame(['show_paces' => 'invalid', 'show_cutoffs' => 'invalid'], $r['errors']);
+            self::assertSame(['show_paces' => 'invalid', 'show_cutoffs' => 'invalid', 'show_nutrition' => 'invalid'], $r['errors']);
 
             return;
         }
         self::assertSame([], $r['errors']);
         self::assertSame($expected, $r['values']['showPaces']);
         self::assertSame($expected, $r['values']['showCutoffs']);
+        self::assertSame($expected, $r['values']['showNutrition']);
     }
 
     #[Test]

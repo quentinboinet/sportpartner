@@ -47,6 +47,10 @@
                 <i class="bi bi-flag-fill"></i>
                 {{ 'nav.races'|trans }}
             </a>
+            <a href="{{ path('app_health') }}" class="{{ _route starts with 'app_health' ? 'active' }}"{% if _route starts with 'app_health' %} aria-current="page"{% endif %}>
+                <i class="bi bi-heart-pulse"></i>
+                {{ 'nav.health'|trans }}
+            </a>
             {# <a href="{{ path('app_nutrition') }}" class="{{ _route starts with 'app_nutrition' ? 'active' }}">
                 <i class="bi bi-egg-fried"></i>
                 {{ 'nav.nutrition'|trans }}
@@ -170,6 +174,9 @@
             </a>
             <a href="{{ path('app_races') }}" class="{{ _route starts with 'app_race' ? 'active' }}">
                 <i class="bi bi-flag-fill"></i>{{ 'nav.races'|trans }}
+            </a>
+            <a href="{{ path('app_health') }}" class="{{ _route starts with 'app_health' ? 'active' }}"{% if _route starts with 'app_health' %} aria-current="page"{% endif %}>
+                <i class="bi bi-heart-pulse"></i>{{ 'nav.health'|trans }}
             </a>
             <a href="{{ path('app_settings') }}" class="{{ _route starts with 'app_settings' ? 'active' }}">
                 <i class="bi bi-gear"></i>{{ 'nav.settings'|trans }}

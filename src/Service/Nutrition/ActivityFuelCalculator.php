@@ -115,8 +115,11 @@ final class ActivityFuelCalculator
         return (int) round($carbs * 10);
     }
 
-    /** Division entière arrondie au plus proche, demi vers le haut ($a >= 0, $b > 0). */
-    private static function roundDiv(int $a, int $b): int
+    /**
+     * Division entière arrondie au plus proche, demi vers le haut ($a >= 0, $b > 0). Aussi utilisée par
+     * RaceNutritionCalculator (miroir JS : roundDiv() de activity_fuel_calculator.js, exact tant que $a < 4,5e15).
+     */
+    public static function roundDiv(int $a, int $b): int
     {
         return intdiv(2 * $a + $b, 2 * $b);
     }

@@ -1,0 +1,52 @@
+{#
+ # Carte d'un exercice dans la bibliothèque. Les attributs data-* servent au filtre en direct
+ # (health_library_controller.js, miroir de HealthLibraryFilter::matches()). Variables : e (HealthExerciseView),
+ # shown (correspond aux filtres de l'URL).
+ #}
+{% set _lang = e.textLocale != app.request.locale ? e.textLocale : null %}
+<li class="sp-health-card sp-health-card--{{ e.category.value }}"
+    data-health-library-target="card"
+    data-category="{{ e.category.value }}"
+    data-areas="{{ e.areaValues|join(' ') }}"
+    data-level="{{ e.level.value }}"
+    data-equipment="{{ e.needsNoEquipment ? 'none' : e.equipmentValues|join(' ') }}"
+    data-hidden="{{ e.hidden ? '1' : '0' }}"
+    data-search="{{ e.searchText }}"
+    {% if not shown %}hidden{% endif %}>
+    <div class="sp-health-card-head">
+        <span class="sp-health-cat sp-health-cat--{{ e.category.value }}">
+            <i class="bi {{ e.category.icon }}" aria-hidden="true"></i>{{ e.category.labelKey|trans }}
+        </span>
+        <span class="sp-health-badges">
+            {% if e.custom %}<span class="sp-health-badge sp-health-badge--custom">{{ 'health.badge_custom'|trans }}</span>{% endif %}
+            {% if e.hidden %}<span class="sp-health-badge">{{ 'health.badge_hidden'|trans }}</span>{% endif %}
+        </span>
+    </div>
+    <h3 class="sp-health-card-title">
+        <a href="{{ path('app_health_exercise_show', {id: e.id}) }}"{% if _lang %} lang="{{ _lang }}"{% endif %}>{{ e.name }}</a>
+    </h3>
+    <p class="sp-health-card-meta">
+        <span>{{ e.level.labelKey|trans }}</span>
+        <span aria-hidden="true">·</span>
+        <span>{{ health_dose(e.sets, e.value, e.mode, e.unilateral) }}</span>
+    </p>
+    <p class="sp-health-card-equip">
+        <i class="bi bi-box-seam" aria-hidden="true"></i>
+        {% if e.needsNoEquipment %}{{ 'health.equipment.none'|trans }}{% else %}{{ e.equipment|map(q => q.labelKey|trans)|join(', ') }}{% endif %}
+    </p>
+    <div class="sp-health-card-foot">
+        <span class="sp-health-intray" data-health-tray-add-target="badge" data-id="{{ e.id }}" hidden>
+            <i class="bi bi-check2-circle" aria-hidden="true"></i> {{ 'health.in_tray'|trans }}
+        </span>
+        <button type="button" class="sp-btn sp-btn-outline sp-health-add"
+                data-action="health-tray-add#add"
+                data-health-tray-add-id-param="{{ e.id }}"
+                data-health-tray-add-sets-param="{{ e.sets }}"
+                data-health-tray-add-value-param="{{ e.value }}"
+                data-health-tray-add-rest-param="{{ e.rest }}"
+                data-health-name="{{ e.name }}"
+                aria-label="{{ 'health.add_to_session_named'|trans({'%name%': e.name}) }}">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'health.add_to_session'|trans }}
+        </button>
+    </div>
+</li>

@@ -1,0 +1,324 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'stats.compare.page_title'|trans }}{% endblock %}
+
+{% block body %}
+
+{% set _chartMetrics = ['distance', 'time', 'elevation', 'sessions'] %}
+{% set _presetParams = {'%last%': year - 1, '%before%': year - 2} %}
+{% set _gran = chart.buckets.granularity %}
+
+{# ── En-tête ──────────────────────────────────── #}
+<div class="sp-page-header">
+    <div>
+        <h1 class="sp-greeting" style="font-size:24px">{{ 'stats.title'|trans }}</h1>
+        <div style="color:var(--sp-muted);font-size:11px;font-weight:500">{{ 'stats.compare.sub'|trans }}</div>
+    </div>
+</div>
+
+{{ include('stats/_view_tabs.html.twig', {current: 'compare'}) }}
+
+{# Saisie invalide : repli visible, jamais d'erreur 500 #}
+{% for error in errors %}
+    <div class="alert alert-warning sp-cmp-alert" role="alert">
+        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+        <span>{{ error.key|trans(error.params|merge({'%preset%': ('stats.compare.preset.' ~ comparison.preset)|trans(_presetParams)})) }}</span>
+    </div>
+{% endfor %}
+
+{# ── Choix des périodes et du sport ───────────── #}
+<section class="sp-card sp-cmp-controls" aria-labelledby="cmp-controls-title">
+    <h2 id="cmp-controls-title" class="visually-hidden">{{ 'stats.compare.controls_title'|trans }}</h2>
+
+    <nav aria-label="{{ 'stats.compare.presets_label'|trans }}">
+        <ul class="sp-cmp-preset-list">
+            {% for p in presets %}
+                <li>
+                    <a href="{{ path('app_stats_compare', {preset: p}|merge(sportParam)) }}"
+                       class="sp-cmp-preset {{ comparison.preset == p ? 'active' }}"
+                       {% if comparison.preset == p %}aria-current="true"{% endif %}
+                       data-preset="{{ p }}">{{ ('stats.compare.preset.' ~ p)|trans(_presetParams) }}</a>
+                </li>
+            {% endfor %}
+            <li>
+                <a href="{{ path('app_stats_compare', customParams|merge(sportParam)) }}"
+                   class="sp-cmp-preset {{ comparison.preset == 'custom' ? 'active' }}"
+                   {% if comparison.preset == 'custom' %}aria-current="true"{% endif %}
+                   data-preset="custom">{{ 'stats.compare.preset.custom'|trans }}</a>
+            </li>
+        </ul>
+    </nav>
+
+    <form method="get" action="{{ path('app_stats_compare') }}" class="sp-cmp-sport-form">
+        {% if comparison.preset == 'custom' %}
+            {% for name, value in customParams %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+        {% else %}
+            <input type="hidden" name="preset" value="{{ comparison.preset }}">
+        {% endif %}
+        <label for="cmp-sport" class="sp-cmp-label">{{ 'stats.compare.sport_label'|trans }}</label>
+        <select id="cmp-sport" name="sport" class="sp-cmp-select">
+            <option value="">{{ 'stats.compare.all_sports'|trans }}</option>
+            {% for s in sports %}
+                <option value="{{ s.slug }}" {{ sport == s.slug ? 'selected' }}>{{ ('sport.' ~ s.slug)|trans }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="sp-btn sp-btn-outline sp-cmp-apply">{{ 'stats.compare.apply'|trans }}</button>
+    </form>
+
+    <details class="sp-cmp-custom" {{ comparison.preset == 'custom' or errors is not empty ? 'open' }}>
+        <summary>{{ 'stats.compare.custom_title'|trans }}</summary>
+        <form method="get" action="{{ path('app_stats_compare') }}" class="sp-cmp-custom-form">
+            <input type="hidden" name="preset" value="custom">
+            {% if sport %}<input type="hidden" name="sport" value="{{ sport }}">{% endif %}
+            {% for side in ['a', 'b'] %}
+                {% set _range = side == 'a' ? comparison.a : comparison.b %}
+                <fieldset class="sp-cmp-fieldset">
+                    <legend>
+                        <span class="sp-cmp-swatch {{ side == 'b' ? 'sp-cmp-swatch--b' }}" aria-hidden="true"></span>
+                        {{ ('stats.compare.period_' ~ side)|trans }}
+                    </legend>
+                    <label class="sp-cmp-field">
+                        <span>{{ 'stats.compare.from'|trans }}</span>
+                        <input type="date" name="{{ side }}_from" value="{{ _range.fromKey }}" min="2000-01-01" max="{{ maxDay }}" required class="sp-date-input">
+                    </label>
+                    <label class="sp-cmp-field">
+                        <span>{{ 'stats.compare.to'|trans }}</span>
+                        <input type="date" name="{{ side }}_to" value="{{ _range.toKey }}" min="2000-01-01" max="{{ maxDay }}" required class="sp-date-input">
+                    </label>
+                </fieldset>
+            {% endfor %}
+            <button type="submit" class="sp-btn sp-btn-primary sp-cmp-submit">{{ 'stats.compare.submit'|trans }}</button>
+            <p class="sp-cmp-help">{{ 'stats.compare.custom_help'|trans({'%years%': 5}) }}</p>
+        </form>
+    </details>
+</section>
+
+{# ── Les deux périodes ────────────────────────── #}
+<section class="sp-cmp-periods" aria-label="{{ 'stats.compare.periods_label'|trans }}">
+    <div class="sp-cmp-period" data-side="a" data-from="{{ comparison.a.fromKey }}" data-to="{{ comparison.a.toKey }}">
+        <span class="sp-cmp-swatch" aria-hidden="true"></span>
+        <div>
+            <div class="sp-cmp-period-label">
+                {{ 'stats.compare.period_a'|trans }}
+                {% if comparison.toDate %}<span class="sp-cmp-badge">{{ 'stats.compare.to_date'|trans }}</span>{% endif %}
+            </div>
+            <div class="sp-cmp-period-dates">{{ rangeA }}</div>
+            <div class="sp-cmp-period-days">{{ 'stats.compare.days'|trans({'%count%': comparison.a.days}) }}</div>
+        </div>
+    </div>
+    <div class="sp-cmp-vs" aria-hidden="true">{{ 'stats.compare.vs'|trans }}</div>
+    <div class="sp-cmp-period sp-cmp-period--b" data-side="b" data-from="{{ comparison.b.fromKey }}" data-to="{{ comparison.b.toKey }}">
+        <span class="sp-cmp-swatch sp-cmp-swatch--b" aria-hidden="true"></span>
+        <div>
+            <div class="sp-cmp-period-label">{{ 'stats.compare.period_b'|trans }}</div>
+            <div class="sp-cmp-period-dates">{{ rangeB }}</div>
+            <div class="sp-cmp-period-days">{{ 'stats.compare.days'|trans({'%count%': comparison.b.days}) }}</div>
+        </div>
+    </div>
+</section>
+
+{% if comparison.preset != 'custom' %}
+    <p class="sp-cmp-note" data-note="rule">
+        <i class="bi bi-info-circle" aria-hidden="true"></i>
+        <span>
+            {{ ('stats.compare.rule.' ~ comparison.preset)|trans({'%count%': comparison.a.days, '%year%': comparison.a.fromKey|slice(0, 4), '%ref_year%': comparison.b.fromKey|slice(0, 4)}) }}
+            {% if comparison.note %} {{ ('stats.compare.note.' ~ comparison.note)|trans }}{% endif %}
+        </span>
+    </p>
+{% endif %}
+{% if not comparison.sameLength %}
+    <p class="sp-cmp-note sp-cmp-note--length" data-note="length">
+        <i class="bi bi-rulers" aria-hidden="true"></i>
+        <span>
+            {{ 'stats.compare.length_note'|trans({'%a%': comparison.a.days, '%b%': comparison.b.days}) }}
+            <a href="#cmp-weekly-title">{{ 'stats.compare.length_link'|trans }}</a>
+        </span>
+    </p>
+{% endif %}
+{% if empty %}
+    <p class="sp-cmp-note" data-note="empty">
+        <i class="bi bi-moon-stars" aria-hidden="true"></i>
+        <span>{{ 'stats.compare.empty'|trans }}</span>
+    </p>
+{% endif %}
+
+{# ── Totaux ───────────────────────────────────── #}
+<section class="sp-cmp-section" aria-labelledby="cmp-totals-title">
+    <h2 id="cmp-totals-title" class="sp-cmp-section-title">{{ 'stats.compare.totals_title'|trans }}</h2>
+    <div class="sp-cmp-kpis">
+        {% for m in metrics %}{{ include('stats/_compare_kpi.html.twig', {m: m}) }}{% endfor %}
+    </div>
+</section>
+
+{# ── Moyennes par semaine (à privilégier quand les durées diffèrent) ── #}
+<section class="sp-cmp-section {{ comparison.sameLength ? '' : 'sp-cmp-section--emphasis' }}" aria-labelledby="cmp-weekly-title" data-section="weekly">
+    <h2 id="cmp-weekly-title" class="sp-cmp-section-title">
+        {{ 'stats.compare.weekly_title'|trans }}
+        {% if not comparison.sameLength %}<span class="sp-cmp-badge">{{ 'stats.compare.weekly_badge'|trans }}</span>{% endif %}
+    </h2>
+    <p class="sp-cmp-section-sub">{{ 'stats.compare.weekly_sub'|trans }}</p>
+    <div class="sp-cmp-kpis">
+        {% for m in weekly %}{{ include('stats/_compare_kpi.html.twig', {m: m}) }}{% endfor %}
+    </div>
+</section>
+
+{# ── Graphiques (Stimulus stats-compare) ──────── #}
+{% set _labels = {
+    periodA: 'stats.compare.period_a'|trans,
+    periodB: 'stats.compare.period_b'|trans,
+    dayPrefix: 'stats.compare.day_prefix'|trans,
+    metrics: {
+        distance: 'stats.compare.chart_metric.distance'|trans,
+        time: 'stats.compare.chart_metric.time'|trans,
+        elevation: 'stats.compare.chart_metric.elevation'|trans,
+        sessions: 'stats.compare.chart_metric.sessions'|trans,
+    },
+    ariaCumulative: 'stats.compare.aria_cumulative'|trans,
+    ariaBuckets: ('stats.compare.aria_buckets_' ~ _gran)|trans,
+    ariaSports: 'stats.compare.aria_sports'|trans,
+    status: 'stats.compare.status'|trans,
+    sessionOne: 'stats.compare.session_one'|trans,
+    sessionMany: 'stats.compare.session_many'|trans,
+    sr: {
+        up: 'stats.compare.sr.up'|trans,
+        down: 'stats.compare.sr.down'|trans,
+        flat: 'stats.compare.sr.flat'|trans,
+        none: 'stats.compare.sr.none'|trans,
+    },
+} %}
+<section class="sp-cmp-section sp-cmp-charts" aria-labelledby="cmp-charts-title"
+         data-controller="stats-compare"
+         data-stats-compare-data-value="{{ chart|json_encode }}"
+         data-stats-compare-labels-value="{{ _labels|json_encode }}">
+    <div class="sp-cmp-charts-head">
+        <h2 id="cmp-charts-title" class="sp-cmp-section-title">{{ 'stats.compare.charts_title'|trans }}</h2>
+        <fieldset class="sp-cmp-metric-switch">
+            <legend class="visually-hidden">{{ 'stats.compare.metric_switch'|trans }}</legend>
+            {% for k in _chartMetrics %}
+                <input type="radio" class="btn-check" name="cmp-metric" id="cmp-metric-{{ k }}" value="{{ k }}"
+                       {{ loop.first ? 'checked' }}
+                       data-stats-compare-target="metric" data-action="change->stats-compare#switch">
+                <label for="cmp-metric-{{ k }}" class="sp-cmp-metric-btn">{{ ('stats.compare.chart_metric.' ~ k)|trans }}</label>
+            {% endfor %}
+        </fieldset>
+    </div>
+    <p class="visually-hidden" role="status" aria-live="polite" data-stats-compare-target="status"></p>
+
+    <div class="sp-stats-charts-row">
+        {# Cumul jour par jour #}
+        <div class="sp-card sp-cmp-chart-card">
+            <h3 class="sp-card-title">{{ 'stats.compare.cumulative_title'|trans }}</h3>
+            <div class="sp-card-sub">{{ 'stats.compare.cumulative_sub'|trans }}</div>
+            <ul class="sp-cmp-legend" aria-hidden="true">
+                <li><span class="sp-cmp-swatch"></span>{{ 'stats.compare.period_a'|trans }} · {{ rangeA }}</li>
+                <li><span class="sp-cmp-swatch sp-cmp-swatch--b"></span>{{ 'stats.compare.period_b'|trans }} · {{ rangeB }}</li>
+            </ul>
+            <div class="sp-cmp-canvas-wrap">
+                <canvas data-stats-compare-target="cumulative" role="img"
+                        aria-label="{{ 'stats.compare.aria_cumulative'|trans({'%metric%': 'stats.compare.chart_metric.distance'|trans, '%a%': chart.totals.distance.a, '%b%': chart.totals.distance.b}) }}"></canvas>
+            </div>
+        </div>
+
+        {# Barres côte à côte par tranche #}
+        <div class="sp-card sp-cmp-chart-card">
+            <h3 class="sp-card-title">{{ ('stats.compare.buckets_title_' ~ _gran)|trans }}</h3>
+            <div class="sp-card-sub">{{ ('stats.compare.buckets_sub_' ~ _gran)|trans }}</div>
+            <ul class="sp-cmp-legend" aria-hidden="true">
+                <li><span class="sp-cmp-swatch sp-cmp-swatch--bar"></span>{{ 'stats.compare.period_a'|trans }}</li>
+                <li><span class="sp-cmp-swatch sp-cmp-swatch--bar sp-cmp-swatch--bar-b"></span>{{ 'stats.compare.period_b'|trans }}</li>
+            </ul>
+            <div class="sp-cmp-canvas-wrap">
+                <canvas data-stats-compare-target="buckets" role="img"
+                        aria-label="{{ ('stats.compare.aria_buckets_' ~ _gran)|trans({'%metric%': 'stats.compare.chart_metric.distance'|trans, '%count%': chart.buckets.labels|length}) }}"></canvas>
+            </div>
+            <details class="sp-cmp-data">
+                <summary>{{ 'stats.compare.table_toggle'|trans }}</summary>
+                <div class="sp-cmp-table-wrap">
+                    <table class="sp-cmp-table">
+                        <caption class="visually-hidden" data-stats-compare-target="bucketCaption">{{ ('stats.compare.buckets_title_' ~ _gran)|trans }} · {{ 'stats.compare.chart_metric.distance'|trans }}</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">{{ ('stats.compare.col_' ~ _gran)|trans }}</th>
+                                <th scope="col">{{ 'stats.compare.period_a'|trans }}</th>
+                                <th scope="col">{{ 'stats.compare.period_b'|trans }}</th>
+                                <th scope="col">{{ 'stats.compare.col_delta'|trans }}</th>
+                            </tr>
+                        </thead>
+                        <tbody data-stats-compare-target="bucketRows">
+                            {% for row in chart.buckets.rows.distance %}
+                                {% set _r = chart.buckets.ranges[loop.index0] %}
+                                <tr>
+                                    <th scope="row">{{ chart.buckets.labels[loop.index0] }}{% if _r.a %} <span class="sp-cmp-cell-sub">{{ _r.a }}</span>{% endif %}</th>
+                                    <td>{{ row.a }}</td>
+                                    <td>{{ row.b }}{% if _r.b %} <span class="sp-cmp-cell-sub">{{ _r.b }}</span>{% endif %}</td>
+                                    <td>{{ include('stats/_compare_delta.html.twig', {m: row, compact: true}) }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    {# ── Détail par sport (tous les sports) ───── #}
+    {% if sportRows is not empty %}
+        <div class="sp-card sp-cmp-sports" data-section="sports">
+            <h3 class="sp-card-title">{{ 'stats.compare.sports_title'|trans }}</h3>
+            <div class="sp-card-sub">{{ 'stats.compare.sports_sub'|trans }}</div>
+            {% if sportRows|length > 1 %}
+                <div class="sp-cmp-canvas-wrap sp-cmp-canvas-wrap--sports">
+                    <canvas data-stats-compare-target="sports" role="img"
+                            aria-label="{{ 'stats.compare.aria_sports'|trans({'%metric%': 'stats.compare.chart_metric.distance'|trans, '%count%': sportRows|length}) }}"></canvas>
+                </div>
+            {% endif %}
+            <div class="sp-cmp-table-wrap">
+                <table class="sp-cmp-table sp-cmp-sport-table">
+                    <caption class="visually-hidden">{{ 'stats.compare.sports_title'|trans }}</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">{{ 'stats.compare.col_sport'|trans }}</th>
+                            <th scope="col">{{ 'stats.compare.metric.distance'|trans }}</th>
+                            <th scope="col">{{ 'stats.compare.metric.time'|trans }}</th>
+                            <th scope="col">{{ 'stats.compare.metric.sessions'|trans }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in sportRows %}
+                            <tr data-sport="{{ row.slug }}">
+                                <th scope="row">
+                                    <span class="sp-stats-legend-dot" style="background:{{ row.color }}" aria-hidden="true"></span>
+                                    {{ ('sport.' ~ row.slug)|trans }}
+                                </th>
+                                {% for k in ['distance', 'time', 'sessions'] %}
+                                    {% set m = row.metrics[k] %}
+                                    <td data-metric="{{ k }}">
+                                        <span class="sp-cmp-cell-a"><span class="visually-hidden">{{ 'stats.compare.period_a'|trans }} : </span>{{ m.a }}</span>
+                                        <span class="sp-cmp-cell-b"><span aria-hidden="true">{{ 'stats.compare.vs'|trans }} </span><span class="visually-hidden">{{ 'stats.compare.period_b'|trans }} : </span>{{ m.b }}</span>
+                                        {{ include('stats/_compare_delta.html.twig', {m: m, compact: true}) }}
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+</section>
+
+{# ── Règles de calcul ─────────────────────────── #}
+<details class="sp-card sp-cmp-rules">
+    <summary>{{ 'stats.compare.rules_title'|trans }}</summary>
+    <ul>
+        <li>{{ 'stats.compare.rules.to_date'|trans }}</li>
+        <li>{{ 'stats.compare.rules.month_end'|trans }}</li>
+        <li>{{ 'stats.compare.rules.per_week'|trans }}</li>
+        <li>{{ 'stats.compare.rules.pace'|trans }}</li>
+        <li>{{ 'stats.compare.rules.heartrate'|trans }}</li>
+        <li>{{ 'stats.compare.rules.colors'|trans }}</li>
+        <li>{{ 'stats.compare.rules.limits'|trans({'%years%': 5}) }}</li>
+    </ul>
+</details>
+
+{% endblock %}

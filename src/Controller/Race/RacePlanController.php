@@ -8,6 +8,9 @@ use App\Entity\RaceRoute;
 use App\Entity\RaceShare;
 use App\Repository\RaceCheckpointRepository;
 use App\Repository\RaceRouteRepository;
+use App\Service\Nutrition\RaceNutritionCatalog;
+use App\Service\Nutrition\RaceNutritionStore;
+use App\Service\Nutrition\RaceNutritionViewBuilder;
 use App\Service\Route\GpxParser;
 use App\Service\Route\InvalidGpxException;
 use App\Service\Route\ParsedRoute;
@@ -23,9 +26,12 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Plan de course : parcours GPX importé + repères (points de passage, ravitaillements).
+ * Repère supprimé, ajouté ou déplacé : les lignes manuelles du plan nutrition suivent les règles de
+ * App\Service\Nutrition\RaceNutritionRows (report sur le tronçon suivant à la suppression, avec un message).
  */
 #[Route('/courses/{id}', requirements: ['id' => '\d+'])]
 #[IsGranted('ROLE_USER')]
@@ -43,11 +49,13 @@ final class RacePlanController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly RaceRouteRepository $routes,
         private readonly RaceCheckpointRepository $checkpoints,
+        private readonly RaceNutritionStore $nutrition,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
     #[Route('/plan', name: 'app_race_plan', methods: ['GET'])]
-    public function plan(Race $race, RouteAnalyzer $analyzer, ScenarioViewBuilder $scenarioBuilder): Response
+    public function plan(Race $race, RouteAnalyzer $analyzer, ScenarioViewBuilder $scenarioBuilder, RaceNutritionViewBuilder $nutritionBuilder): Response
     {
         $this->denyUnlessOwner($race);
 
@@ -81,12 +89,15 @@ final class RacePlanController extends AbstractController
                 'cutoff'      => $cutoff,
                 'notes'       => $cp->getNotes(),
                 'publicMessage' => $cp->getPublicMessage(),
+                'assistance'  => $cp->hasAssistance(),
             ];
             // Un repère au-delà de l'arrivée (parcours remplacé par un plus court) ne découpe pas le parcours
             if (!$beyond) {
                 $marks[] = ['name' => $cp->getName(), 'distanceM' => $cp->getDistanceM()];
             }
         }
+
+        $scenarioView = $scenarioBuilder->buildWith($race, $route, $checkpoints);
 
         return $this->render('race/plan.html.twig', [
             'race'            => $race,
@@ -107,7 +118,10 @@ final class RacePlanController extends AbstractController
             'checkpointsData' => $data,
             'checkpointTypes' => CheckpointType::cases(),
             // Phase 2 : scénarios et temps de passage (partial race/_scenarios.html.twig)
-            'scenarioView'    => $scenarioBuilder->buildWith($race, $route, $checkpoints),
+            'scenarioView'    => $scenarioView,
+            // Plan nutrition de chaque scénario (partial race/_nutrition.html.twig)
+            'nutritionView'   => $nutritionBuilder->build($race, $scenarioView),
+            'nutritionConfig' => RaceNutritionCatalog::config(),
         ]);
     }
 
@@ -256,6 +270,7 @@ final class RacePlanController extends AbstractController
         $this->em->persist($checkpoint);
         $this->em->flush();
         $this->addFlash('success', 'race_plan.flash_checkpoint_saved');
+        $this->flashSplitSegment($race, $checkpoint);
 
         return $this->toPlan($race);
     }
@@ -269,12 +284,24 @@ final class RacePlanController extends AbstractController
             return $this->toPlan($race);
         }
 
+        $previousDistance = $checkpoint->getDistanceM();
         if (!$this->hydrateCheckpoint($checkpoint, $request, $race)) {
             return $this->fail($race, 'race_plan.flash_checkpoint_invalid');
         }
 
         $this->em->flush();
         $this->addFlash('success', 'race_plan.flash_checkpoint_saved');
+        // Repère déplacé : ses apports nutrition manuels (point, tronçon qui y arrive) le suivent
+        if ($checkpoint->getDistanceM() !== $previousDistance) {
+            $scenarios = $this->nutrition->scenariosWithManualSegment($race, (int) $checkpoint->getId());
+            if ([] !== $scenarios) {
+                $this->addFlash('info', $this->translator->trans('race_nutrition.flash_checkpoint_moved', [
+                    '%name%' => $checkpoint->getName(),
+                    '%scenarios%' => implode(', ', $scenarios),
+                ]));
+            }
+            $this->flashSplitSegment($race, $checkpoint);
+        }
 
         return $this->toPlan($race);
     }
@@ -288,11 +315,46 @@ final class RacePlanController extends AbstractController
             return $this->toPlan($race);
         }
 
-        $this->em->remove($checkpoint);
-        $this->em->flush();
+        // Plan nutrition : les apports manuels du repère sont reportés sur le tronçon suivant (RaceNutritionRows)
+        $name = $checkpoint->getName();
+        $moved = $this->em->wrapInTransaction(function () use ($race, $checkpoint): array {
+            $moved = $this->nutrition->moveForDeletedCheckpoint($race, $checkpoint, $this->checkpoints->findByRaceOrdered($race));
+            $this->em->remove($checkpoint);
+
+            return $moved;
+        });
         $this->addFlash('success', 'race_plan.flash_checkpoint_deleted');
+        if ([] !== $moved) {
+            $this->addFlash('info', $this->translator->trans('race_nutrition.flash_checkpoint_deleted', [
+                '%name%' => $name,
+                '%scenarios%' => implode(', ', $moved),
+            ]));
+        }
 
         return $this->toPlan($race);
+    }
+
+    /**
+     * Repère ajouté ou déplacé : si le tronçon qu'il coupe avait des apports nutrition manuels, ils restent sur la
+     * partie qui arrive au même point (le message le signale).
+     */
+    private function flashSplitSegment(Race $race, RaceCheckpoint $checkpoint): void
+    {
+        $ordered = $this->checkpoints->findByRaceOrdered($race);
+        $next = null;
+        foreach ($ordered as $i => $cp) {
+            if ($cp->getId() === $checkpoint->getId()) {
+                $next = $ordered[$i + 1] ?? null;
+            }
+        }
+        $scenarios = $this->nutrition->scenariosWithManualSegment($race, $next?->getId());
+        if ([] === $scenarios) {
+            return;
+        }
+        $this->addFlash('info', $this->translator->trans('race_nutrition.flash_checkpoint_split', [
+            '%name%' => null !== $next ? $next->getName() : $this->translator->trans('race_plan.finish'),
+            '%scenarios%' => implode(', ', $scenarios),
+        ]));
     }
 
     /**
@@ -353,8 +415,17 @@ final class RacePlanController extends AbstractController
         if ($publicMessage === false || ($publicMessage !== null && mb_strlen($publicMessage) > RaceShare::MAX_POINT_MESSAGE_LENGTH)) {
             return false;
         }
+        // Assistance / sac d'allègement (plan nutrition) : "1" oui, "0" non (champ caché + case à cocher), absent = inchangé
+        $assistance = $post->all()['assistance'] ?? null;
+        if (null !== $assistance && '1' !== $assistance && '0' !== $assistance) {
+            return false;
+        }
+
         if ($hasPublicMessage) {
             $checkpoint->setPublicMessage($publicMessage);
+        }
+        if (null !== $assistance) {
+            $checkpoint->setAssistance('1' === $assistance);
         }
 
         $checkpoint

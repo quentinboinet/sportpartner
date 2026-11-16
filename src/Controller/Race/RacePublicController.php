@@ -3,6 +3,7 @@ namespace App\Controller\Race;
 
 use App\Entity\RaceShare;
 use App\Repository\RaceShareRepository;
+use App\Service\Nutrition\RaceNutritionViewBuilder;
 use App\Service\Route\ScenarioViewBuilder;
 use App\Service\Share\PlanCalendar;
 use App\Service\Share\PublicPlanBuilder;
@@ -38,6 +39,7 @@ final class RacePublicController extends AbstractController
         private readonly RaceShareRepository $shares,
         private readonly ScenarioViewBuilder $scenarioBuilder,
         private readonly PublicPlanBuilder $builder,
+        private readonly RaceNutritionViewBuilder $nutritionBuilder,
         private readonly LocaleSwitcher $localeSwitcher,
         private readonly TranslatorInterface $translator,
     ) {
@@ -108,6 +110,11 @@ final class RacePublicController extends AbstractController
     {
         $race = $share->getRace();
         $scenarioView = $this->scenarioBuilder->build($race);
+        $selected = PublicPlanBuilder::selectScenario($scenarioView['scenarios'], $share->getScenario()?->getId());
+        // Plan nutrition lu seulement si l'option est active, et seulement celui du scénario partagé
+        $nutrition = $share->isShowNutrition() && null !== $selected
+            ? ($this->nutritionBuilder->build($race, $scenarioView)[$selected['id']] ?? null)
+            : null;
 
         return $this->builder->build(
             $race,
@@ -115,7 +122,8 @@ final class RacePublicController extends AbstractController
             $scenarioView['route'],
             $scenarioView['checkpoints'],
             $scenarioView['routeDistanceM'],
-            PublicPlanBuilder::selectScenario($scenarioView['scenarios'], $share->getScenario()?->getId()),
+            $selected,
+            $nutrition,
         );
     }
 

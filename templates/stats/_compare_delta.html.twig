@@ -1,0 +1,18 @@
+{#
+    Écart d'un indicateur comparé (ComparisonPresenter::metric) : flèche, signe et texte en plus de la couleur.
+    Paramètres : m (indicateur), compact (bool, tableau par sport).
+    Allure : un mot visible (« plus rapide » / « plus lente ») car une valeur qui baisse y est un progrès.
+#}
+{% set _icons = {up: 'bi-arrow-up-right', down: 'bi-arrow-down-right', flat: 'bi-arrow-right'} %}
+<span class="sp-cmp-delta sp-cmp-tone--{{ m.tone }}{{ compact|default(false) ? ' sp-cmp-delta--compact' }}" data-tone="{{ m.tone }}" data-direction="{{ m.direction }}">
+    {%- if m.direction == 'none' -%}
+        <span class="sp-cmp-delta-abs" aria-hidden="true">-</span>
+        <span class="visually-hidden">{{ 'stats.compare.sr.none'|trans }}</span>
+    {%- else -%}
+        <i class="bi {{ _icons[m.direction] }}" aria-hidden="true"></i>
+        <span class="sp-cmp-delta-abs">{{ m.delta }}</span>
+        {%- if m.percent is not null %} <span class="sp-cmp-delta-pct">({{ m.percent }})</span>{% endif -%}
+        {%- if m.key == 'pace' and m.direction != 'flat' %} <span class="sp-cmp-delta-word">{{ ('stats.compare.pace_' ~ m.direction)|trans }}</span>
+        {%- else %} <span class="visually-hidden">{{ ('stats.compare.sr.' ~ m.direction)|trans }}</span>{% endif -%}
+    {%- endif -%}
+</span>

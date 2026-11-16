@@ -4,6 +4,10 @@ namespace App\Controller\Stats;
 
 use App\Entity\User;
 use App\Repository\ActivityRepository;
+use App\Service\Stats\ComparisonFormat;
+use App\Service\Stats\ComparisonPresenter;
+use App\Service\Stats\DateRange;
+use App\Service\Stats\PeriodComparisonResolver;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,7 +23,8 @@ class StatsController extends AbstractController
     public function index(Request $request, ActivityRepository $activityRepo, TranslatorInterface $translator, #[CurrentUser] User $user): Response
     {
         $now  = new \DateTimeImmutable();
-        $to   = $now;
+        // Fin de journée : les activités du jour comptent (et les bornes sont celles de PeriodComparisonResolver)
+        $to   = $now->setTime(23, 59, 59);
 
         $fromParam = $request->query->get('from');
         $toParam   = $request->query->get('to');
@@ -91,7 +96,21 @@ class StatsController extends AbstractController
             };
         }
 
+        // Écart avec la période précédente sous les totaux (préréglages 7 jours, mois, saison) et lien
+        // « Comparer en détail » vers la vue Comparer préremplie ; une requête de plus (totaux de B).
+        [$previous, $compareParams] = self::previousPeriod($period, $from, $to, $now);
+        $overviewDeltas = null;
+        $previousRange  = null;
+        if ($previous !== null) {
+            $previousTotals = $activityRepo->getSeasonStats($user, $previous->from, $previous->to);
+            $overviewDeltas = ComparisonPresenter::overview($totals, $previousTotals, $request->getLocale());
+            $previousRange  = ComparisonFormat::range($previous->fromKey(), $previous->toKey(), StatsCompareController::months($translator));
+        }
+
         return $this->render('stats/index.html.twig', [
+            'overviewDeltas' => $overviewDeltas,
+            'previousRange'  => $previousRange,
+            'compareParams'  => $compareParams,
             'period'      => $period,
             'customFrom'  => $fromParam ?? null,
             'customTo'    => $toParam   ?? null,
@@ -104,6 +123,34 @@ class StatsController extends AbstractController
             'zones'       => $zones,
             'records'     => $records,
         ]);
+    }
+
+    /**
+     * Période précédente de la vue d'ensemble (null : pas d'écart affiché) et paramètres du lien « Comparer en
+     * détail » : « Ce mois » = préréglage month (à date), « Saison » = ytd, « 7 jours » et période
+     * personnalisée = même nombre de jours juste avant (l'écart n'est affiché que pour les préréglages).
+     *
+     * @return array{0: DateRange|null, 1: array<string, string>}
+     */
+    private static function previousPeriod(string $period, \DateTimeImmutable $from, \DateTimeImmutable $to, \DateTimeImmutable $now): array
+    {
+        if ($period === 'month' || $period === 'season') {
+            $preset = $period === 'month' ? PeriodComparisonResolver::MONTH : PeriodComparisonResolver::YEAR_TO_DATE;
+
+            return [PeriodComparisonResolver::preset($preset, $now)->b, ['preset' => $preset]];
+        }
+        if (($period !== '7d' && $period !== 'custom') || $from->format('Y-m-d') > $to->format('Y-m-d')) {
+            return [null, []];
+        }
+
+        $current  = new DateRange($from, $to);
+        $previous = PeriodComparisonResolver::previousOf($current);
+
+        return [$period === '7d' ? $previous : null, [
+            'preset' => PeriodComparisonResolver::CUSTOM,
+            'a_from' => $current->fromKey(), 'a_to' => $current->toKey(),
+            'b_from' => $previous->fromKey(), 'b_to' => $previous->toKey(),
+        ]];
     }
 
     /**

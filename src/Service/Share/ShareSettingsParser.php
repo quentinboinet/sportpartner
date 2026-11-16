@@ -8,7 +8,8 @@ use App\Entity\RaceShare;
  * Lecture et validation du formulaire des réglages du partage (RaceShareController::save). Calcul pur.
  *
  * Champs : display_name (une ligne, 60 caractères), scenario ("" = premier scénario, sinon id d'un scénario de la
- * course), show_paces / show_cutoffs (case à cocher : "1" ou "on" = oui, absent, "" ou "0" = non, autre = invalide),
+ * course), show_paces / show_cutoffs / show_nutrition (case à cocher : "1" ou "on" = oui, absent, "" ou "0" = non,
+ * autre = invalide),
  * message (1000), start_message, finish_message et messages[<checkpointId>] (500 chacun). Longueurs en caractères,
  * comptées APRÈS normalisation : fins de ligne CRLF / CR ramenées à LF (le navigateur compte un saut de ligne pour 1
  * avec maxlength mais en envoie 2), caractères de contrôle retirés, espaces de début et de fin supprimés. Texte vide =
@@ -16,7 +17,7 @@ use App\Entity\RaceShare;
  * messages[] : seules les clés des repères listés sont lues (les autres sont ignorées) ; un repère absent du POST
  * n'est pas modifié.
  *
- * @phpstan-type Values array{displayName: ?string, scenarioId: ?int, showPaces: bool, showCutoffs: bool, message: ?string, startMessage: ?string, finishMessage: ?string, checkpointMessages: array<int, ?string>}
+ * @phpstan-type Values array{displayName: ?string, scenarioId: ?int, showPaces: bool, showCutoffs: bool, showNutrition: bool, message: ?string, startMessage: ?string, finishMessage: ?string, checkpointMessages: array<int, ?string>}
  * @phpstan-type Parsed array{values: Values, errors: array<string, string>}
  */
 final class ShareSettingsParser
@@ -33,7 +34,7 @@ final class ShareSettingsParser
      * @param list<int>            $checkpointIds repères affichés dans le formulaire
      * @param list<int>            $scenarioIds   scénarios de la course
      *
-     * @return Parsed errors : champ (display_name, scenario, show_paces, show_cutoffs, message, start_message,
+     * @return Parsed errors : champ (display_name, scenario, show_paces, show_cutoffs, show_nutrition, message, start_message,
      *                finish_message, messages.<id>) => code (too_long | invalid) ; values : valeurs normalisées
      *                (même trop longues, pour réafficher la saisie)
      */
@@ -60,6 +61,7 @@ final class ShareSettingsParser
             'scenarioId' => null,
             'showPaces' => self::flag($post, 'show_paces', $errors),
             'showCutoffs' => self::flag($post, 'show_cutoffs', $errors),
+            'showNutrition' => self::flag($post, 'show_nutrition', $errors),
             'message' => $text('message', RaceShare::MAX_MESSAGE_LENGTH, true),
             'startMessage' => $text('start_message', RaceShare::MAX_POINT_MESSAGE_LENGTH, true),
             'finishMessage' => $text('finish_message', RaceShare::MAX_POINT_MESSAGE_LENGTH, true),

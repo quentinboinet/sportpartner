@@ -1,0 +1,13 @@
+{# Onglets des statistiques : vue d'ensemble / comparer. Paramètre : current = 'overview' | 'compare' #}
+<nav class="sp-stats-view-tabs" aria-label="{{ 'stats.view_label'|trans }}">
+    <a href="{{ path('app_stats') }}"
+       class="sp-stats-view-tab {{ current == 'overview' ? 'active' }}"
+       {% if current == 'overview' %}aria-current="page"{% endif %}>
+        <i class="bi bi-bar-chart-line" aria-hidden="true"></i>{{ 'stats.view_overview'|trans }}
+    </a>
+    <a href="{{ path('app_stats_compare') }}"
+       class="sp-stats-view-tab {{ current == 'compare' ? 'active' }}"
+       {% if current == 'compare' %}aria-current="page"{% endif %}>
+        <i class="bi bi-arrow-left-right" aria-hidden="true"></i>{{ 'stats.view_compare'|trans }}
+    </a>
+</nav>

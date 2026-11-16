@@ -46,6 +46,14 @@ class RaceCheckpoint
     #[ORM\Column(length: 500, nullable: true)]
     private ?string $publicMessage = null;
 
+    /**
+     * Assistance / sac d'allègement : on peut y récupérer SES produits (proches, sac déposé). Sert à la liste
+     * « à emporter » du plan nutrition (App\Service\Nutrition\RaceNutritionCalculator::carryList). Défaut SQL 0
+     * (migration Version20240031_CreateRaceNutrition).
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $assistance = false;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -79,6 +87,9 @@ class RaceCheckpoint
 
     public function getPublicMessage(): ?string { return $this->publicMessage; }
     public function setPublicMessage(?string $m): static { $this->publicMessage = $m; return $this; }
+
+    public function hasAssistance(): bool { return $this->assistance; }
+    public function setAssistance(bool $a): static { $this->assistance = $a; return $this; }
 
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
 }

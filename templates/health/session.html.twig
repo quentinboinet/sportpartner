@@ -1,0 +1,273 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'health.session.page_title'|trans }} - SportPartner{% endblock %}
+
+{#
+ # Séance guidée (health_session_controller.js) : plateau, lecteur, écran de fin. La page embarque le catalogue
+ # des exercices visibles (textes dans la langue de l'interface) ; le plateau vit dans localStorage, la séance en
+ # cours dans sessionStorage. Sans JavaScript, seul un message s'affiche.
+ #}
+{% block body %}
+{% set _L = {
+    categories: {strength: 'health.category.strength'|trans, core: 'health.category.core'|trans, balance: 'health.category.balance'|trans, mobility: 'health.category.mobility'|trans, stretching: 'health.category.stretching'|trans},
+    defaultNames: {strength: 'health.session.default_name.strength'|trans, mobility: 'health.session.default_name.mobility'|trans, mixed: 'health.session.default_name.mixed'|trans},
+    restored: 'health.session.restored'|trans, playerBusy: 'health.session.player_busy'|trans,
+    unavailableOne: 'health.session.unavailable_one'|trans, unavailableMany: 'health.session.unavailable_many'|trans,
+    replayDone: 'health.session.replay_done'|trans, replayMissingOne: 'health.session.replay_missing_one'|trans,
+    replayMissingMany: 'health.session.replay_missing_many'|trans, replayConfirm: 'health.session.replay_confirm'|trans,
+    replayYes: 'health.session.replay_yes'|trans, replayNo: 'health.session.replay_no'|trans,
+    moved: 'health.session.moved'|trans, removed: 'health.session.removed'|trans,
+    clearConfirm: 'health.session.clear_confirm'|trans, clearYes: 'health.session.clear_yes'|trans, cleared: 'health.session.cleared'|trans,
+    valueTime: 'health.session.value_time'|trans, valueReps: 'health.session.value_reps'|trans,
+    setsFor: 'health.session.sets_for'|trans, repsFor: 'health.session.reps_for'|trans, secondsFor: 'health.session.seconds_for'|trans,
+    restFor: 'health.session.rest_for'|trans, moveUp: 'health.session.move_up'|trans, moveDown: 'health.session.move_down'|trans,
+    removeItem: 'health.session.remove_item'|trans, estimate: 'health.session.estimate'|trans,
+    phaseWork: 'health.player.phase_work'|trans, phaseRest: 'health.player.phase_rest'|trans,
+    phaseSwitch: 'health.player.phase_switch'|trans, phasePrep: 'health.player.phase_prep'|trans,
+    setLine: 'health.player.set_line'|trans, nextPrefix: 'health.player.next_prefix'|trans,
+    left: 'health.player.left'|trans, right: 'health.player.right'|trans,
+    pause: 'health.player.pause'|trans, resume: 'health.player.resume'|trans,
+    progress: 'health.player.progress'|trans, progressValue: 'health.player.progress_value'|trans,
+    sayWork: 'health.player.say_work'|trans, sayWorkSide: 'health.player.say_work_side'|trans,
+    sayRest: 'health.player.say_rest'|trans, saySwitch: 'health.player.say_switch'|trans, sayPrep: 'health.player.say_prep'|trans,
+    sayPaused: 'health.player.say_paused'|trans, sayResumed: 'health.player.say_resumed'|trans,
+    sayAddedRest: 'health.player.say_added_rest'|trans, sayEnd: 'health.player.say_end'|trans, sayStopped: 'health.player.say_stopped'|trans,
+    sayMuted: 'health.player.say_muted'|trans, sayUnmuted: 'health.player.say_unmuted'|trans,
+    mute: 'health.player.mute'|trans, unmute: 'health.player.unmute'|trans,
+    finishConfirm: 'health.player.finish_confirm'|trans, finishYes: 'health.player.finish_yes'|trans,
+    discardConfirm: 'health.end.discard_confirm'|trans, discardYes: 'health.end.discard_yes'|trans, discarded: 'health.end.discarded'|trans,
+    endTitle: 'health.end.title'|trans, endTitleEarly: 'health.end.title_early'|trans,
+    exercisesDone: 'health.end.exercises_done'|trans, notDone: 'health.end.not_done'|trans, setsDone: 'health.end.sets_done'|trans,
+    total: 'health.end.total'|trans, totalEachSide: 'health.end.total_each_side'|trans,
+    saveNothing: 'health.end.save_nothing'|trans, saveError: 'health.end.save_error'|trans, saving: 'health.end.saving'|trans,
+    saveCsrf: 'health.end.save_csrf'|trans, saveTooOld: 'health.end.save_too_old'|trans, saveUnknown: 'health.end.save_unknown'|trans,
+    cancel: 'health.cancel'|trans,
+    repsAmount: 'health.dose.reps_amount'|trans, doseReps: 'health.dose.reps'|trans, doseTime: 'health.dose.time'|trans,
+    eachSide: 'health.dose.each_side'|trans, timeSeconds: 'health.time.seconds'|trans, timeMinutes: 'health.time.minutes'|trans,
+    timeMinutesSeconds: 'health.time.minutes_seconds'|trans, timeHoursMinutes: 'health.time.hours_minutes'|trans,
+} %}
+<div class="sp-health" {{ include('health/_tray_labels.html.twig') }}>
+
+    <div class="sp-page-header">
+        <div>
+            <h1 class="sp-greeting">{{ 'health.session.title'|trans }}</h1>
+            <p class="sp-health-sub">{{ 'health.session.subtitle'|trans }}</p>
+        </div>
+    </div>
+
+    {{ include('health/_tabs.html.twig') }}
+
+    <noscript><div class="alert alert-warning">{{ 'health.session.noscript'|trans }}</div></noscript>
+
+    <div class="sp-health-session"
+         data-controller="health-session"
+         data-health-session-user-value="{{ app.user.id }}"
+         data-health-session-catalog-value="{{ catalog|json_encode }}"
+         {% if replay %}data-health-session-replay-value="{{ replay|json_encode }}"{% endif %}
+         data-health-session-limits-value="{{ limits|json_encode }}"
+         data-health-session-labels-value="{{ _L|json_encode }}"
+         data-health-session-save-url-value="{{ path('app_health_session_save') }}"
+         data-health-session-token-value="{{ csrf_token('health_session') }}">
+
+        <p class="visually-hidden" role="status" aria-live="polite" data-health-session-target="status"></p>
+
+        <div class="sp-health-notice" data-health-session-target="notice" hidden>
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <p data-health-session-target="noticeText"></p>
+            <button type="button" class="btn-close" aria-label="{{ 'health.close'|trans }}" data-action="health-session#dismissNotice"></button>
+        </div>
+
+        <div class="sp-health-confirm" role="alertdialog" aria-labelledby="health-confirm-text" data-health-session-target="confirm" hidden>
+            <p id="health-confirm-text" data-health-session-target="confirmText"></p>
+            <div class="sp-health-confirm-actions">
+                <button type="button" class="sp-btn sp-btn-primary" data-health-session-target="confirmYes" data-action="health-session#confirmYes"></button>
+                <button type="button" class="sp-btn sp-btn-outline" data-health-session-target="confirmNo" data-action="health-session#confirmNo"></button>
+            </div>
+        </div>
+
+        {# ── Plateau ─────────────────────────────────── #}
+        <section data-health-session-target="trayView" aria-labelledby="health-tray-title" hidden>
+            <div class="sp-card sp-health-tray-card">
+                <div class="sp-health-tray-head">
+                    <h2 class="sp-card-title" id="health-tray-title">{{ 'health.tray.title'|trans }}</h2>
+                    <span class="sp-health-estimate" data-health-session-target="estimate"></span>
+                </div>
+                <p class="sp-card-sub">{{ 'health.session.tray_help'|trans }}</p>
+                <ol class="sp-health-tray" data-health-session-target="trayList"></ol>
+                <div class="sp-health-tray-empty" data-health-session-target="trayEmpty" hidden>
+                    <i class="bi bi-inbox" aria-hidden="true"></i>
+                    <p>{{ 'health.session.empty'|trans }}</p>
+                </div>
+                <div class="sp-health-tray-actions">
+                    <a href="{{ path('app_health') }}" class="sp-btn sp-btn-outline"><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'health.session.add_more'|trans }}</a>
+                    <button type="button" class="sp-btn sp-btn-outline" data-health-session-target="clearButton" data-action="health-session#clearTray">
+                        <i class="bi bi-trash" aria-hidden="true"></i> {{ 'health.session.clear'|trans }}
+                    </button>
+                    <button type="button" class="sp-btn sp-btn-primary sp-health-start" data-health-session-target="startButton" data-action="health-session#start">
+                        <i class="bi bi-play-fill" aria-hidden="true"></i> {{ 'health.session.start'|trans }}
+                    </button>
+                </div>
+            </div>
+            {{ include('health/_disclaimer.html.twig') }}
+        </section>
+
+        <template data-health-session-target="itemTemplate">
+            <li class="sp-health-tray-item">
+                <div class="sp-health-tray-item-head">
+                    <span class="sp-health-tray-pos" data-role="pos" aria-hidden="true"></span>
+                    <div class="sp-health-tray-item-title">
+                        <a class="sp-health-tray-name" data-role="name" href="#"></a>
+                        <span class="sp-health-tray-cat" data-role="category"></span>
+                        <span class="sp-health-badge" data-role="side" hidden>{{ 'health.dose.each_side'|trans }}</span>
+                    </div>
+                    <div class="sp-health-tray-move">
+                        <button type="button" class="sp-health-icon-btn" data-move="up" data-action="health-session#moveUp"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+                        <button type="button" class="sp-health-icon-btn" data-move="down" data-action="health-session#moveDown"><i class="bi bi-arrow-down" aria-hidden="true"></i></button>
+                        <button type="button" class="sp-health-icon-btn sp-health-icon-btn--danger" data-move="remove" data-action="health-session#remove"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                    </div>
+                </div>
+                <div class="sp-health-tray-fields">
+                    <label><span>{{ 'health.session.sets'|trans }}</span>
+                        <input type="number" inputmode="numeric" class="form-control form-control-sm" data-field="sets" data-action="input->health-session#trayInput change->health-session#trayChange">
+                    </label>
+                    <label><span data-role="valueLabel"></span>
+                        <input type="number" inputmode="numeric" class="form-control form-control-sm" data-field="value" data-action="input->health-session#trayInput change->health-session#trayChange">
+                    </label>
+                    <label><span>{{ 'health.session.rest'|trans }}</span>
+                        <input type="number" inputmode="numeric" step="5" class="form-control form-control-sm" data-field="rest" data-action="input->health-session#trayInput change->health-session#trayChange">
+                    </label>
+                </div>
+            </li>
+        </template>
+
+        {# ── Lecteur ─────────────────────────────────── #}
+        <section class="sp-health-player" data-health-session-target="playerView" aria-labelledby="health-player-name" hidden>
+            <div class="sp-health-player-top">
+                <p class="sp-health-progress-text" data-health-session-target="progressText"></p>
+                <button type="button" class="sp-health-icon-btn" data-health-session-target="muteButton" data-action="health-session#toggleMute" aria-pressed="false">
+                    <i class="bi bi-volume-up" data-health-session-target="muteIcon" aria-hidden="true"></i>
+                    <span class="visually-hidden" data-health-session-target="muteLabel"></span>
+                </button>
+            </div>
+            <div class="sp-health-progress" role="progressbar" aria-label="{{ 'health.player.progress_label'|trans }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-health-session-target="progressBar">
+                <div class="sp-health-progress-fill" data-health-session-target="progressFill"></div>
+            </div>
+
+            <div class="sp-health-player-card">
+                <p class="sp-health-phase" data-health-session-target="phase"></p>
+                <h2 class="sp-health-player-name" id="health-player-name" data-health-session-target="name"></h2>
+                <p class="sp-health-player-dose" data-health-session-target="dose"></p>
+                <p class="sp-health-player-side" data-health-session-target="side" hidden></p>
+
+                <div class="sp-health-player-center">
+                    <div class="sp-health-timer" role="timer" aria-live="off" data-health-session-target="timer" hidden></div>
+                    <div class="sp-health-reps" data-health-session-target="reps" hidden>
+                        <span class="sp-health-reps-value" data-health-session-target="repsValue"></span>
+                        <span class="sp-health-reps-unit">{{ 'health.player.reps_unit'|trans }}</span>
+                    </div>
+                </div>
+
+                <p class="sp-health-paused" data-health-session-target="pausedBanner" hidden><i class="bi bi-pause-circle" aria-hidden="true"></i> {{ 'health.player.paused'|trans }}</p>
+
+                <div class="sp-health-player-main">
+                    <button type="button" class="sp-btn sp-btn-primary sp-health-big" data-health-session-target="doneButton" data-action="health-session#done" hidden>
+                        <i class="bi bi-check-lg" aria-hidden="true"></i> {{ 'health.player.done'|trans }}
+                    </button>
+                    <button type="button" class="sp-btn sp-btn-outline sp-health-big" data-health-session-target="addRestButton" data-action="health-session#addRest" hidden aria-label="{{ 'health.player.add_rest_label'|trans }}">
+                        {{ 'health.player.add_rest'|trans }}
+                    </button>
+                    <button type="button" class="sp-btn sp-btn-primary sp-health-big" data-health-session-target="skipButton" data-action="health-session#skip" hidden>
+                        <i class="bi bi-fast-forward-fill" aria-hidden="true"></i> {{ 'health.player.skip'|trans }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="sp-health-player-controls">
+                <button type="button" data-health-session-target="prevButton" data-action="health-session#previous">
+                    <i class="bi bi-skip-backward-fill" aria-hidden="true"></i><span>{{ 'health.player.previous'|trans }}</span>
+                </button>
+                <button type="button" data-health-session-target="pauseButton" data-action="health-session#togglePause" aria-pressed="false">
+                    <i class="bi bi-pause-fill" data-health-session-target="pauseIcon" aria-hidden="true"></i><span data-health-session-target="pauseLabel">{{ 'health.player.pause'|trans }}</span>
+                </button>
+                <button type="button" data-health-session-target="nextButton" data-action="health-session#next">
+                    <i class="bi bi-skip-forward-fill" aria-hidden="true"></i><span>{{ 'health.player.next'|trans }}</span>
+                </button>
+                <button type="button" data-health-session-target="finishButton" data-action="health-session#finish">
+                    <i class="bi bi-stop-fill" aria-hidden="true"></i><span>{{ 'health.player.finish'|trans }}</span>
+                </button>
+            </div>
+
+            <details class="sp-card sp-health-cues" open>
+                <summary>{{ 'health.player.cues'|trans }}</summary>
+                <ol data-health-session-target="cues"></ol>
+                <p class="sp-health-cues-breath" data-health-session-target="breathing"></p>
+                <a href="#" target="_blank" rel="noopener" data-health-session-target="sheetLink">
+                    {{ 'health.player.sheet'|trans }} <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                    <span class="visually-hidden">{{ 'health.video.new_tab'|trans }}</span>
+                </a>
+            </details>
+        </section>
+
+        {# ── Fin de séance ───────────────────────────── #}
+        <section data-health-session-target="endView" aria-labelledby="health-end-title" hidden>
+            <div class="sp-card sp-health-end">
+                <h2 class="sp-health-end-title" id="health-end-title" tabindex="-1" data-health-session-target="endTitle"></h2>
+                <dl class="sp-health-end-stats">
+                    <div><dt>{{ 'health.end.duration'|trans }}</dt><dd data-health-session-target="sumDuration"></dd></div>
+                    <div><dt>{{ 'health.end.sets'|trans }}</dt><dd data-health-session-target="sumSets"></dd></div>
+                    <div><dt>{{ 'health.end.exercises'|trans }}</dt><dd data-health-session-target="sumExercises"></dd></div>
+                </dl>
+                <ol class="sp-health-summary" data-health-session-target="summaryList"></ol>
+            </div>
+
+            <form class="sp-card sp-health-save" novalidate data-health-session-target="saveForm"
+                  data-action="submit->health-session#save input->health-session#formInput change->health-session#formInput">
+                <h3 class="sp-health-h2">{{ 'health.end.feeling_title'|trans }}</h3>
+                <fieldset class="sp-health-rpe" aria-describedby="health-rpe-help">
+                    <legend class="form-label">{{ 'health.end.rpe'|trans }}</legend>
+                    <div class="sp-health-rpe-scale">
+                        {% for i in 1..10 %}
+                            <input type="radio" class="btn-check" name="rpe" id="health-rpe-{{ i }}" value="{{ i }}">
+                            <label class="sp-health-rpe-btn" for="health-rpe-{{ i }}">{{ i }}</label>
+                        {% endfor %}
+                    </div>
+                    <p class="form-text sp-health-rpe-ends" id="health-rpe-help"><span>{{ 'health.end.rpe_low'|trans }}</span><span>{{ 'health.end.rpe_high'|trans }}</span></p>
+                </fieldset>
+                <div class="mb-3">
+                    <label class="form-label" for="health-notes">{{ 'health.end.notes'|trans }}</label>
+                    <textarea class="form-control" id="health-notes" name="notes" rows="3" maxlength="{{ limits.notes }}" placeholder="{{ 'health.end.notes_placeholder'|trans }}"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="health-name">{{ 'health.end.name'|trans }}</label>
+                    <input type="text" class="form-control" id="health-name" name="name" maxlength="{{ limits.name }}">
+                </div>
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="checkbox" id="health-add-activity" name="addActivity" value="1" checked aria-describedby="health-add-activity-help" data-health-session-target="addActivity">
+                    <label class="form-check-label" for="health-add-activity">{{ 'health.end.add_activity'|trans }}</label>
+                </div>
+                <p class="form-text mt-0" id="health-add-activity-help">{{ 'health.end.add_activity_help'|trans }}</p>
+                <div class="mb-3" data-health-session-target="sportRow">
+                    <label class="form-label" for="health-sport">{{ 'health.end.sport'|trans }}</label>
+                    <select class="form-select" id="health-sport" name="sport" aria-describedby="health-sport-help">
+                        <option value="weight_training">{{ 'sport.weight_training'|trans }}</option>
+                        <option value="other">{{ 'sport.other'|trans }}</option>
+                    </select>
+                    <p class="form-text" id="health-sport-help">{{ 'health.end.sport_help'|trans }}</p>
+                </div>
+                <p class="alert alert-danger" role="alert" data-health-session-target="saveError" hidden></p>
+                <div class="sp-health-end-actions">
+                    <button type="submit" class="sp-btn sp-btn-primary" data-health-session-target="saveButton">
+                        <i class="bi bi-check2-circle" aria-hidden="true"></i> {{ 'health.end.save'|trans }}
+                    </button>
+                    <button type="button" class="sp-btn sp-btn-outline" data-health-session-target="backButton" data-action="health-session#resume" hidden>
+                        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> {{ 'health.end.back'|trans }}
+                    </button>
+                    <button type="button" class="sp-btn sp-btn-outline sp-health-danger" data-action="health-session#discard">
+                        {{ 'health.end.discard'|trans }}
+                    </button>
+                </div>
+            </form>
+        </section>
+    </div>
+</div>
+{% endblock %}

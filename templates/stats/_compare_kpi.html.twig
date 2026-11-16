@@ -1,0 +1,15 @@
+{# Carte d'un indicateur comparé : valeur de A, valeur de B, écart. Paramètre : m (ComparisonPresenter::metric) #}
+<article class="sp-cmp-kpi" data-metric="{{ m.key }}">
+    <h3 class="sp-cmp-kpi-label">
+        {{ ('stats.compare.metric.' ~ m.key)|trans }}
+        {%- if m.sport %} <span class="sp-cmp-kpi-sport">({{ ('sport.' ~ m.sport)|trans|lower }})</span>{% endif %}
+    </h3>
+    <div class="sp-cmp-kpi-a">
+        <span class="visually-hidden">{{ 'stats.compare.period_a'|trans }} : </span><span class="sp-cmp-val" data-side="a">{{ m.a }}</span>
+    </div>
+    <div class="sp-cmp-kpi-b">
+        <span class="sp-cmp-swatch sp-cmp-swatch--b" aria-hidden="true"></span>
+        <span><span aria-hidden="true">{{ 'stats.compare.vs'|trans }} </span><span class="visually-hidden">{{ 'stats.compare.period_b'|trans }} : </span><span class="sp-cmp-val" data-side="b">{{ m.b }}</span></span>
+    </div>
+    {{ include('stats/_compare_delta.html.twig', {m: m}) }}
+</article>

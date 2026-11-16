@@ -1,0 +1,32 @@
+{#
+ # Macros du plan nutrition, partagées par race/_nutrition.html.twig (page plan), race/plan_print.html.twig (fiche et
+ # bracelet) et race/public.html.twig (page partagée). p = produit {kind, key, label} (label = nom saisi d'un produit
+ # personnalisé, null pour le catalogue), fmt = {dp, ts} séparateurs des nombres. Même rendu que lineText() de
+ # race_nutrition_controller.js.
+ #}
+
+{# Texte court d'une ligne : « 2 gels », « 1 × Banane », « 500 ml isotonique » #}
+{% macro line_text(line, p, fmt) -%}
+    {%- if p is null -%}{{ line.qty }}
+    {%- elseif p.kind == 'drink' -%}
+        {{- 'race_nutrition.line_drink'|trans({'%ml%': line.qty|number_format(0, fmt.dp, fmt.ts), '%name%': p.label is not null ? p.label : ('race_nutrition.drink_names.' ~ p.key)|trans}) -}}
+    {%- elseif p.label is not null -%}
+        {{- 'race_nutrition.line_custom'|trans({'%count%': line.qty, '%name%': p.label}) -}}
+    {%- else -%}
+        {{- 'race_nutrition.line_food'|trans({'%count%': line.qty, '%unit%': ('race_nutrition.units.' ~ p.key ~ '.' ~ (line.qty > 1 ? 'other' : 'one'))|trans}) -}}
+    {%- endif -%}
+{%- endmacro %}
+
+{# Lignes séparées par ", " (pmap : clé => produit) #}
+{% macro lines(lines, pmap, fmt) -%}
+    {%- for line in lines %}{{ loop.first ? '' : ', ' }}{{ _self.line_text(line, pmap[line.key] ?? null, fmt) }}{% endfor -%}
+{%- endmacro %}
+
+{# Bracelet : aliments en texte court, puis volume total des boissons (« 1 gel + 1 barre + 500 ml ») #}
+{% macro band(lines, pmap, fmt) -%}
+    {%- set _food = lines|filter(l => (pmap[l.key].kind ?? 'food') != 'drink') -%}
+    {%- set _ml = 0 -%}
+    {%- for l in lines|filter(l => (pmap[l.key].kind ?? 'food') == 'drink') %}{% set _ml = _ml + l.qty %}{% endfor -%}
+    {%- for line in _food %}{{ loop.first ? '' : ' + ' }}{{ _self.line_text(line, pmap[line.key] ?? null, fmt) }}{% endfor -%}
+    {%- if _ml > 0 %}{{ _food is empty ? '' : ' + ' }}{{ 'race_nutrition.band_ml'|trans({'%ml%': _ml|number_format(0, fmt.dp, fmt.ts)}) }}{% endif -%}
+{%- endmacro %}

@@ -1,0 +1,12 @@
+{#
+ # Attributs du controller health-tray-add (plateau de la séance en cours), à placer sur l'élément racine d'une
+ # page de l'espace Santé : id de l'utilisateur (clé de stockage) et textes traduits.
+ #}
+data-controller="health-tray-add"
+data-health-tray-add-user-value="{{ app.user.id }}"
+data-health-tray-add-labels-value="{{ {
+    added: 'health.tray.added'|trans,
+    full: 'health.tray.full'|trans({'%max%': constant('App\\Service\\Health\\HealthLimits::SESSION_EXERCISES_MAX')}),
+    countOne: 'health.tray.count_one'|trans,
+    countMany: 'health.tray.count_many'|trans,
+}|json_encode }}"
