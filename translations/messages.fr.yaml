@@ -15,6 +15,10 @@ sidebar:
     load_label: charge
     amateur_role: Compétiteur amateur
     pro_role: Membre Pro
+    user_menu: Menu du compte
+    menu_profile: Mon profil
+    logout: Se déconnecter
+    close_menu: Fermer le menu
 
 # ── Topbar ───────────────────────────────────
 topbar:

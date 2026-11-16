@@ -1,0 +1,52 @@
+{#
+  Bloc utilisateur de la barre latérale (bureau) et du menu mobile (offcanvas) : un bouton qui ouvre le menu du
+  compte (profil, paramètres, déconnexion). Dropdown Bootstrap vers le haut, en position fixe pour ne pas être
+  coupé par la barre latérale.
+  Paramètre : id (préfixe unique des identifiants, un par emplacement).
+#}
+{% set _avatarUrl = user_avatar_url(app.user) %}
+<div class="dropup sp-user-menu">
+    <button type="button" class="sp-sidebar-user" id="{{ id }}-toggle"
+            data-bs-toggle="dropdown" aria-expanded="false" data-bs-offset="10,6"
+            data-bs-popper-config='{"strategy":"fixed"}'>
+        <span class="sp-avatar">
+            {% if _avatarUrl %}
+                <img src="{{ _avatarUrl }}" alt="" width="34" height="34"
+                     style="display:block;width:100%;height:100%;border-radius:50%;object-fit:cover">
+            {% else %}
+            {{ app.user.firstName
+                ? (app.user.firstName|slice(0,1) ~ (app.user.lastName ? app.user.lastName|slice(0,1) : ''))
+                : app.user.email|slice(0,2)|upper }}
+            {% endif %}
+        </span>
+        <span class="sp-user-text">
+            <span class="sp-user-name">
+                {{ app.user.firstName ? app.user.firstName ~ ' ' ~ app.user.lastName : app.user.email }}
+            </span>
+            <span class="sp-user-role">
+                {{ app.user.isPro() ? 'sidebar.pro_role'|trans : 'sidebar.amateur_role'|trans }}
+            </span>
+            <span class="visually-hidden">{{ 'sidebar.user_menu'|trans }}</span>
+        </span>
+        <i class="bi bi-chevron-expand sp-user-chevron" aria-hidden="true"></i>
+    </button>
+    <ul class="dropdown-menu sp-user-dropdown" aria-labelledby="{{ id }}-toggle">
+        <li><span class="dropdown-header sp-user-dropdown-email" title="{{ app.user.email }}">{{ app.user.email }}</span></li>
+        <li>
+            <a class="dropdown-item" href="{{ path('app_settings', {tab: 'profile'}) }}">
+                <i class="bi bi-person" aria-hidden="true"></i> {{ 'sidebar.menu_profile'|trans }}
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="{{ path('app_settings') }}">
+                <i class="bi bi-gear" aria-hidden="true"></i> {{ 'nav.settings'|trans }}
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <a class="dropdown-item sp-user-logout" href="{{ logout_path() }}">
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i> {{ 'sidebar.logout'|trans }}
+            </a>
+        </li>
+    </ul>
+</div>

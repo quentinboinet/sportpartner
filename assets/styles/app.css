@@ -130,12 +130,28 @@ body {
 .sp-today-stat-val span { font-size: 9px; font-weight: 500; opacity: .55; }
 .sp-today-stat-lbl { display: block; color: rgba(255,255,255,.28); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
 
+/* Menu du compte (partial _sidebar_user.html.twig) : le bloc est un <button> qui ouvre un dropdown vers le haut */
+.sp-user-menu { position: relative; flex-shrink: 0; }
 .sp-sidebar-user {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 12px 18px; cursor: pointer; transition: background .15s; flex-shrink: 0;
+  border: 0; background: transparent; color: inherit; font: inherit; text-align: left;
 }
 
-.sp-sidebar-user:hover { background: rgba(255,255,255,.05); }
+.sp-sidebar-user:hover,
+.sp-sidebar-user[aria-expanded="true"] { background: rgba(255,255,255,.05); }
+.sp-sidebar-user:focus-visible { outline: 2px solid var(--sp-orange, #E8400C); outline-offset: -2px; }
+.sp-user-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.sp-user-chevron { color: rgba(255,255,255,.32); font-size: 12px; flex-shrink: 0; }
+.sp-user-dropdown {
+  /* largeur de la barre latérale (228 px) moins 10 px de chaque côté (data-bs-offset="10,6") */
+  min-width: 208px; max-width: 208px; padding: 6px; font-size: 13px;
+  border: 1px solid var(--sp-border, rgba(0,0,0,.08)); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.18);
+}
+.sp-user-dropdown .dropdown-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; }
+.sp-user-dropdown .dropdown-item:active { background: var(--sp-orange, #E8400C); color: #fff; }
+.sp-user-dropdown-email { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 6px 10px; }
+.sp-user-logout { color: #B42318; }
 
 .sp-avatar {
   width: 34px; height: 34px; border-radius: 50%;
@@ -943,6 +959,7 @@ body {
   overflow-y: auto;
 }
 .sp-offcanvas-body .sp-nav { flex: 1; }
+.sp-offcanvas-body .sp-user-menu { margin-top: auto; }
 .sp-offcanvas-body .sp-sidebar-user { border-top: 1px solid rgba(255,255,255,.06); }
 
 /* Canvas responsive (Chart.js) */

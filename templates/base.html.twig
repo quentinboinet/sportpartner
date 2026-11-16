@@ -72,32 +72,7 @@
             </div>
         </div>
 
-        <div class="sp-sidebar-user">
-            <div class="sp-avatar">
-                {% set _avatarUrl = user_avatar_url(app.user) %}
-                {% if _avatarUrl %}
-                    <img src="{{ _avatarUrl }}" alt="" width="34" height="34"
-                         style="display:block;width:100%;height:100%;border-radius:50%;object-fit:cover">
-                {% else %}
-                {{ app.user.firstName
-                    ? (app.user.firstName|slice(0,1) ~ (app.user.lastName ? app.user.lastName|slice(0,1) : ''))
-                    : app.user.email|slice(0,2)|upper }}
-                {% endif %}
-            </div>
-            <div style="flex:1;min-width:0">
-                <div class="sp-user-name">
-                    {{ app.user.firstName
-                        ? app.user.firstName ~ ' ' ~ app.user.lastName
-                        : app.user.email }}
-                </div>
-                <div class="sp-user-role">
-                    {{ app.user.isPro()
-                        ? 'sidebar.pro_role'|trans
-                        : 'sidebar.amateur_role'|trans }}
-                </div>
-            </div>
-            <i class="bi bi-chevron-right" style="color:rgba(255,255,255,.22);font-size:11px;flex-shrink:0"></i>
-        </div>
+        {{ include('_sidebar_user.html.twig', {id: 'sidebar-user'}) }}
 
     </aside>
 
@@ -129,7 +104,7 @@
                     <i class="bi bi-bell"></i>
                     <span class="sp-notif-dot"></span>
                 </button>
-                <a href="#" class="sp-icon-btn"><i class="bi bi-gear"></i></a>
+                <a href="{{ path('app_settings') }}" class="sp-icon-btn" aria-label="{{ 'nav.settings'|trans }}" title="{{ 'nav.settings'|trans }}"><i class="bi bi-gear" aria-hidden="true"></i></a>
             </div>
         </header>
 
@@ -178,8 +153,8 @@
                 <span class="sp-logo-sub">Performance Tracker</span>
             </div>
         </div>
-        <button type="button" class="sp-offcanvas-close">
-            <i class="bi bi-x-lg"></i>
+        <button type="button" class="sp-offcanvas-close" data-bs-dismiss="offcanvas" aria-label="{{ 'sidebar.close_menu'|trans }}">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
         </button>
     </div>
     <div class="offcanvas-body sp-offcanvas-body">
@@ -204,27 +179,7 @@
             </a>
         </nav>
 
-        <div class="sp-sidebar-user" style="margin-top:auto">
-            <div class="sp-avatar">
-                {% set _avatarUrl = user_avatar_url(app.user) %}
-                {% if _avatarUrl %}
-                    <img src="{{ _avatarUrl }}" alt="" width="34" height="34"
-                         style="display:block;width:100%;height:100%;border-radius:50%;object-fit:cover">
-                {% else %}
-                {{ app.user.firstName
-                    ? (app.user.firstName|slice(0,1) ~ (app.user.lastName ? app.user.lastName|slice(0,1) : ''))
-                    : app.user.email|slice(0,2)|upper }}
-                {% endif %}
-            </div>
-            <div style="flex:1;min-width:0">
-                <div class="sp-user-name">
-                    {{ app.user.firstName ? app.user.firstName ~ ' ' ~ app.user.lastName : app.user.email }}
-                </div>
-                <div class="sp-user-role">
-                    {{ app.user.isPro() ? 'sidebar.pro_role'|trans : 'sidebar.amateur_role'|trans }}
-                </div>
-            </div>
-        </div>
+        {{ include('_sidebar_user.html.twig', {id: 'mobile-user'}) }}
     </div>
 </div>
 {% endif %}

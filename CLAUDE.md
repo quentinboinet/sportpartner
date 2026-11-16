@@ -110,7 +110,7 @@ Pour attacher un controller Stimulus à un élément :
 - **Traductions** - [translations/messages.fr.yaml](translations/messages.fr.yaml) et [messages.en.yaml](translations/messages.en.yaml) : toute nouvelle clé doit être ajoutée dans les deux.
 
 ### Auth & access control
-- Form login Symfony (`/login`, `/logout`) géré par [LoginController](src/Controller/Auth/LoginController.php), inscription par `RegisterController`. Le remember-me (7 jours) est configuré mais inactif : le formulaire de connexion n'a pas de champ `_remember_me`.
+- Form login Symfony (`/login`, `/logout`) géré par [LoginController](src/Controller/Auth/LoginController.php), inscription par `RegisterController`. La déconnexion se fait depuis le menu du compte (bloc utilisateur en bas de la barre latérale et du menu mobile, partial [templates/_sidebar_user.html.twig](templates/_sidebar_user.html.twig) : dropdown Bootstrap vers le haut avec profil, paramètres et `logout_path()`). Le remember-me (7 jours) est configuré mais inactif : le formulaire de connexion n'a pas de champ `_remember_me`.
 - Contrôle d'accès par `access_control` dans [config/packages/security.yaml](config/packages/security.yaml) (tout est `ROLE_USER` sauf `/login`, `/register`, `/oauth`, `/reset-password`, `/webhooks` et `/p/` (plans partagés, règle placée avant `^/`), publics) et par `#[IsGranted('ROLE_USER')]` sur les controllers. `StravaController` (`/oauth/*`, `/strava/sync`) appelle lui-même `denyAccessUnlessGranted('ROLE_USER')`. Il n'y a **aucun Voter** (`src/Security/Voter/` est vide) ni contrôle par plan.
 - Tokens Strava stockés dans `User` avec expiry ; refresh automatique par `StravaService` avant la synchro.
 
