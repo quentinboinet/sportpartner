@@ -11,6 +11,7 @@ use App\Repository\RaceCheckpointRepository;
 use App\Repository\RaceRepository;
 use App\Repository\RaceRouteRepository;
 use App\Service\Route\RouteAnalyzer;
+use App\Service\Route\ScenarioViewBuilder;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -225,7 +226,7 @@ class RaceController extends AbstractController
     }
 
     #[Route('/{id}', name: '_show', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function show(Race $race, RaceRouteRepository $routes, RaceCheckpointRepository $checkpoints, RouteAnalyzer $analyzer): Response
+    public function show(Race $race, RaceRouteRepository $routes, RaceCheckpointRepository $checkpoints, RouteAnalyzer $analyzer, ScenarioViewBuilder $scenarioBuilder): Response
     {
         $this->denyUnlessOwner($race);
 
@@ -242,6 +243,7 @@ class RaceController extends AbstractController
             'aidCount'    => count(array_filter($cps, static fn ($cp) => $cp->getType() === CheckpointType::AidStation)),
             'daysLeft'    => $date ? (int) (new \DateTimeImmutable('today'))->diff($date)->format('%r%a') : null,
             // Scénarios du plan de course (bloc « Temps de passage »)
+            'scenarioView' => $scenarioBuilder->buildWith($race, $route, $cps),
             // Pour la modale de modification (partial race/_race_modal.html.twig)
             'intents'     => RaceIntent::cases(),
             'types'       => RaceType::cases(),

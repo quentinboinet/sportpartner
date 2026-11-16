@@ -1,0 +1,62 @@
+{#
+ # Une ligne "objectif par sport" (entrée du CollectionType weeklyGoals) : objectif enregistré, ligne
+ # ajoutée renvoyée après une erreur, ou gabarit (goal = prototype, nom "__name__", rempli par
+ # weekly_goals_controller.js). Variables : goal (FormView de WeeklyGoalType).
+ #}
+{% set _isTemplate = goal.vars.name == '__name__' %}
+{% set _goal       = goal.vars.data %}
+{% set _sport      = _goal ? _goal.sport : null %}
+{% set _sportName  = _sport ? ('sport.' ~ _sport.slug)|trans : (_isTemplate ? '' : 'settings.goals.unknown_sport'|trans) %}
+{% set _rowErrors  = goal.vars.errors %}
+{% set _fields = [
+    {name: 'distanceKm',      label: 'settings.goals.distance'},
+    {name: 'sessions',        label: 'settings.goals.sessions'},
+    {name: 'durationMinutes', label: 'settings.goals.duration'},
+    {name: 'elevationGainM',  label: 'settings.goals.elevation'},
+] %}
+<li class="sp-goal-row{{ _rowErrors|length ? ' has-error' }}" data-weekly-goals-target="row" data-name="{{ goal.vars.name }}">
+    <fieldset class="sp-goal-fieldset">
+        <legend class="sp-goal-legend">
+            <span class="sp-goal-sport-icon" data-role="icon-wrap" style="--goal-sport-color: {{ _sport ? _sport.color : '#9CA3AF' }}">
+                <i class="bi {{ _sport ? _sport.icon : 'bi-question-lg' }}" data-role="icon" aria-hidden="true"></i>
+            </span>
+            <span class="sp-goal-sport-name" data-role="name">{{ _sportName }}</span>
+        </legend>
+        {{ form_widget(goal.sport) }}
+        <button type="button" class="sp-goal-remove" data-action="weekly-goals#remove"
+                aria-label="{{ 'settings.goals.remove'|trans({'%sport%': _sportName}) }}"
+                title="{{ 'settings.goals.remove'|trans({'%sport%': _sportName}) }}">
+            <i class="bi bi-trash3" aria-hidden="true"></i>
+        </button>
+
+        {% if _rowErrors|length %}
+            <div class="sp-goal-row-errors" id="{{ goal.vars.id }}_errors">
+                {% for error in _rowErrors %}
+                    <p class="sp-goal-error"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> {{ error.message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="sp-goal-fields">
+            {% for field in _fields %}
+                {% set _f      = goal[field.name] %}
+                {% set _errors = _f.vars.errors %}
+                {% set _descr  = [] %}
+                {% if _errors|length %}{% set _descr = _descr|merge([_f.vars.id ~ '_error']) %}{% endif %}
+                {% if _rowErrors|length %}{% set _descr = _descr|merge([goal.vars.id ~ '_errors']) %}{% endif %}
+                {% set _attr = {class: 'sp-settings-input sp-goal-input' ~ (_errors|length ? ' is-invalid')} %}
+                {% if _errors|length %}{% set _attr = _attr|merge({'aria-invalid': 'true'}) %}{% endif %}
+                {% if _descr is not empty %}{% set _attr = _attr|merge({'aria-describedby': _descr|join(' ')}) %}{% endif %}
+                <div class="sp-goal-field">
+                    <label for="{{ _f.vars.id }}">{{ field.label|trans }}</label>
+                    {{ form_widget(_f, {attr: _attr}) }}
+                    {% if _errors|length %}
+                        <div class="sp-goal-field-errors" id="{{ _f.vars.id }}_error">
+                            {% for error in _errors %}<p class="sp-goal-error">{{ error.message }}</p>{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </fieldset>
+</li>

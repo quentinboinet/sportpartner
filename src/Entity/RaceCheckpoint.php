@@ -39,6 +39,13 @@ class RaceCheckpoint
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $notes = null;
 
+    /**
+     * Message pour les proches, affiché sur la page publique du plan (RaceShare). Distinct de $notes (privées,
+     * jamais partagées). 500 caractères au plus (RaceShare::MAX_POINT_MESSAGE_LENGTH).
+     */
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $publicMessage = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -69,6 +76,9 @@ class RaceCheckpoint
 
     public function getNotes(): ?string { return $this->notes; }
     public function setNotes(?string $n): static { $this->notes = $n; return $this; }
+
+    public function getPublicMessage(): ?string { return $this->publicMessage; }
+    public function setPublicMessage(?string $m): static { $this->publicMessage = $m; return $this; }
 
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
 }

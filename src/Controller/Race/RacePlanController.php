@@ -5,6 +5,7 @@ use App\Entity\CheckpointType;
 use App\Entity\Race;
 use App\Entity\RaceCheckpoint;
 use App\Entity\RaceRoute;
+use App\Entity\RaceShare;
 use App\Repository\RaceCheckpointRepository;
 use App\Repository\RaceRouteRepository;
 use App\Service\Route\GpxParser;
@@ -13,6 +14,8 @@ use App\Service\Route\ParsedRoute;
 use App\Service\Route\RemoteGpxException;
 use App\Service\Route\RemoteGpxFetcher;
 use App\Service\Route\RouteAnalyzer;
+use App\Service\Route\ScenarioViewBuilder;
+use App\Service\Share\ShareSettingsParser;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -44,7 +47,7 @@ final class RacePlanController extends AbstractController
     }
 
     #[Route('/plan', name: 'app_race_plan', methods: ['GET'])]
-    public function plan(Race $race, RouteAnalyzer $analyzer): Response
+    public function plan(Race $race, RouteAnalyzer $analyzer, ScenarioViewBuilder $scenarioBuilder): Response
     {
         $this->denyUnlessOwner($race);
 
@@ -77,6 +80,7 @@ final class RacePlanController extends AbstractController
                 'stopMinutes' => $cp->getStopSeconds() !== null ? intdiv($cp->getStopSeconds(), 60) : null,
                 'cutoff'      => $cutoff,
                 'notes'       => $cp->getNotes(),
+                'publicMessage' => $cp->getPublicMessage(),
             ];
             // Un repère au-delà de l'arrivée (parcours remplacé par un plus court) ne découpe pas le parcours
             if (!$beyond) {
@@ -102,6 +106,8 @@ final class RacePlanController extends AbstractController
             ] : null,
             'checkpointsData' => $data,
             'checkpointTypes' => CheckpointType::cases(),
+            // Phase 2 : scénarios et temps de passage (partial race/_scenarios.html.twig)
+            'scenarioView'    => $scenarioBuilder->buildWith($race, $route, $checkpoints),
         ]);
     }
 
@@ -340,6 +346,16 @@ final class RacePlanController extends AbstractController
         }
 
         $notes = trim((string) $post->get('notes', ''));
+
+        // Message pour les proches (plan partagé), mêmes règles que la page Partager ; champ absent = inchangé
+        $hasPublicMessage = $post->has('public_message');
+        $publicMessage    = $hasPublicMessage ? ShareSettingsParser::normalize($post->all()['public_message'], true) : null;
+        if ($publicMessage === false || ($publicMessage !== null && mb_strlen($publicMessage) > RaceShare::MAX_POINT_MESSAGE_LENGTH)) {
+            return false;
+        }
+        if ($hasPublicMessage) {
+            $checkpoint->setPublicMessage($publicMessage);
+        }
 
         $checkpoint
             ->setName($name)

@@ -1,0 +1,340 @@
+{% extends 'base.html.twig' %}
+
+{#
+  Réglages du lien de partage public du plan de course (RaceShareController, /courses/{id}/partage).
+  Variables : race, share (?RaceShare), shareUrl (?string, URL absolue de /p/{token}), form (valeurs du formulaire,
+  saisie réaffichée après une erreur), errors (champ => too_long | invalid), checkpoints (repères du parcours, triés),
+  routeDistanceM, scenarios (id, name, target, startTime), times (point -> scénario -> heure prévue), suggestedName,
+  limits. Stimulus "race-share" (assets/controllers/race_share_controller.js) : copie du lien, compteurs, heures selon
+  le scénario choisi, confirmations. Les notes privées des repères ne sont rappelées qu'ici (page du propriétaire).
+#}
+
+{% block title %}{{ 'race_share.page_title'|trans({'%name%': race.name}) }}{% endblock %}
+
+{% macro counter(id, value, max) %}
+    <span class="rsh-counter" id="{{ id }}-count" data-race-share-target="counter" data-for="{{ id }}" aria-hidden="true">{{ (value ?? '')|length }}/{{ max }}</span>
+{% endmacro %}
+
+{% macro error(errors, key, id) %}
+    {% if errors[key] is defined %}
+        <div class="rsh-error" id="{{ id }}-err">{{ ('race_share.error_' ~ errors[key])|trans }}</div>
+    {% endif %}
+{% endmacro %}
+
+{% macro message_field(id, name, value, max, errors, errorKey, label, placeholder) %}
+    <label class="visually-hidden" for="{{ id }}">{{ label }}</label>
+    <textarea id="{{ id }}" name="{{ name }}" class="sp-form-input rsh-textarea {{ errors[errorKey] is defined ? 'is-invalid' }}"
+              rows="2" maxlength="{{ max }}" placeholder="{{ placeholder }}"
+              aria-describedby="{{ id }}-count{{ errors[errorKey] is defined ? ' ' ~ id ~ '-err' }}"
+              {% if errors[errorKey] is defined %}aria-invalid="true"{% endif %}
+              data-race-share-target="field">{{ value }}</textarea>
+    <div class="rsh-field-foot">
+        {{ _self.error(errors, errorKey, id) }}
+        {{ _self.counter(id, value, max) }}
+    </div>
+{% endmacro %}
+
+{% block body %}
+{% set _fr = app.request.locale == 'fr' %}
+{% set _dec = _fr ? ',' : '.' %}
+{% set _th = _fr ? ' ' : ',' %}
+{% set _enabled = share is not null and share.enabled %}
+{% set _sid = form.scenarioId %}
+{% set _noTime = 'race_share.time_none'|trans %}
+{% set _finishM = routeDistanceM %}
+{% for cp in checkpoints %}{% set _finishM = max(_finishM, cp.distanceM) %}{% endfor %}
+
+<a href="{{ path('app_races_show', {id: race.id}) }}" class="sp-back-link">
+    <i class="bi bi-arrow-left"></i> {{ race.name }}
+</a>
+
+<div class="rsh"
+     data-controller="race-share"
+     data-race-share-times-value="{{ times|json_encode }}"
+     data-race-share-labels-value="{{ {copied: 'race_share.copied'|trans, copyManual: 'race_share.copy_manual'|trans, noTime: _noTime, unsaved: 'race_share.confirm_unsaved'|trans}|json_encode }}">
+
+    <div class="sp-page-header rsh-header">
+        <div class="rsh-header-main">
+            <div class="sp-week-label">{{ 'race_share.eyebrow'|trans }}</div>
+            <h1 class="sp-greeting rsh-title">{{ race.name }}</h1>
+            <p class="rsh-intro">{{ 'race_share.intro'|trans }}</p>
+        </div>
+    </div>
+
+    {# ── Lien de partage ── #}
+    <section class="sp-card rsh-card" aria-labelledby="share-link-title" data-share-link>
+        <div class="rsh-card-head">
+            <h2 class="sp-card-title rsh-h2" id="share-link-title"><i class="bi bi-link-45deg"></i> {{ 'race_share.link_title'|trans }}</h2>
+            <span class="rsh-status {{ _enabled ? 'rsh-status--on' : 'rsh-status--off' }}" data-share-status="{{ _enabled ? 'on' : 'off' }}">
+                <i class="bi {{ _enabled ? 'bi-broadcast-pin' : 'bi-slash-circle' }}" aria-hidden="true"></i>
+                {{ (_enabled ? 'race_share.status_on' : 'race_share.status_off')|trans }}
+            </span>
+        </div>
+
+        {% if _enabled %}
+            <label class="sp-form-label" for="share-url">{{ 'race_share.link_label'|trans }}</label>
+            <div class="rsh-url-row">
+                <input type="text" id="share-url" class="sp-form-input rsh-url" value="{{ shareUrl }}" readonly
+                       data-race-share-target="url" data-action="focus->race-share#selectUrl click->race-share#selectUrl">
+                <button type="button" class="sp-btn sp-btn-primary rsh-copy" data-action="race-share#copy" data-share-copy>
+                    <i class="bi bi-clipboard" aria-hidden="true"></i> {{ 'race_share.copy'|trans }}
+                </button>
+                <a href="{{ shareUrl }}" target="_blank" rel="noopener" class="sp-btn-ghost rsh-preview" data-share-preview>
+                    <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> {{ 'race_share.preview'|trans }}
+                </a>
+            </div>
+            <p class="rsh-copy-status" role="status" data-race-share-target="copyStatus"></p>
+            <div class="rsh-link-actions">
+                <form method="post" action="{{ path('app_race_share_toggle', {id: race.id}) }}" data-action="submit->race-share#guard" data-share-form="disable">
+                    <input type="hidden" name="_token" value="{{ csrf_token('race_share') }}">
+                    <input type="hidden" name="enabled" value="0">
+                    <button type="submit" class="sp-btn-ghost rsh-btn-sm"><i class="bi bi-pause-circle" aria-hidden="true"></i> {{ 'race_share.disable'|trans }}</button>
+                </form>
+                <form method="post" action="{{ path('app_race_share_regenerate', {id: race.id}) }}" data-action="submit->race-share#guard"
+                      data-race-share-confirm-param="{{ 'race_share.confirm_regenerate'|trans }}" data-share-form="regenerate">
+                    <input type="hidden" name="_token" value="{{ csrf_token('race_share') }}">
+                    <button type="submit" class="sp-btn-ghost rsh-btn-sm"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ 'race_share.regenerate'|trans }}</button>
+                </form>
+            </div>
+            <p class="rsh-help">{{ 'race_share.link_help'|trans }}</p>
+        {% else %}
+            <p class="rsh-off-text">{{ (share ? 'race_share.off_text_existing' : 'race_share.off_text')|trans }}</p>
+            <form method="post" action="{{ path('app_race_share_toggle', {id: race.id}) }}" data-action="submit->race-share#guard" data-share-form="enable">
+                <input type="hidden" name="_token" value="{{ csrf_token('race_share') }}">
+                <input type="hidden" name="enabled" value="1">
+                <button type="submit" class="sp-btn sp-btn-primary"><i class="bi bi-share" aria-hidden="true"></i> {{ 'race_share.enable'|trans }}</button>
+            </form>
+        {% endif %}
+
+        <div class="rsh-privacy">
+            <i class="bi bi-shield-lock" aria-hidden="true"></i>
+            <p><strong>{{ 'race_share.privacy_title'|trans }}</strong> {{ 'race_share.privacy_text'|trans }}</p>
+        </div>
+    </section>
+
+    {# ── Réglages et messages ── #}
+    <form method="post" action="{{ path('app_race_share_save', {id: race.id}) }}" id="share-form" class="rsh-form"
+          data-action="input->race-share#changed change->race-share#changed submit->race-share#submitted">
+        <input type="hidden" name="_token" value="{{ csrf_token('race_share') }}">
+
+        <section class="sp-card rsh-card" aria-labelledby="share-display-title">
+            <h2 class="sp-card-title rsh-h2" id="share-display-title"><i class="bi bi-eye"></i> {{ 'race_share.display_title'|trans }}</h2>
+            <div class="rsh-grid">
+                <div class="rsh-field">
+                    <label class="sp-form-label" for="share-display-name">{{ 'race_share.display_name'|trans }}</label>
+                    <input type="text" id="share-display-name" name="display_name" class="sp-form-input {{ errors.display_name is defined ? 'is-invalid' }}"
+                           value="{{ form.displayName }}" maxlength="{{ limits.displayName }}" autocomplete="off"
+                           placeholder="{{ suggestedName ?? 'race_share.display_name_placeholder'|trans }}"
+                           aria-describedby="share-display-name-help{{ errors.display_name is defined ? ' share-display-name-err' }}">
+                    <div class="sp-form-help" id="share-display-name-help">{{ 'race_share.display_name_help'|trans }}</div>
+                    {{ _self.error(errors, 'display_name', 'share-display-name') }}
+                </div>
+                <div class="rsh-field">
+                    {% if scenarios is not empty %}
+                        <label class="sp-form-label" for="share-scenario">{{ 'race_share.scenario'|trans }}</label>
+                        <select id="share-scenario" name="scenario" class="sp-form-input {{ errors.scenario is defined ? 'is-invalid' }}"
+                                data-race-share-target="scenario" aria-describedby="share-scenario-help">
+                            {% for s in scenarios %}
+                                <option value="{{ s.id }}" {{ s.id == _sid ? 'selected' }}>
+                                    {{- s.name }}{% if s.target %} ({{ s.target }}){% endif -%}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="sp-form-help" id="share-scenario-help">{{ 'race_share.scenario_help'|trans }}</div>
+                        {{ _self.error(errors, 'scenario', 'share-scenario') }}
+                    {% else %}
+                        <span class="sp-form-label">{{ 'race_share.scenario'|trans }}</span>
+                        <p class="rsh-note">
+                            {{ 'race_share.no_scenario'|trans }}
+                            <a href="{{ path('app_race_plan', {id: race.id, _fragment: 'scenarios'}) }}">{{ 'race_share.no_scenario_link'|trans }}</a>
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+            <fieldset class="rsh-options">
+                <legend class="sp-form-label">{{ 'race_share.options'|trans }}</legend>
+                <label class="rsh-check">
+                    <input type="checkbox" name="show_paces" value="1" {{ form.showPaces ? 'checked' }} data-share-option="paces">
+                    <span>{{ 'race_share.show_paces'|trans }}</span>
+                </label>
+                <label class="rsh-check">
+                    <input type="checkbox" name="show_cutoffs" value="1" {{ form.showCutoffs ? 'checked' }} data-share-option="cutoffs">
+                    <span>{{ 'race_share.show_cutoffs'|trans }}</span>
+                </label>
+                {{ _self.error(errors, 'show_paces', 'share-paces') }}
+                {{ _self.error(errors, 'show_cutoffs', 'share-cutoffs') }}
+            </fieldset>
+        </section>
+
+        <section class="sp-card rsh-card" aria-labelledby="share-messages-title">
+            <h2 class="sp-card-title rsh-h2" id="share-messages-title"><i class="bi bi-chat-heart"></i> {{ 'race_share.messages_title'|trans }}</h2>
+            <p class="rsh-sub">{{ 'race_share.messages_sub'|trans }}</p>
+
+            <div class="rsh-field rsh-general">
+                <label class="sp-form-label" for="share-message">{{ 'race_share.message'|trans }}</label>
+                <textarea id="share-message" name="message" class="sp-form-input rsh-textarea {{ errors.message is defined ? 'is-invalid' }}" rows="3"
+                          maxlength="{{ limits.message }}" placeholder="{{ 'race_share.message_placeholder'|trans }}"
+                          aria-describedby="share-message-count{{ errors.message is defined ? ' share-message-err' }}"
+                          data-race-share-target="field">{{ form.message }}</textarea>
+                <div class="rsh-field-foot">
+                    {{ _self.error(errors, 'message', 'share-message') }}
+                    {{ _self.counter('share-message', form.message, limits.message) }}
+                </div>
+            </div>
+
+            <ol class="rsh-points" aria-label="{{ 'race_share.points_label'|trans }}">
+                {# Départ #}
+                <li class="rsh-point" data-share-point="start">
+                    <div class="rsh-point-head">
+                        <span class="rsh-pin rsh-pin--start" aria-hidden="true"><i class="bi bi-play-fill"></i></span>
+                        <span class="rsh-point-name">{{ 'race_share.start'|trans }}</span>
+                        <span class="rsh-point-meta">
+                            <span>km {{ 0|number_format(1, _dec, _th) }}</span>
+                            <span class="rsh-time" data-race-share-target="time" data-point="start"><i class="bi bi-clock" aria-hidden="true"></i> {{ times.start[_sid] ?? _noTime }}</span>
+                        </span>
+                    </div>
+                    {{ _self.message_field('share-msg-start', 'start_message', form.startMessage, limits.point, errors, 'start_message', 'race_share.message_for'|trans({'%name%': 'race_share.start'|trans}), 'race_share.start_placeholder'|trans) }}
+                </li>
+
+                {% for cp in checkpoints %}
+                    {% set _id = 'share-msg-' ~ cp.id %}
+                    {% set _key = 'messages.' ~ cp.id %}
+                    {% set _value = form.checkpointMessages[cp.id] ?? null %}
+                    <li class="rsh-point" data-share-point="{{ cp.id }}">
+                        <div class="rsh-point-head">
+                            <span class="rsh-pin rsh-pin--{{ cp.type.value }}" aria-hidden="true">{{ loop.index }}</span>
+                            <span class="rsh-point-name">
+                                <i class="bi {{ cp.type.icon }}" style="color:{{ cp.type.color }}" title="{{ cp.type.labelKey|trans }}"></i>
+                                {{ cp.name }}
+                            </span>
+                            <span class="rsh-point-meta">
+                                <span>km {{ (cp.distanceM / 1000)|number_format(1, _dec, _th) }}</span>
+                                {% if cp.type.value == 'aid_station' %}<span>{{ cp.type.labelKey|trans }}</span>{% endif %}
+                                {% set _t = times['cp' ~ cp.id] is defined ? (times['cp' ~ cp.id][_sid] ?? null) : null %}
+                                <span class="rsh-time {{ _t is null ? 'is-empty' }}" data-race-share-target="time" data-point="cp{{ cp.id }}"><i class="bi bi-clock" aria-hidden="true"></i> {{ _t ?? _noTime }}</span>
+                            </span>
+                        </div>
+                        {% if cp.notes %}
+                            <p class="rsh-private" title="{{ cp.notes }}">
+                                <i class="bi bi-lock-fill" aria-hidden="true"></i>
+                                <span class="rsh-private-label">{{ 'race_share.private_note'|trans }}</span>
+                                <span class="rsh-private-text">{{ cp.notes|length > 90 ? cp.notes|slice(0, 90) ~ '…' : cp.notes }}</span>
+                            </p>
+                        {% endif %}
+                        {{ _self.message_field(_id, 'messages[' ~ cp.id ~ ']', _value, limits.point, errors, _key, 'race_share.message_for'|trans({'%name%': cp.name}), 'race_share.point_placeholder'|trans) }}
+                    </li>
+                {% endfor %}
+
+                {# Arrivée #}
+                <li class="rsh-point" data-share-point="finish">
+                    <div class="rsh-point-head">
+                        <span class="rsh-pin rsh-pin--finish" aria-hidden="true"><i class="bi bi-flag-fill"></i></span>
+                        <span class="rsh-point-name">{{ 'race_share.finish'|trans }}</span>
+                        <span class="rsh-point-meta">
+                            {% if _finishM > 0 %}<span>km {{ (_finishM / 1000)|number_format(1, _dec, _th) }}</span>{% endif %}
+                            {% set _t = times.finish[_sid] ?? null %}
+                            <span class="rsh-time {{ _t is null ? 'is-empty' }}" data-race-share-target="time" data-point="finish"><i class="bi bi-clock" aria-hidden="true"></i> {{ _t ?? _noTime }}</span>
+                        </span>
+                    </div>
+                    {{ _self.message_field('share-msg-finish', 'finish_message', form.finishMessage, limits.point, errors, 'finish_message', 'race_share.message_for'|trans({'%name%': 'race_share.finish'|trans}), 'race_share.finish_placeholder'|trans) }}
+                </li>
+            </ol>
+        </section>
+
+        <div class="rsh-savebar">
+            <span class="rsh-dirty" data-race-share-target="dirty" role="status" hidden>
+                <i class="bi bi-circle-fill" aria-hidden="true"></i> {{ 'race_share.unsaved'|trans }}
+            </span>
+            <button type="submit" class="sp-btn sp-btn-primary" data-share-save>
+                <i class="bi bi-check-lg" aria-hidden="true"></i> {{ 'race_share.save'|trans }}
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+.rsh { max-width: 860px; }
+.rsh-header-main { min-width: 0; }
+.rsh-title { overflow-wrap: anywhere; margin-bottom: 6px; }
+/* Champs (mêmes styles que le plan de course, définis par page) */
+.rsh .sp-form-label { font-size: 11px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 6px; }
+.rsh .sp-form-input {
+    display: block; width: 100%;
+    background: var(--sp-bg); border: 1px solid var(--sp-border);
+    border-radius: 8px; padding: 9px 12px;
+    font-size: 13px; color: var(--sp-text);
+    outline: none; transition: border-color .15s;
+}
+.rsh .sp-form-input:focus { border-color: var(--sp-orange); }
+.rsh .sp-form-help { font-size: 11px; color: var(--sp-muted); margin-top: 6px; line-height: 1.45; }
+.rsh-intro { font-size: 13px; color: var(--sp-muted); margin: 0; line-height: 1.5; max-width: 640px; }
+.rsh-card { margin-bottom: 16px; }
+.rsh-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.rsh-h2 { display: flex; align-items: center; gap: 7px; font-size: 15px; margin-bottom: 4px; }
+.rsh-h2 i { color: var(--sp-orange); }
+.rsh-sub { font-size: 12px; color: var(--sp-muted); margin: 0 0 14px; line-height: 1.5; }
+.rsh-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+.rsh-status--on { background: rgba(34,197,94,.14); color: #166534; }
+.rsh-status--off { background: rgba(22,23,42,.07); color: #4B5563; }
+.rsh-url-row { display: flex; gap: 8px; align-items: stretch; }
+.rsh-url { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+.rsh-copy, .rsh-preview { flex-shrink: 0; white-space: nowrap; }
+.rsh-copy-status { min-height: 18px; margin: 6px 0 0; font-size: 12px; font-weight: 600; color: var(--sp-muted); }
+.rsh-copy-status.is-ok { color: #15803D; }
+.rsh-link-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.rsh-link-actions form { margin: 0; }
+.rsh-btn-sm { padding: 5px 12px; font-size: 12px; }
+.rsh-help { font-size: 11px; color: var(--sp-muted); margin: 8px 0 0; line-height: 1.45; }
+.rsh-off-text { font-size: 13px; color: var(--sp-text); margin: 0 0 12px; line-height: 1.5; }
+.rsh-privacy { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; padding: 10px 12px; border-radius: 10px; background: var(--sp-bg); }
+.rsh-privacy i { color: var(--sp-teal); font-size: 16px; line-height: 1.3; }
+.rsh-privacy p { margin: 0; font-size: 12px; color: #374151; line-height: 1.5; }
+
+.rsh-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 18px; }
+.rsh-field { min-width: 0; }
+.rsh-note { font-size: 12px; color: var(--sp-muted); margin: 0; line-height: 1.5; }
+.rsh-note a { color: var(--sp-orange); font-weight: 600; }
+.rsh-options { border: 0; padding: 0; margin: 16px 0 0; }
+.rsh-options > legend { float: none; width: auto; padding: 0; }
+.rsh-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sp-text); margin-top: 6px; cursor: pointer; }
+.rsh-check input { width: 16px; height: 16px; accent-color: var(--sp-orange); flex-shrink: 0; }
+
+.rsh-textarea { resize: vertical; min-height: 44px; line-height: 1.45; }
+.sp-form-input.is-invalid { border-color: var(--sp-red); background: rgba(239,68,68,.04); }
+.rsh-field-foot { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-top: 3px; min-height: 16px; }
+.rsh-counter { margin-left: auto; font-size: 11px; color: var(--sp-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rsh-counter.is-near { color: #B45309; font-weight: 700; }
+.rsh-error { font-size: 11px; font-weight: 600; color: var(--sp-red); line-height: 1.35; }
+.rsh-general { margin-bottom: 16px; }
+
+.rsh-points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.rsh-point { padding: 12px 14px; border-radius: 12px; background: var(--sp-bg); }
+.rsh-point-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.rsh-pin { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--sp-dark); color: #fff; font-size: 10.5px; font-weight: 800; flex-shrink: 0; }
+.rsh-pin--aid_station { background: var(--sp-teal); border-radius: 7px; }
+.rsh-pin--start { background: var(--sp-green); }
+.rsh-pin--finish { background: var(--sp-red); }
+.rsh-point-name { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--sp-text); min-width: 0; overflow-wrap: anywhere; }
+.rsh-point-meta { display: inline-flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin-left: auto; font-size: 12px; color: var(--sp-muted); font-variant-numeric: tabular-nums; }
+.rsh-time { font-weight: 700; color: var(--sp-dark); white-space: nowrap; }
+.rsh-time.is-empty { font-weight: 500; color: var(--sp-muted); }
+.rsh-point .sp-form-input { background: var(--sp-card); }
+.rsh-private { display: flex; align-items: baseline; gap: 5px; margin: -2px 0 8px; font-size: 11px; color: var(--sp-muted); min-width: 0; }
+.rsh-private i { font-size: 10px; }
+.rsh-private-label { font-weight: 700; white-space: nowrap; }
+.rsh-private-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: italic; }
+
+.rsh-savebar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 0 16px; }
+.rsh-dirty { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #B45309; }
+.rsh-dirty[hidden] { display: none; }
+.rsh-dirty i { font-size: 7px; color: var(--sp-yellow); }
+
+@media (max-width: 767.98px) {
+    .rsh-grid { grid-template-columns: minmax(0, 1fr); }
+    .rsh-url-row { flex-wrap: wrap; }
+    .rsh-url { flex-basis: 100%; }
+    .rsh-copy, .rsh-preview { flex: 1; justify-content: center; }
+    .rsh-point-meta { margin-left: 0; flex-basis: 100%; }
+}
+</style>
+{% endblock %}

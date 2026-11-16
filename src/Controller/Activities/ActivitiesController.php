@@ -2,8 +2,10 @@
 
 namespace App\Controller\Activities;
 
+use App\Entity\GearType;
 use App\Entity\User;
 use App\Repository\ActivityRepository;
+use App\Repository\GearRepository;
 use App\Repository\SportRepository;
 use App\Service\Strava\StravaService;
 use App\Service\Weather\WeatherService;
@@ -18,7 +20,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ActivitiesController extends AbstractController
 {
     #[Route('/activities/{id}', name: 'app_activity_show', requirements: ['id' => '\d+'])]
-    public function show(int $id, Request $request, ActivityRepository $activityRepo, StravaService $strava, WeatherService $weather): Response
+    public function show(int $id, Request $request, ActivityRepository $activityRepo, GearRepository $gearRepo, StravaService $strava, WeatherService $weather): Response
     {
         $activity = $activityRepo->find($id);
 
@@ -80,12 +82,20 @@ class ActivitiesController extends AbstractController
             $wxDisplay = $weather->getDisplay($wxRaw, $request->getLocale());
         }
 
+        // Matériel proposé : compatible avec le sport et non retiré, plus celui déjà rattaché
+        $gearTypes   = GearType::compatibleWithSportSlug($activity->getSport()?->getSlug());
+        $gearOptions = ($gearTypes !== [] || $activity->getGear() !== null)
+            ? $gearRepo->findSelectable($user, $gearTypes, $activity->getGear())
+            : [];
+
         return $this->render('activities/show.html.twig', [
-            'activity'  => $activity,
-            'zones'     => $zones,
-            'splits'    => $splits,
-            'hrData'    => $hrData ?? [],
-            'wxDisplay' => $wxDisplay,
+            'activity'    => $activity,
+            'zones'       => $zones,
+            'splits'      => $splits,
+            'hrData'      => $hrData ?? [],
+            'wxDisplay'   => $wxDisplay,
+            'gearTypes'   => $gearTypes,
+            'gearOptions' => $gearOptions,
         ]);
     }
 

@@ -25,7 +25,7 @@ import { Modal } from 'bootstrap';
  * Tout le contenu issu des données (noms d'activités / de courses) est inséré via textContent.
  */
 export default class extends Controller {
-    static targets = ['calendar', 'toggle', 'summary', 'summaryTitle',
+    static targets = ['calendar', 'toggle', 'summary', 'summaryTitle', 'summaryHeadline',
         'quickView', 'qvIcon', 'qvTitle', 'qvSub', 'qvStats', 'qvMapSlot', 'qvLink', 'qvLinkLabel',
         'qvLinkSecondary', 'qvBadges', 'qvNotes', 'qvWebsite'];
     static values = {
@@ -37,6 +37,8 @@ export default class extends Controller {
     };
 
     async connect() {
+        this.restorePanels();
+
         const [{ Calendar }, { default: dayGridPlugin }, { default: frLocale }] = await Promise.all([
             import('@fullcalendar/core'),
             import('@fullcalendar/daygrid'),
@@ -74,6 +76,34 @@ export default class extends Controller {
             eventsSet: () => this.renderSummary(),
         });
         this.calendar.render();
+    }
+
+    // ── Blocs repliables (Bilan, Prochaines courses) : état mémorisé dans le navigateur ──
+    // Commodité par visiteur uniquement : si le stockage est indisponible, les blocs restent repliés.
+    static PANELS_KEY = 'sp.calendar.panels';
+
+    readPanels() {
+        try { return JSON.parse(window.localStorage.getItem(this.constructor.PANELS_KEY) || '{}') || {}; } catch { return {}; }
+    }
+
+    restorePanels() {
+        const state = this.readPanels();
+        this.element.querySelectorAll('[data-cal-panel]').forEach((btn) => {
+            const panel = this.element.querySelector(btn.dataset.bsTarget);
+            if (!panel) return;
+            if (state[btn.dataset.calPanel]) {
+                // Ouvert d'emblée, sans animation
+                panel.classList.add('show');
+                btn.setAttribute('aria-expanded', 'true');
+            }
+            const save = (open) => {
+                const s = this.readPanels();
+                s[btn.dataset.calPanel] = open;
+                try { window.localStorage.setItem(this.constructor.PANELS_KEY, JSON.stringify(s)); } catch { /* stockage indisponible */ }
+            };
+            panel.addEventListener('shown.bs.collapse', () => save(true));
+            panel.addEventListener('hidden.bs.collapse', () => save(false));
+        });
     }
 
     disconnect() {
@@ -276,6 +306,12 @@ export default class extends Controller {
         }
 
         if (this.hasSummaryTitleTarget) this.summaryTitleTarget.textContent = view.title;
+        // Résumé visible même quand le bloc Bilan est replié
+        if (this.hasSummaryHeadlineTarget) {
+            this.summaryHeadlineTarget.textContent = count === 0
+                ? L.empty
+                : `${count} ${L.sessions} · ${Math.round(km)} km · ${this.duration(seconds)}`;
+        }
 
         const root = this.summaryTarget;
         root.replaceChildren();

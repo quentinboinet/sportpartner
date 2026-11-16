@@ -2,6 +2,8 @@
 
 namespace App\Service\Route;
 
+use App\Entity\PacingIntensity;
+use App\Entity\PacingStrategy;
 use App\Entity\Race;
 use App\Entity\RaceCheckpoint;
 use App\Entity\RaceRoute;
@@ -21,8 +23,14 @@ use App\Repository\RaceScenarioSplitRepository;
  *     checkpoints: list<RaceCheckpoint>,   // repères du parcours triés par distance, SANS ceux au-delà de
  *                                          // la fin du tracé : ce sont les lignes du tableau de temps
  *     routeDistanceM: int,                 // longueur du tracé, sinon distance de la course (km * 1000), sinon 0
+ *     efforts: list<float>,                // effort des n + 1 tronçons (SplitCalculator::routeEfforts), pour le
+ *                                          // calcul en direct des temps auto côté navigateur
  *     maxScenarios: int,                   // 6
  *     canAddScenario: bool,                // count(scenarios) < maxScenarios
+ *     strategies: list<PacingStrategy>,    // options du choix de stratégie d'allure (ordre d'affichage)
+ *     intensities: list<PacingIntensity>,  // options de l'intensité
+ *     suggestedStrategy: PacingStrategy,   // proposée pour un nouveau scénario (PacingStrategy::suggestedFor(type))
+ *     suggestedIntensity: PacingIntensity, // moyenne
  *     scenarios: list<array{
  *       scenario: RaceScenario,
  *       id: int,
@@ -31,9 +39,18 @@ use App\Repository\RaceScenarioSplitRepository;
  *       startTime: ?string,                // "HH:MM" ou null
  *       target: ?string,                   // temps cible au format de saisie "H:MM" ou "H:MM:SS", ou null
  *       targetSeconds: ?int,
- *       calc: SplitCalculator::compute() output (voir docblock de SplitCalculator::compute),
- *       inputs: array<int, string>,        // checkpointId => arrivée au format de saisie ("H:MM" ou "H:MM:SS"),
- *                                          // uniquement pour les repères de "checkpoints" qui ont un temps
+ *       strategy: PacingStrategy,          // stratégie d'allure du scénario (forme des temps auto)
+ *       intensity: PacingIntensity,
+ *       calc: SplitCalculator::compute() output (voir docblock de SplitCalculator::compute), calculé sur
+ *             les temps remplis (fixés + auto, SplitCalculator::fillAuto avec la stratégie) ; chaque ligne a
+ *             "pinned" et "paceDeviationPct",
+ *       pinned: array<int, bool>,          // checkpointId => temps fixé (true) ou auto (false), pour chaque repère
+ *       pinnedCount: int,                  // nombre de temps fixés
+ *       inputs: array<int, string>,        // checkpointId => temps FIXÉ au format de saisie ("H:MM" ou "H:MM:SS"),
+ *                                          // uniquement pour les repères fixés
+ *       autos: array<int, string>,         // checkpointId => temps AUTO calculé, même format, pour les repères auto
+ *                                          // qui ont un temps (absent = auto sans temps : pas de cible après le
+ *                                          // dernier temps fixé)
  *     }>,
  *   }
  *
@@ -43,8 +60,8 @@ use App\Repository\RaceScenarioSplitRepository;
  * @phpstan-import-type CheckpointInput from SplitCalculator
  * @phpstan-import-type Result from SplitCalculator
  *
- * @phpstan-type ScenarioView array{scenario: RaceScenario, id: int, name: string, position: int, startTime: ?string, target: ?string, targetSeconds: ?int, calc: Result, inputs: array<int, string>}
- * @phpstan-type View array{route: ?RaceRoute, checkpoints: list<RaceCheckpoint>, routeDistanceM: int, maxScenarios: int, canAddScenario: bool, scenarios: list<ScenarioView>}
+ * @phpstan-type ScenarioView array{scenario: RaceScenario, id: int, name: string, position: int, startTime: ?string, target: ?string, targetSeconds: ?int, strategy: PacingStrategy, intensity: PacingIntensity, calc: Result, pinned: array<int, bool>, pinnedCount: int, inputs: array<int, string>, autos: array<int, string>}
+ * @phpstan-type View array{route: ?RaceRoute, checkpoints: list<RaceCheckpoint>, routeDistanceM: int, efforts: list<float>, maxScenarios: int, canAddScenario: bool, strategies: list<PacingStrategy>, intensities: list<PacingIntensity>, suggestedStrategy: PacingStrategy, suggestedIntensity: PacingIntensity, scenarios: list<ScenarioView>}
  */
 final class ScenarioViewBuilder
 {
@@ -76,6 +93,7 @@ final class ScenarioViewBuilder
         $inputs = self::calculatorCheckpoints($checkpoints);
         $points = $route?->getPoints() ?? [];
         $distanceM = self::routeDistanceM($race, $route);
+        $efforts = $this->calculator->routeEfforts($points, $distanceM, $inputs);
 
         $scenarios = $this->scenarios->findByRaceOrdered($race);
         $splitsByScenario = $this->splits->findForScenarios($scenarios);
@@ -83,16 +101,23 @@ final class ScenarioViewBuilder
         $views = [];
         foreach ($scenarios as $scenario) {
             $id = (int) $scenario->getId();
-            $arrivals = [];
-            $formatted = [];
-            foreach ($checkpoints as $cp) {
-                $cpId = (int) $cp->getId();
-                if (isset($splitsByScenario[$id][$cpId])) {
-                    $arrivals[$cpId] = $splitsByScenario[$id][$cpId];
-                    $formatted[$cpId] = DurationFormat::formatInput($arrivals[$cpId]);
+            $target = $scenario->getTargetSeconds();
+            $strategy = $scenario->getStrategy();
+            $intensity = $scenario->getStrategyIntensity();
+            // Temps enregistrés = temps fixés ; les autres repères sont calculés (auto), selon la stratégie d'allure
+            $filled = $this->calculator->fillAutoFromEfforts($inputs, $distanceM, $efforts, $splitsByScenario[$id] ?? [], $target, $strategy, $intensity);
+            $pinnedInputs = [];
+            $autoInputs = [];
+            foreach ($filled['arrivals'] as $cpId => $seconds) {
+                if (null === $seconds) {
+                    continue;
+                }
+                if ($filled['pinned'][$cpId]) {
+                    $pinnedInputs[$cpId] = DurationFormat::formatInput($seconds);
+                } else {
+                    $autoInputs[$cpId] = DurationFormat::formatInput($seconds);
                 }
             }
-            $target = $scenario->getTargetSeconds();
 
             $views[] = [
                 'scenario' => $scenario,
@@ -102,8 +127,13 @@ final class ScenarioViewBuilder
                 'startTime' => $scenario->getStartTime()?->format('H:i'),
                 'target' => null !== $target ? DurationFormat::formatInput($target) : null,
                 'targetSeconds' => $target,
-                'calc' => $this->calculator->compute($points, $distanceM, $inputs, $arrivals, $target, $scenario->getStartTime()),
-                'inputs' => $formatted,
+                'strategy' => $strategy,
+                'intensity' => $intensity,
+                'calc' => $this->calculator->compute($points, $distanceM, $inputs, $filled['arrivals'], $target, $scenario->getStartTime(), pinned: $filled['pinned']),
+                'pinned' => $filled['pinned'],
+                'pinnedCount' => \count($pinnedInputs),
+                'inputs' => $pinnedInputs,
+                'autos' => $autoInputs,
             ];
         }
 
@@ -111,8 +141,13 @@ final class ScenarioViewBuilder
             'route' => $route,
             'checkpoints' => $checkpoints,
             'routeDistanceM' => $distanceM,
+            'efforts' => $efforts,
             'maxScenarios' => self::MAX_SCENARIOS,
             'canAddScenario' => \count($views) < self::MAX_SCENARIOS,
+            'strategies' => PacingStrategy::cases(),
+            'intensities' => PacingIntensity::cases(),
+            'suggestedStrategy' => PacingStrategy::suggestedFor($race->getType()),
+            'suggestedIntensity' => PacingIntensity::Medium,
             'scenarios' => $views,
         ];
     }

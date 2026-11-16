@@ -2,6 +2,55 @@
 
 {% block title %}{{ race.name }} - SportPartner{% endblock %}
 
+{# Liste des scénarios (temps de passage) du bloc « Plan de course » #}
+{% macro scenario_list(race, scenarioView) %}
+    <div class="rs-sc" data-rs-scenarios>
+        <div class="rs-sc-head">
+            <span class="rs-sc-title"><i class="bi bi-stopwatch"></i> {{ 'race_show.scenarios_heading'|trans }}</span>
+            <a href="{{ path('app_race_plan', {id: race.id}) }}#scenarios" class="rs-sc-link" data-rs-scenarios-link>
+                {{ 'race_show.scenarios_link'|trans }} <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+        {% if scenarioView.scenarios is empty %}
+            <p class="rs-sc-empty">{{ 'race_show.scenarios_empty'|trans }}</p>
+        {% else %}
+            <ul class="rs-sc-list">
+                {% for s in scenarioView.scenarios %}
+                    {% set _arrival = s.calc.finish.clock %}
+                    <li class="rs-sc-row">
+                        <a href="{{ path('app_race_plan', {id: race.id}) }}#scenario-{{ s.id }}" class="rs-sc-item" data-scenario-id="{{ s.id }}">
+                            {# Nom + stratégie d'allure du scénario (forme des temps auto) #}
+                            <span class="rs-sc-name">{{ s.name }}
+                                <span class="rs-sc-strategy" title="{{ 'race_show.scenario_strategy_title'|trans }}" data-rs-strategy="{{ s.strategy.value }}"><i class="bi bi-speedometer2" aria-hidden="true"></i> {{ s.strategy.labelKey|trans }}</span>
+                            </span>
+                            <span class="rs-sc-meta">
+                                {% if s.target %}
+                                    <span class="rs-sc-target">{{ 'race_show.scenario_target_time'|trans({'%time%': s.target}) }}</span>
+                                {% else %}
+                                    <span class="rs-sc-muted">{{ 'race_show.scenario_no_target'|trans }}</span>
+                                {% endif %}
+                                {% if s.startTime %}
+                                    <span class="rs-sc-muted"><i class="bi bi-play-circle"></i> {{ 'race_show.scenario_start'|trans({'%time%': s.startTime}) }}</span>
+                                {% endif %}
+                                {% if _arrival %}
+                                    <span class="rs-sc-muted"><i class="bi bi-flag"></i> {{ 'race_show.scenario_arrival'|trans({'%time%': _arrival.time}) }}{% if _arrival.dayOffset > 0 %} {{ 'race_plan.sc_day'|trans({'%n%': _arrival.dayOffset}) }}{% endif %}</span>
+                                {% endif %}
+                            </span>
+                        </a>
+                        {# Fiche imprimable du scénario (nouvel onglet) #}
+                        <a href="{{ path('app_race_plan_print', {id: race.id, scenario: s.id}) }}" target="_blank" rel="noopener"
+                           class="rs-sc-print" data-rs-print data-scenario-id="{{ s.id }}"
+                           title="{{ 'race_plan.sc_print_title'|trans }}"
+                           aria-label="{{ 'race_show.scenario_print'|trans({'%name%': s.name}) }}">
+                            <i class="bi bi-printer" aria-hidden="true"></i>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+{% endmacro %}
+
 {% set _dec = app.request.locale == 'fr' ? ',' : '.' %}
 {% set _th  = app.request.locale == 'fr' ? ' ' : ',' %}
 
@@ -48,6 +97,10 @@
     </div>
 
     <div class="rs-actions">
+        {# Lien de partage public du plan pour les proches (réglages : RaceShareController) #}
+        <a href="{{ path('app_race_share', {id: race.id}) }}" class="sp-btn rs-btn-ghost" title="{{ 'race_share.share_title'|trans }}" data-share-link>
+            <i class="bi bi-share"></i> {{ 'race_share.share_button'|trans }}
+        </a>
         <form method="post" action="{{ path('app_races_toggle', {id: race.id}) }}">
             <input type="hidden" name="_token" value="{{ csrf_token('race_action') }}">
             <button type="submit" class="sp-btn rs-btn-ghost">
@@ -111,6 +164,7 @@
                     </div>
                 </div>
             {% endif %}
+            {{ _self.scenario_list(race, scenarioView) }}
             <a href="{{ path('app_race_plan', {id: race.id}) }}" class="sp-btn sp-btn-primary rs-plan-cta">
                 {{ 'race_show.plan_open'|trans }} <i class="bi bi-arrow-right"></i>
             </a>
@@ -118,8 +172,11 @@
             <ul class="rs-plan-steps">
                 <li><span>1</span> {{ 'race_show.step_gpx'|trans }}</li>
                 <li><span>2</span> {{ 'race_show.step_checkpoints'|trans }}</li>
-                <li class="rs-plan-step-next"><span>3</span> {{ 'race_show.step_times'|trans }}</li>
+                <li><span>3</span> <a href="{{ path('app_race_plan', {id: race.id}) }}#scenarios" class="rs-step-link">{{ 'race_show.step_times_link'|trans }}</a></li>
             </ul>
+            {% if scenarioView.scenarios is not empty %}
+                {{ _self.scenario_list(race, scenarioView) }}
+            {% endif %}
             <a href="{{ path('app_race_plan', {id: race.id}) }}" class="sp-btn sp-btn-primary rs-plan-cta">
                 <i class="bi bi-plus-lg"></i> {{ 'race_show.plan_create'|trans }}
             </a>
@@ -127,6 +184,7 @@
     </section>
 
     <div class="rs-side">
+    {% include 'race/_race_weather.html.twig' %}
     {# ── Infos ───────────────────────────────────── #}
     <section class="sp-card rs-info">
         <h2 class="rs-section-title">{{ 'race_show.info_title'|trans }}</h2>
@@ -231,6 +289,28 @@ button.rs-badge:hover { background: rgba(22,23,42,.12); }
     border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35);
 }
 .rs-cp-pin--aid_station { background: var(--sp-teal); border-radius: 6px; }
+/* Scénarios (temps de passage) */
+.rs-sc { margin-bottom: 18px; padding: 12px 14px; border-radius: 10px; background: var(--sp-bg); }
+.rs-sc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.rs-sc-title { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--sp-text); text-transform: uppercase; letter-spacing: .05em; }
+.rs-sc-title i { color: var(--sp-orange); }
+.rs-sc-link { font-size: 12px; font-weight: 700; color: var(--sp-orange); text-decoration: none; white-space: nowrap; }
+.rs-sc-link:hover { text-decoration: underline; }
+.rs-sc-empty { margin: 0; font-size: 12px; color: var(--sp-muted); line-height: 1.45; }
+.rs-sc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rs-sc-row { display: flex; align-items: stretch; gap: 6px; }
+.rs-sc-item { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; padding: 8px 10px; border-radius: 8px; background: var(--sp-card); text-decoration: none; color: var(--sp-text); }
+.rs-sc-item:hover, .rs-sc-print:hover { box-shadow: 0 0 0 1px var(--sp-orange); }
+.rs-sc-print { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 38px; border-radius: 8px; background: var(--sp-card); color: var(--sp-muted); text-decoration: none; font-size: 15px; }
+.rs-sc-print:hover { color: var(--sp-orange); }
+.rs-sc-item:focus-visible, .rs-sc-print:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: 1px; }
+.rs-sc-name { font-size: 13px; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.rs-sc-strategy { display: inline-flex; align-items: center; gap: 3px; margin-left: 2px; padding: 1px 7px; border-radius: 20px; background: rgba(22,23,42,.06); color: #4B5563; font-size: 11px; font-weight: 600; white-space: nowrap; vertical-align: 1px; }
+.rs-sc-meta { display: inline-flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; font-size: 12px; font-variant-numeric: tabular-nums; }
+.rs-sc-target { font-weight: 800; color: var(--sp-dark); }
+.rs-sc-muted { color: var(--sp-muted); display: inline-flex; align-items: center; gap: 4px; }
+.rs-step-link { color: var(--sp-text); text-decoration: underline; text-decoration-color: rgba(232,64,12,.5); text-underline-offset: 3px; }
+.rs-step-link:hover { color: var(--sp-orange); }
 .rs-plan-cta { width: 100%; justify-content: center; gap: 8px; padding: 12px 18px; font-size: 14px; }
 
 .rs-section-title { font-size: 14px; font-weight: 700; color: var(--sp-text); margin: 0 0 12px; }

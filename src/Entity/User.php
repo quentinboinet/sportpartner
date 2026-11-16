@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -73,6 +75,29 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $updatedAt = null;
 
+    /**
+     * Date de la photo de profil (table userAvatar), null sans photo. Sert de version dans l'URL de
+     * l'image : les templates savent s'il y a une photo sans charger l'image ni faire de requête.
+     */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $avatarUpdatedAt = null;
+
+    /**
+     * Objectifs hebdomadaires par sport (table weeklyGoal), indexés par id : le formulaire des
+     * paramètres (CollectionType) nomme ses lignes par id, une ligne vise donc toujours le même
+     * objectif même si la liste a changé entre l'affichage et l'envoi.
+     *
+     * @var Collection<int, WeeklyGoal>
+     */
+    #[ORM\OneToMany(targetEntity: WeeklyGoal::class, mappedBy: 'user', cascade: ['persist'], orphanRemoval: true, indexBy: 'id')]
+    #[ORM\OrderBy(['position' => 'ASC', 'id' => 'ASC'])]
+    private Collection $weeklyGoals;
+
+    public function __construct()
+    {
+        $this->weeklyGoals = new ArrayCollection();
+    }
+
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {
@@ -122,6 +147,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setEmailVerificationToken(?string $token): static { $this->emailVerificationToken = $token; return $this; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getUpdatedAt(): ?\DateTimeImmutable { return $this->updatedAt; }
+    public function getAvatarUpdatedAt(): ?\DateTimeImmutable { return $this->avatarUpdatedAt; }
+    public function setAvatarUpdatedAt(?\DateTimeImmutable $avatarUpdatedAt): static { $this->avatarUpdatedAt = $avatarUpdatedAt; return $this; }
 
     public function getProfile(): ?AthleteProfile { return $this->profile; }
     public function setProfile(?AthleteProfile $profile): static
@@ -130,6 +157,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             $profile->setUser($this);
         }
         $this->profile = $profile;
+        return $this;
+    }
+
+    /** @return Collection<int, WeeklyGoal> */
+    public function getWeeklyGoals(): Collection { return $this->weeklyGoals; }
+
+    public function addWeeklyGoal(WeeklyGoal $goal): static
+    {
+        if (!$this->weeklyGoals->contains($goal)) {
+            $this->weeklyGoals->add($goal);
+            $goal->setUser($this);
+        }
+        return $this;
+    }
+
+    public function removeWeeklyGoal(WeeklyGoal $goal): static
+    {
+        // orphanRemoval : l'objectif retiré de la collection est supprimé au flush
+        $this->weeklyGoals->removeElement($goal);
         return $this;
     }
 }

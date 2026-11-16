@@ -1,0 +1,178 @@
+{#
+ # Paramètres > Profil : photo de profil et nom affiché.
+ # Changer la photo (le fichier choisi est envoyé aussitôt), Utiliser ma photo Strava (compte connecté),
+ # Supprimer la photo (s'il y en a une) : formulaires POST + CSRF 'avatar' (AvatarController),
+ # en dehors du formulaire de profil. Variable du contexte : profile (AthleteProfile|null).
+ #}
+{% set _avatarUrl = user_avatar_url(app.user) %}
+{% set _avatarToken = csrf_token('avatar') %}
+{% set _avatarMaxBytes = avatar_max_upload_bytes() %}
+{% set _avatarMaxMb = avatar_max_upload_mb() %}
+{% set _avatarStrava = app.user.stravaConnected and app.user.stravaAccessToken %}
+
+<div class="sp-settings-avatar-row sp-avatar-row" id="avatar"
+     data-max-bytes="{{ _avatarMaxBytes }}"
+     data-error-type="{{ 'avatar.error.type'|trans }}"
+     data-error-size="{{ 'avatar.error.too_large'|trans({'%size%': _avatarMaxMb}) }}"
+     data-error-empty="{{ 'avatar.error.empty'|trans }}">
+    <div class="sp-settings-avatar-circle sp-avatar-circle">
+        {% if _avatarUrl %}
+            <img src="{{ _avatarUrl }}" alt="{{ 'avatar.alt'|trans }}" width="64" height="64" class="sp-avatar-photo">
+        {% else %}
+            <i class="bi bi-person-fill" aria-hidden="true"></i>
+        {% endif %}
+    </div>
+
+    <div class="sp-settings-avatar-info">
+        <div class="sp-settings-display-name sp-avatar-name">
+            {{ app.user.fullName ?: app.user.email }}
+        </div>
+        <div class="sp-settings-display-meta">
+            {% if profile and profile.handle %}@{{ profile.handle }} · {% endif %}
+            {{ app.user.isPro() ? 'sidebar.pro_role'|trans : 'sidebar.amateur_role'|trans }}
+        </div>
+
+        <div class="sp-avatar-actions">
+            <form method="post" action="{{ path('app_avatar_upload') }}" enctype="multipart/form-data" id="avatarUploadForm">
+                <input type="hidden" name="_token" value="{{ _avatarToken }}">
+                <input type="hidden" name="MAX_FILE_SIZE" value="{{ _avatarMaxBytes }}">
+                <input type="file" name="avatar" id="avatarInput" class="visually-hidden" tabindex="-1" aria-hidden="true"
+                       accept="image/jpeg,image/png,image/webp,image/gif">
+                <button type="button" class="sp-settings-photo-btn" id="avatarChangeBtn" aria-describedby="avatarHint"
+                        data-busy-label="{{ 'avatar.uploading'|trans }}">
+                    <i class="bi bi-camera" aria-hidden="true"></i>
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true" hidden></span>
+                    <span data-label>{{ 'settings.profile.change_photo'|trans }}</span>
+                </button>
+            </form>
+
+            {% if _avatarStrava %}
+                <form method="post" action="{{ path('app_avatar_strava') }}" id="avatarStravaForm">
+                    <input type="hidden" name="_token" value="{{ _avatarToken }}">
+                    <button type="submit" class="sp-settings-photo-btn" data-busy-label="{{ 'avatar.importing'|trans }}">
+                        <i class="bi bi-strava" aria-hidden="true"></i>
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true" hidden></span>
+                        <span data-label>{{ 'avatar.use_strava'|trans }}</span>
+                    </button>
+                </form>
+            {% endif %}
+
+            {% if _avatarUrl %}
+                <form method="post" action="{{ path('app_avatar_delete') }}" id="avatarDeleteForm"
+                      data-confirm="{{ 'avatar.delete_confirm'|trans }}">
+                    <input type="hidden" name="_token" value="{{ _avatarToken }}">
+                    <button type="submit" class="sp-settings-photo-btn sp-avatar-delete-btn" data-busy-label="{{ 'avatar.deleting'|trans }}">
+                        <i class="bi bi-trash3" aria-hidden="true"></i>
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true" hidden></span>
+                        <span data-label>{{ 'avatar.delete'|trans }}</span>
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+
+        <p class="sp-avatar-hint" id="avatarHint">{{ 'avatar.hint'|trans({'%size%': _avatarMaxMb}) }}</p>
+        <p class="sp-avatar-error" id="avatarError" role="alert" hidden></p>
+    </div>
+</div>
+
+<style>
+.sp-avatar-row { align-items: flex-start; }
+.sp-avatar-circle { overflow: hidden; }
+.sp-avatar-photo { display: block; width: 100%; height: 100%; object-fit: cover; }
+.sp-avatar-name { overflow-wrap: anywhere; }
+.sp-avatar-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.sp-avatar-actions form { margin: 0; }
+.sp-avatar-actions .sp-settings-photo-btn { opacity: 1; transition: border-color .15s, background .15s; }
+.sp-avatar-actions .sp-settings-photo-btn:not(:disabled):hover { border-color: rgba(0,0,0,.3); }
+.sp-avatar-actions .sp-settings-photo-btn:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: 2px; }
+.sp-avatar-actions .sp-settings-photo-btn:disabled { opacity: .6; cursor: progress; }
+.sp-avatar-actions .sp-avatar-delete-btn { color: #B91C1C; }
+.sp-avatar-hint { margin: 8px 0 0; font-size: 12px; color: var(--sp-muted); }
+.sp-avatar-error { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: #FEF2F2; color: #B91C1C; font-size: 13px; }
+</style>
+
+<script type="module">
+    const row = document.getElementById('avatar');
+    const uploadForm = document.getElementById('avatarUploadForm');
+    const input = document.getElementById('avatarInput');
+    const changeBtn = document.getElementById('avatarChangeBtn');
+    const error = document.getElementById('avatarError');
+    const buttons = [...row.querySelectorAll('.sp-avatar-actions button')];
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+    buttons.forEach((button) => {
+        const label = button.querySelector('[data-label]');
+        label.dataset.text = label.textContent;
+    });
+
+    const showError = (message) => {
+        error.textContent = message;
+        error.hidden = false;
+    };
+
+    // Pendant l'envoi : boutons désactivés, roue et libellé "en cours" sur le bouton utilisé
+    const setBusy = (active) => {
+        row.setAttribute('aria-busy', 'true');
+        buttons.forEach((button) => { button.disabled = true; });
+        active.querySelector('.bi').hidden = true;
+        active.querySelector('.spinner-border').hidden = false;
+        active.querySelector('[data-label]').textContent = active.dataset.busyLabel;
+    };
+
+    const reset = () => {
+        row.removeAttribute('aria-busy');
+        buttons.forEach((button) => {
+            button.disabled = false;
+            button.querySelector('.bi').hidden = false;
+            button.querySelector('.spinner-border').hidden = true;
+            const label = button.querySelector('[data-label]');
+            label.textContent = label.dataset.text;
+        });
+        input.value = '';
+    };
+
+    changeBtn.addEventListener('click', () => input.click());
+
+    input.addEventListener('change', () => {
+        const file = input.files[0];
+        if (!file) {
+            return;
+        }
+        let message = null;
+        if (!allowed.includes(file.type)) {
+            message = row.dataset.errorType;
+        } else if (file.size === 0) {
+            message = row.dataset.errorEmpty;
+        } else if (file.size > Number(row.dataset.maxBytes)) {
+            message = row.dataset.errorSize;
+        }
+        if (message !== null) {
+            input.value = '';
+            showError(message);
+            return;
+        }
+        error.hidden = true;
+        setBusy(changeBtn);
+        uploadForm.submit();
+    });
+
+    document.getElementById('avatarStravaForm')?.addEventListener('submit', (event) => {
+        setBusy(event.submitter ?? event.currentTarget.querySelector('button'));
+    });
+
+    const deleteForm = document.getElementById('avatarDeleteForm');
+    deleteForm?.addEventListener('submit', (event) => {
+        if (!window.confirm(deleteForm.dataset.confirm)) {
+            event.preventDefault();
+            return;
+        }
+        setBusy(deleteForm.querySelector('button'));
+    });
+
+    // Retour arrière (cache du navigateur) : la page revient telle qu'elle était pendant l'envoi
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+            reset();
+        }
+    });
+</script>

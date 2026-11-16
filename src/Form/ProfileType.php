@@ -3,14 +3,21 @@
 namespace App\Form;
 
 use App\Entity\AthleteProfile;
+use App\Service\Goals\WeeklyGoalReconciler;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\Range;
+use Symfony\Component\Validator\Constraints\Valid;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 class ProfileType extends AbstractType
 {
@@ -63,7 +70,45 @@ class ProfileType extends AbstractType
                 'required' => false,
                 'constraints' => [new Range(['min' => 1, 'max' => 30])],
                 'attr' => ['placeholder' => '7', 'min' => 1, 'max' => 30],
+            ])
+            // Objectifs par sport (table weeklyGoal), portés par l'utilisateur : lignes ajoutées et
+            // retirées dans la page (gabarit "prototype"), adder/remover de User (by_reference false).
+            ->add('weeklyGoals', CollectionType::class, [
+                'property_path'  => 'user.weeklyGoals',
+                'entry_type'     => WeeklyGoalType::class,
+                'allow_add'      => true,
+                'allow_delete'   => true,
+                'by_reference'   => false,
+                'prototype'      => true,
+                'label'          => false,
+                'error_bubbling' => false,
+                'constraints'    => [
+                    new Valid(),
+                    new Callback(static function (mixed $goals, ExecutionContextInterface $context): void {
+                        if (!is_iterable($goals)) {
+                            return;
+                        }
+                        foreach (WeeklyGoalReconciler::duplicateKeys($goals) as $key) {
+                            $context->buildViolation('settings.goals.error.duplicate_sport')
+                                ->setTranslationDomain('messages')
+                                ->atPath('['.$key.']')
+                                ->addViolation();
+                        }
+                    }),
+                ],
             ]);
+
+        $original = [];
+        $builder->get('weeklyGoals')
+            ->addEventListener(FormEvents::PRE_SUBMIT, static function (FormEvent $event) use (&$original): void {
+                $data     = $event->getForm()->getData();
+                $original = is_iterable($data) ? [...$data] : [];
+            })
+            // Après ResizeFormListener (priorité 50), avant l'écriture dans User::weeklyGoals
+            ->addEventListener(FormEvents::SUBMIT, static function (FormEvent $event) use (&$original): void {
+                $data = $event->getData();
+                $event->setData(WeeklyGoalReconciler::reconcile($original, is_iterable($data) ? $data : []));
+            });
     }
 
     public function configureOptions(OptionsResolver $resolver): void

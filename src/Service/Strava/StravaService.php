@@ -3,8 +3,11 @@
 namespace App\Service\Strava;
 
 use App\Entity\Activity;
+use App\Entity\Gear;
+use App\Entity\GearType;
 use App\Entity\User;
 use App\Repository\ActivityRepository;
+use App\Repository\GearRepository;
 use App\Repository\SportRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -13,14 +16,23 @@ class StravaService
 {
     private const TOKEN_URL     = 'https://www.strava.com/oauth/token';
     private const AUTHORIZE_URL = 'https://www.strava.com/oauth/authorize';
-    private const API_BASE      = 'https://www.strava.com/api/v3';
+    public const API_BASE       = 'https://www.strava.com/api/v3';
     private const PAGE_SIZE     = 200;
+
+    /**
+     * Autorisations demandées. profile:read_all (ajoutée avec l'import du matériel) fait figurer
+     * vélos et chaussures dans GET /athlete, y compris le matériel encore jamais utilisé. Les comptes
+     * connectés avant doivent reconnecter Strava pour l'obtenir ; l'import fonctionne sans
+     * (matériel trouvé via les activités).
+     */
+    public const SCOPE = 'read,activity:read_all,profile:read_all';
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly EntityManagerInterface $em,
         private readonly ActivityRepository $activityRepo,
         private readonly SportRepository $sportRepo,
+        private readonly GearRepository $gearRepo,
         private readonly string $clientId,
         private readonly string $clientSecret,
         private readonly string $redirectUri,
@@ -32,7 +44,7 @@ class StravaService
             'client_id'     => $this->clientId,
             'redirect_uri'  => $this->redirectUri,
             'response_type' => 'code',
-            'scope'         => 'read,activity:read_all',
+            'scope'         => self::SCOPE,
             'state'         => $state,
         ]);
     }
@@ -111,6 +123,11 @@ class StravaService
             $sports[$sport->getSlug()] = $sport;
         }
 
+        // Matériel par défaut de l'utilisateur, rattaché aux nouvelles activités du sport correspondant.
+        $defaultGear = $this->gearRepo->findDefaultsByType($user);
+        // Matériel importé de Strava : prioritaire quand l'activité Strava indique son gear_id.
+        $stravaGear = $this->gearRepo->findStravaGearMap($user);
+
         $since    = new \DateTimeImmutable('-30 days');
         $imported = 0;
         $page     = 1;
@@ -153,6 +170,14 @@ class StravaService
 
                 if (!empty($data['start_date'])) {
                     $activity->setStartDate(new \DateTimeImmutable($data['start_date']));
+                }
+
+                $gearId = $data['gear_id'] ?? null;
+                if (is_string($gearId) && isset($stravaGear[$gearId])) {
+                    $activity->setGear($stravaGear[$gearId]);
+                    $stravaGear[$gearId]->deductImportedStravaActivity($stravaId, $activity->getDistanceMeters());
+                } else {
+                    $activity->setGear(self::pickDefaultGear($defaultGear, $slug, $activity->getStartDate()));
                 }
 
                 $this->em->persist($activity);
@@ -280,6 +305,28 @@ class StravaService
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Matériel par défaut à rattacher à une nouvelle activité : celui du type lié au sport
+     * (chaussures pour course / trail / marche / rando, vélo pour le vélo), sauf si l'activité
+     * est antérieure à sa date d'achat.
+     *
+     * @param array<string, Gear> $defaults Matériel par défaut indexé par type ('shoes', 'bike').
+     */
+    public static function pickDefaultGear(array $defaults, string $sportSlug, ?\DateTimeImmutable $startDate): ?Gear
+    {
+        $type = GearType::forSportSlug($sportSlug);
+        $gear = $type !== null ? ($defaults[$type->value] ?? null) : null;
+        if ($gear === null) {
+            return null;
+        }
+        $purchased = $gear->getPurchasedAt();
+        if ($purchased !== null && $startDate !== null && $startDate < $purchased) {
+            return null;
+        }
+
+        return $gear;
+    }
 
     private function mapStravaType(string $type): string
     {

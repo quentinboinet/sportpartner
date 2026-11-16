@@ -103,6 +103,47 @@
 
 </div>
 
+{# ── Matériel (chaussures, vélo) ──────────────── #}
+{% if gearTypes is not empty or activity.gear %}
+<div class="sp-act-gear">
+    {% if gearOptions is empty %}
+        <span class="sp-act-gear-label"><i class="bi {{ (gearTypes|first).icon }}" aria-hidden="true"></i> {{ 'gear.activity_label'|trans }}</span>
+        <span class="sp-act-gear-empty">{{ 'gear.activity_empty'|trans }}</span>
+        <a href="{{ path('app_settings', {tab: 'gear'}) }}" class="sp-act-gear-link">{{ 'gear.activity_add_link'|trans }}</a>
+    {% else %}
+        {% set _cur = activity.gear %}
+        <form method="post" action="{{ path('app_activity_gear', {id: activity.id}) }}" class="sp-act-gear-form" data-gear-autosubmit>
+            <input type="hidden" name="_token" value="{{ csrf_token('gear') }}">
+            <label class="sp-act-gear-label" for="act-gear-select">
+                <i class="bi {{ _cur ? _cur.type.icon : (gearTypes|first).icon }}" aria-hidden="true"></i>
+                {{ 'gear.activity_label'|trans }}
+            </label>
+            <select id="act-gear-select" name="gear_id" class="sp-act-gear-select">
+                <option value="">{{ 'gear.activity_none'|trans }}</option>
+                {# Types dans l'ordre de GearType (chaussures puis vélo), seulement ceux qui ont du matériel #}
+                {% set _optTypes = gearOptions|map(g => g.type.value) %}
+                {% set _types = gearTypes|map(t => t.value)|merge(_cur ? [_cur.type.value] : [])|filter(t => t in _optTypes)|reduce((acc, t) => t in acc ? acc : acc|merge([t]), []) %}
+                {% for t in _types %}
+                    {% if _types|length > 1 %}<optgroup label="{{ ('gear.group_' ~ t)|trans }}">{% endif %}
+                    {% for g in gearOptions|filter(g => g.type.value == t) %}
+                        <option value="{{ g.id }}" {{ _cur and _cur.id == g.id ? 'selected' : '' }}>{{ g.displayName }}{% if g.nickname %} ({{ g.fullName }}){% endif %}{% if g.retired %} {{ 'gear.activity_retired_suffix'|trans }}{% endif %}</option>
+                    {% endfor %}
+                    {% if _types|length > 1 %}</optgroup>{% endif %}
+                {% endfor %}
+            </select>
+            <button type="submit" class="sp-act-gear-submit" data-gear-submit>{{ 'gear.activity_submit'|trans }}</button>
+        </form>
+        <script type="module">
+            // Enregistrement au changement ; le bouton reste le repli sans JavaScript
+            document.querySelectorAll('form[data-gear-autosubmit]').forEach((form) => {
+                form.querySelector('[data-gear-submit]').hidden = true;
+                form.querySelector('select').addEventListener('change', () => form.requestSubmit());
+            });
+        </script>
+    {% endif %}
+</div>
+{% endif %}
+
 {# ── Conditions météo au moment de l'activité ─── #}
 {% if wxDisplay is not null %}
 <div class="sp-act-wx">
@@ -289,6 +330,8 @@
     </div>
 </div>
 {% endif %}
+
+{{ include('activities/_fuel.html.twig') }}
 
 {# ── Fréquence cardiaque ──────────────────────── #}
 {% if hrData is not empty %}

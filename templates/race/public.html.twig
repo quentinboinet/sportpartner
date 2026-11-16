@@ -1,0 +1,285 @@
+{#
+  Page publique d'un plan de course partagé (RacePublicController::show, /p/{token}), pour les proches, sur mobile
+  d'abord. Page autonome comme plan_print.html.twig : n'étend pas base.html.twig (ni sidebar, ni navigation dans
+  l'application, ni menu utilisateur) et n'utilise ni app.user, ni app.flashes, ni csrf_token (aucune session ouverte).
+  JS : entrée importmap "race_public" (assets/race_public.js) : Stimulus route-preview (carte + profil, réutilisé de la
+  page de la course) et race-public (prochain passage prévu le jour de la course, textContent uniquement).
+  Variables : view (PublicPlanBuilder::build(), liste blanche : rien d'autre n'est affiché), token, locale, dateLabel.
+  Tout texte saisi passe par l'échappement automatique de Twig (jamais |raw).
+#}
+{% import _self as m %}
+
+{% macro clock(c) %}{{ c.time }}{% if c.dayOffset > 0 %} <span class="pub-day" title="{{ 'race_public.day_offset_title'|trans({'%n%': c.dayOffset}) }}">{{ 'race_public.day_offset'|trans({'%n%': c.dayOffset}) }}</span>{% endif %}{% endmacro %}
+
+{% set _fr = locale == 'fr' %}
+{% set _dec = _fr ? ',' : '.' %}
+{% set _th = _fr ? ' ' : ',' %}
+{% set _name = view.displayName %}
+{% set _race = view.race %}
+<!DOCTYPE html>
+<html lang="{{ locale }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>{{ _name
+        ? 'race_public.page_title_named'|trans({'%race%': _race.name, '%name%': _name})
+        : 'race_public.page_title'|trans({'%race%': _race.name}) }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    {% if view.map %}<link rel="stylesheet" href="{{ asset('vendor/leaflet/dist/leaflet.min.css') }}">{% endif %}
+    <style>
+        :root {
+            --sp-orange: #E8400C;
+            --sp-dark: #16172A;
+            --sp-bg: #EDEBE4;
+            --sp-card: #FFFFFF;
+            --sp-border: rgba(0, 0, 0, .08);
+            --sp-text: #111827;
+            --sp-muted: #6B7280;
+            --sp-green: #22C55E;
+            --sp-red: #EF4444;
+            --sp-teal: #06B6D4;
+            --sp-yellow: #F59E0B;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            margin: 0; background: var(--sp-bg); color: var(--sp-text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased; line-height: 1.4;
+        }
+        .visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+        /* Barre du haut : marque (sans lien vers l'application) + langue */
+        .pub-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; background: var(--sp-dark); color: #fff; }
+        .pub-brand { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 800; letter-spacing: -.01em; }
+        .pub-brand i { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 7px; background: var(--sp-orange); font-size: 13px; }
+        .pub-lang { display: inline-flex; border: 1px solid rgba(255,255,255,.22); border-radius: 8px; overflow: hidden; }
+        .pub-lang a { padding: 4px 10px; font-size: 12px; font-weight: 700; color: rgba(255,255,255,.75); text-decoration: none; }
+        .pub-lang a + a { border-left: 1px solid rgba(255,255,255,.22); }
+        .pub-lang a[aria-current="true"] { background: #fff; color: var(--sp-dark); }
+        .pub-lang a:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: -2px; }
+
+        .pub { max-width: 760px; margin: 0 auto; padding: 16px 16px 32px; }
+        .pub-card { background: var(--sp-card); border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+        .pub-h2 { display: flex; align-items: center; gap: 7px; margin: 0 0 12px; font-size: 15px; font-weight: 800; }
+        .pub-h2 i { color: var(--sp-orange); }
+
+        /* En-tête de la course */
+        .pub-hero { padding: 6px 2px 16px; }
+        .pub-eyebrow { margin: 0 0 4px; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--sp-orange); overflow-wrap: anywhere; }
+        .pub-title { margin: 0 0 8px; font-size: 26px; line-height: 1.15; font-weight: 900; letter-spacing: -.02em; overflow-wrap: anywhere; }
+        .pub-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 14px; font-size: 13px; color: #374151; }
+        .pub-meta span { display: inline-flex; align-items: center; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
+        .pub-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
+        .pub-facts > div { background: var(--sp-card); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+        .pub-facts dt { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--sp-muted); }
+        .pub-facts dd { margin: 2px 0 0; font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pub-facts dd small { font-size: 12px; font-weight: 600; color: var(--sp-muted); }
+        .pub-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 18px; border-radius: 22px; background: var(--sp-orange); color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; }
+        .pub-btn:hover { background: #D03009; }
+        .pub-btn:focus-visible { outline: 3px solid rgba(232,64,12,.35); outline-offset: 2px; }
+
+        /* Prochain passage (jour de la course) */
+        .pub-next { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; padding: 14px 16px; border-radius: 16px; background: var(--sp-dark); color: #fff; }
+        .pub-next[hidden] { display: none; }
+        .pub-next > i { font-size: 22px; color: var(--sp-orange); line-height: 1.1; }
+        .pub-next strong { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+        .pub-next-text { display: block; margin-top: 2px; font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
+        .pub-next small { display: block; margin-top: 4px; font-size: 12px; color: rgba(255,255,255,.7); }
+
+        /* Messages */
+        .pub-text { margin: 0; font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; }
+        .pub-unscheduled { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: rgba(245,158,11,.12); color: #78350F; font-size: 13px; line-height: 1.45; }
+
+        /* Frise des passages */
+        .pub-timeline { list-style: none; margin: 0; padding: 0; position: relative; }
+        .pub-point { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 0 12px; }
+        .pub-point::before { content: ''; position: absolute; left: 14px; top: 0; bottom: 0; width: 2px; background: var(--sp-border); }
+        .pub-point:first-child::before { top: 22px; }
+        .pub-point:last-child::before { bottom: calc(100% - 22px); }
+        .pub-marker { position: relative; z-index: 1; grid-row: 1 / span 3; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin-top: 2px; border-radius: 50%; background: var(--sp-dark); color: #fff; font-size: 12px; font-weight: 800; border: 3px solid var(--sp-card); }
+        .pub-point--aid .pub-marker { background: var(--sp-teal); border-radius: 9px; }
+        .pub-point--start .pub-marker { background: var(--sp-green); }
+        .pub-point--finish .pub-marker { background: var(--sp-red); }
+        .pub-point-name { grid-column: 2; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+        .pub-tag { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 20px; background: rgba(6,182,212,.12); color: #0E7490; font-size: 11px; font-weight: 700; white-space: nowrap; }
+        .pub-point-meta { grid-column: 2; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--sp-muted); font-variant-numeric: tabular-nums; }
+        .pub-cutoff { display: inline-flex; align-items: center; gap: 4px; color: #B91C1C; font-weight: 600; }
+        .pub-point-time { grid-column: 3; grid-row: 1 / span 2; align-self: start; text-align: right; font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .pub-time-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--sp-muted); }
+        .pub-time--elapsed { font-size: 14px; font-weight: 800; }
+        .pub-day { display: inline-block; margin-left: 2px; padding: 0 6px; border-radius: 20px; background: var(--sp-dark); color: #fff; font-size: 10px; font-weight: 800; vertical-align: 3px; cursor: help; }
+        .pub-point-message { grid-column: 2 / span 2; margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: rgba(232,64,12,.07); font-size: 13px; white-space: pre-line; overflow-wrap: anywhere; }
+        .pub-point-message i { color: var(--sp-orange); margin-right: 4px; }
+        .pub-point.is-past { opacity: .55; }
+        .pub-point.is-next { background: rgba(232,64,12,.06); border-radius: 12px; box-shadow: 0 0 0 2px var(--sp-orange); }
+        .pub-point.is-next .pub-marker { box-shadow: 0 0 0 3px rgba(232,64,12,.35); }
+
+        /* Carte + profil (Stimulus route-preview) */
+        .pub-map { height: 300px; border-radius: 12px; overflow: hidden; z-index: 0; }
+        .pub-profile { position: relative; height: 130px; margin-top: 10px; }
+        .sp-map-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+        .sp-map-dot-start { background: var(--sp-green); }
+        .sp-map-dot-end { background: var(--sp-red); }
+        .rs-cp-pin { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--sp-dark); color: #fff; font-size: 10px; font-weight: 800; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+        .rs-cp-pin--aid_station { background: var(--sp-teal); border-radius: 6px; }
+        .leaflet-container img { max-width: none !important; max-height: none !important; }
+
+        .pub-footer { margin-top: 18px; text-align: center; font-size: 12px; color: var(--sp-muted); line-height: 1.5; }
+        .pub-footer p { margin: 0 0 4px; }
+
+        @media (max-width: 575.98px) {
+            .pub-title { font-size: 23px; }
+            .pub-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .pub-btn { width: 100%; }
+            .pub-point-time { font-size: 18px; }
+            .pub-map { height: 240px; }
+        }
+    </style>
+    {{ importmap('race_public') }}
+</head>
+<body>
+
+<header class="pub-top">
+    <span class="pub-brand"><i class="bi bi-lightning-fill" aria-hidden="true"></i> SportPartner</span>
+    <nav class="pub-lang" aria-label="{{ 'race_public.lang_switch'|trans }}">
+        {% for l in ['fr', 'en'] %}
+            <a href="{{ path('app_race_public', {token: token, lang: l}) }}" lang="{{ l }}" hreflang="{{ l }}"
+               data-lang="{{ l }}" {% if l == locale %}aria-current="true"{% endif %}>{{ l|upper }}</a>
+        {% endfor %}
+    </nav>
+</header>
+
+<main class="pub"
+      data-controller="race-public"
+      data-race-public-labels-value="{{ {next: 'race_public.next_text'|trans, start: 'race_public.next_start'|trans, done: 'race_public.next_done'|trans}|json_encode }}">
+
+    <section class="pub-hero">
+        <p class="pub-eyebrow">{{ _name ? 'race_public.eyebrow_named'|trans({'%name%': _name}) : 'race_public.eyebrow'|trans }}</p>
+        <h1 class="pub-title">{{ _race.name }}</h1>
+        <p class="pub-meta">
+            <span><i class="bi bi-calendar-event" aria-hidden="true"></i> {{ dateLabel ?? _race.year }}</span>
+            {% if _race.location %}<span><i class="bi bi-geo-alt" aria-hidden="true"></i> {{ _race.location }}</span>{% endif %}
+        </p>
+        <dl class="pub-facts">
+            <div>
+                <dt>{{ 'race_public.start_time'|trans }}</dt>
+                <dd data-pub-fact="start">{{ view.startTime ?? '-' }}</dd>
+            </div>
+            <div>
+                <dt>{{ 'race_public.finish_time'|trans }}</dt>
+                <dd data-pub-fact="finish">
+                    {%- if view.finishClock %}{{ m.clock(view.finishClock) }}
+                    {%- elseif view.finishElapsed is not null %}{{ view.finishElapsed|race_duration }}
+                    {%- else %}-{% endif -%}
+                </dd>
+            </div>
+            {% if view.distanceM > 0 %}
+                <div>
+                    <dt>{{ 'race_public.distance'|trans }}</dt>
+                    <dd>{{ (view.distanceM / 1000)|number_format(1, _dec, _th) }} <small>km</small></dd>
+                </div>
+            {% endif %}
+            {% if view.gainM %}
+                <div>
+                    <dt>{{ 'race_public.gain'|trans }}</dt>
+                    <dd>{{ view.gainM|number_format(0, _dec, _th) }} <small>m</small></dd>
+                </div>
+            {% endif %}
+        </dl>
+        {% if _race.date %}
+            <a class="pub-btn" href="{{ path('app_race_public_ics', {token: token, lang: locale}) }}" download data-pub-ics>
+                <i class="bi bi-calendar-plus" aria-hidden="true"></i> {{ 'race_public.add_calendar'|trans }}
+            </a>
+        {% endif %}
+    </section>
+
+    <div class="pub-next" data-race-public-target="banner" role="status" hidden>
+        <i class="bi bi-stopwatch" aria-hidden="true"></i>
+        <div>
+            <strong>{{ 'race_public.next_title'|trans }}</strong>
+            <span class="pub-next-text" data-race-public-target="bannerText"></span>
+            <small>{{ 'race_public.planned_note'|trans }}</small>
+        </div>
+    </div>
+
+    {% if view.message %}
+        <section class="pub-card" aria-labelledby="pub-message-title">
+            <h2 class="pub-h2" id="pub-message-title"><i class="bi bi-chat-heart" aria-hidden="true"></i> {{ _name ? 'race_public.message_from'|trans({'%name%': _name}) : 'race_public.message_title'|trans }}</h2>
+            <p class="pub-text" data-pub-message>{{ view.message }}</p>
+        </section>
+    {% endif %}
+
+    <section class="pub-card" aria-labelledby="pub-timeline-title">
+        <h2 class="pub-h2" id="pub-timeline-title"><i class="bi bi-signpost-split" aria-hidden="true"></i> {{ 'race_public.timeline_title'|trans }}</h2>
+        {% if not view.scheduled %}
+            <p class="pub-unscheduled" data-pub-unscheduled>
+                <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                <span><strong>{{ 'race_public.no_times'|trans }}</strong> {{ 'race_public.no_times_text'|trans }}</span>
+            </p>
+        {% endif %}
+        <ol class="pub-timeline">
+            {% for p in view.points %}
+                {% set _label = p.kind == 'start' ? 'race_public.start'|trans : (p.kind == 'finish' ? 'race_public.finish'|trans : p.name) %}
+                <li class="pub-point pub-point--{{ p.kind }}{{ p.type == 'aid_station' ? ' pub-point--aid' }}"
+                    data-race-public-target="point" data-kind="{{ p.kind }}"
+                    {% if p.at and p.clock %}data-at="{{ p.at }}" data-name="{{ _label }}" data-time="{{ p.clock.time }}"{% endif %}>
+                    <span class="pub-marker" aria-hidden="true">
+                        {%- if p.kind == 'start' %}<i class="bi bi-play-fill"></i>
+                        {%- elseif p.kind == 'finish' %}<i class="bi bi-flag-fill"></i>
+                        {%- else %}{{ p.number }}{% endif -%}
+                    </span>
+                    <span class="pub-point-name">
+                        <span data-pub-name>{{ _label }}</span>
+                        {% if p.type == 'aid_station' %}<span class="pub-tag"><i class="bi bi-cup-hot-fill" aria-hidden="true"></i> {{ 'race_public.aid_station'|trans }}</span>{% endif %}
+                    </span>
+                    <span class="pub-point-meta">
+                        {% if p.kind != 'finish' or p.distanceM > 0 %}<span>km {{ (p.distanceM / 1000)|number_format(1, _dec, _th) }}</span>{% endif %}
+                        {% if p.paceSecPerKm is not null %}<span data-pub-pace>{{ 'race_public.pace'|trans({'%pace%': p.paceSecPerKm|race_pace}) }}</span>{% endif %}
+                        {% if p.cutoffSeconds is not null %}
+                            <span class="pub-cutoff" data-pub-cutoff><i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                                {%- if p.cutoffClock %} {{ 'race_public.cutoff'|trans }} {{ m.clock(p.cutoffClock) }}
+                                {%- else %} {{ 'race_public.cutoff_elapsed'|trans({'%time%': p.cutoffSeconds|race_duration}) }}{% endif -%}
+                            </span>
+                        {% endif %}
+                    </span>
+                    <span class="pub-point-time" data-pub-time>
+                        {%- if p.clock -%}
+                            <span class="pub-time-label">{{ (p.kind == 'start' ? 'race_public.time_start' : 'race_public.time_around')|trans }}</span>{{ m.clock(p.clock) }}
+                        {%- elseif p.elapsedSeconds is not null and p.kind != 'start' -%}
+                            <span class="pub-time-label">{{ 'race_public.time_after'|trans }}</span><span class="pub-time--elapsed">{{ p.elapsedSeconds|race_duration }}</span>
+                        {%- endif -%}
+                    </span>
+                    {% if p.message %}
+                        <p class="pub-point-message" data-pub-point-message><i class="bi bi-chat-quote-fill" aria-hidden="true"></i>{{ p.message }}</p>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ol>
+    </section>
+
+    {% if view.map %}
+        <section class="pub-card" aria-labelledby="pub-map-title">
+            <h2 class="pub-h2" id="pub-map-title"><i class="bi bi-map" aria-hidden="true"></i> {{ 'race_public.map_title'|trans }}</h2>
+            <div data-controller="route-preview"
+                 data-route-preview-points-value="{{ view.map.points|json_encode }}"
+                 data-route-preview-checkpoints-value="{{ view.map.checkpoints|json_encode }}"
+                 data-route-preview-labels-value="{{ {start: 'race_public.start'|trans, finish: 'race_public.finish'|trans}|json_encode }}"
+                 data-route-preview-locale-value="{{ locale }}">
+                <div class="pub-map" data-route-preview-target="map" role="img" aria-label="{{ 'race_public.map_label'|trans }}"></div>
+                <div class="pub-profile" data-route-preview-target="chartWrap">
+                    <canvas data-route-preview-target="chart" aria-label="{{ 'race_public.profile_label'|trans }}"></canvas>
+                </div>
+            </div>
+        </section>
+    {% endif %}
+
+    <footer class="pub-footer">
+        <p><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'race_public.planned_note'|trans }}</p>
+        <p>{{ 'race_public.footer'|trans }}</p>
+    </footer>
+</main>
+</body>
+</html>

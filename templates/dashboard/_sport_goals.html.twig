@@ -1,0 +1,126 @@
+{#
+ # Carte "Objectifs de la semaine" : une ligne par objectif par sport (semaine en cours, ordre des
+ # paramètres). Variables : sportGoals (list<App\Service\Goals\SportGoalProgress>).
+ # Valeurs réelles affichées même au-delà de la cible ; seule la barre est plafonnée à 100 %.
+ # Barre décorative (aria-hidden) : le texte porte toute l'information, "Atteint" compris.
+ #}
+{% macro num(value, decimals) -%}
+    {{- value|number_format(decimals, app.request.locale == 'fr' ? ',' : '.', app.request.locale == 'fr' ? ' ' : ',') -}}
+{%- endmacro %}
+
+{% macro km(value) -%}
+    {%- import _self as f -%}
+    {{- f.num(value, value == value|round ? 0 : 1) -}}
+{%- endmacro %}
+
+{% macro duration(minutes) -%}
+    {%- set _h = minutes // 60 -%}
+    {%- set _m = minutes % 60 -%}
+    {%- if minutes > 0 and minutes < 60 -%}
+        {{- 'objectives.by_sport.minutes'|trans({'%m%': _m}) -}}
+    {%- elseif _m == 0 -%}
+        {{- 'objectives.by_sport.hours'|trans({'%h%': _h}) -}}
+    {%- else -%}
+        {{- 'objectives.by_sport.hours_minutes'|trans({'%h%': _h, '%m%': '%02d'|format(_m)}) -}}
+    {%- endif -%}
+{%- endmacro %}
+
+{% macro value(m) -%}
+    {%- import _self as f -%}
+    {%- if m.kind == 'distance' -%}
+        {{- 'objectives.by_sport.distance'|trans({'%current%': f.km(m.current), '%target%': f.km(m.target)}) -}}
+    {%- elseif m.kind == 'sessions' -%}
+        {{- (m.target > 1 ? 'objectives.by_sport.sessions_many' : 'objectives.by_sport.sessions_one')|trans({'%current%': m.current, '%target%': m.target}) -}}
+    {%- elseif m.kind == 'duration' -%}
+        {{- 'objectives.by_sport.duration'|trans({'%current%': f.duration(m.current), '%target%': f.duration(m.target)}) -}}
+    {%- else -%}
+        {{- 'objectives.by_sport.elevation'|trans({'%current%': f.num(m.current, 0), '%target%': f.num(m.target, 0)}) -}}
+    {%- endif -%}
+{%- endmacro %}
+
+{% macro left(m) -%}
+    {%- import _self as f -%}
+    {%- set _left = m.remaining -%}
+    {%- if m.kind == 'distance' -%}
+        {{- 'objectives.by_sport.left_distance'|trans({'%value%': f.km(_left)}) -}}
+    {%- elseif m.kind == 'sessions' -%}
+        {{- (_left > 1 ? 'objectives.by_sport.left_sessions_many' : 'objectives.by_sport.left_sessions_one')|trans({'%value%': _left}) -}}
+    {%- elseif m.kind == 'duration' -%}
+        {{- 'objectives.by_sport.left_duration'|trans({'%value%': f.duration(_left)}) -}}
+    {%- else -%}
+        {{- 'objectives.by_sport.left_elevation'|trans({'%value%': f.num(_left, 0)}) -}}
+    {%- endif -%}
+{%- endmacro %}
+
+{% import _self as f %}
+
+{% if sportGoals is not empty %}
+    <div class="sp-sport-goals">
+        <h3 class="sp-sport-goals-title" id="sport-goals-title">{{ 'objectives.by_sport.title'|trans }}</h3>
+        <ul class="sp-sport-goals-list" aria-labelledby="sport-goals-title">
+            {% for goal in sportGoals %}
+                <li class="sp-sport-goal{{ goal.reached ? ' is-reached' }}" data-sport="{{ goal.sport.slug }}">
+                    <div class="sp-sport-goal-head">
+                        <span class="sp-sport-goal-icon" style="--goal-sport-color: {{ goal.sport.color }}">
+                            <i class="bi {{ goal.sport.icon }}" aria-hidden="true"></i>
+                        </span>
+                        <span class="sp-sport-goal-name">{{ ('sport.' ~ goal.sport.slug)|trans }}</span>
+                    </div>
+                    <ul class="sp-sport-goal-metrics">
+                        {% for m in goal.metrics %}
+                            <li class="sp-sport-goal-metric{{ m.reached ? ' is-reached' }}" data-kind="{{ m.kind }}">
+                                <div class="sp-sport-goal-line">
+                                    <span class="sp-sport-goal-value">{{ f.value(m) }}</span>
+                                    {% if m.reached %}
+                                        <span class="sp-sport-goal-status sp-sport-goal-status--reached">
+                                            <i class="bi bi-check-circle-fill" aria-hidden="true"></i> {{ 'objectives.by_sport.reached'|trans }}
+                                        </span>
+                                    {% else %}
+                                        <span class="sp-sport-goal-status">{{ f.left(m) }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="sp-sport-goal-bar" aria-hidden="true">
+                                    <span style="width: {{ m.barPercent }}%; --goal-sport-color: {{ goal.sport.color }}"></span>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% else %}
+    <a class="sp-sport-goals-cta" href="{{ path('app_settings', {tab: 'profile'}) }}#weekly-goals">
+        <i class="bi bi-plus-circle" aria-hidden="true"></i> {{ 'objectives.by_sport.add_cta'|trans }}
+    </a>
+{% endif %}
+
+<style>
+    .sp-sport-goals { border-top: 1px solid var(--sp-border); margin-top: 14px; padding-top: 14px; }
+    .sp-sport-goals-title {
+        font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+        color: var(--sp-muted); margin: 0 0 10px;
+    }
+    .sp-sport-goals-list, .sp-sport-goal-metrics { list-style: none; padding: 0; margin: 0; }
+    .sp-sport-goals-list { display: grid; gap: 14px; }
+    .sp-sport-goal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-width: 0; }
+    .sp-sport-goal-icon {
+        width: 24px; height: 24px; border-radius: 7px; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--goal-sport-color, #9CA3AF); color: #fff; font-size: 12px;
+    }
+    .sp-sport-goal-name { font-size: 13px; font-weight: 700; color: var(--sp-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sp-sport-goal-metrics { display: grid; gap: 7px; padding-left: 32px; }
+    .sp-sport-goal-line { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 2px 10px; font-size: 12.5px; }
+    .sp-sport-goal-value { font-weight: 700; color: var(--sp-text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .sp-sport-goal-status { color: var(--sp-muted); white-space: nowrap; font-size: 12px; }
+    .sp-sport-goal-status--reached { color: #15803D; font-weight: 700; }
+    .sp-sport-goal-bar { height: 5px; border-radius: 3px; background: #F3F4F6; overflow: hidden; margin-top: 4px; }
+    .sp-sport-goal-bar span { display: block; height: 100%; border-radius: 3px; background: var(--goal-sport-color, var(--sp-orange)); }
+    .sp-sport-goal-metric.is-reached .sp-sport-goal-bar span { background: var(--sp-green); }
+    .sp-sport-goals-cta {
+        display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+        font-size: 12.5px; color: var(--sp-muted); text-decoration: none;
+    }
+    .sp-sport-goals-cta:hover, .sp-sport-goals-cta:focus-visible { color: var(--sp-orange); }
+</style>

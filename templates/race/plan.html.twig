@@ -113,6 +113,17 @@
             {% endif %}
         </div>
     </div>
+    <div class="rp-header-actions">
+        {# Lien de partage public du plan pour les proches (réglages : RaceShareController) #}
+        <a href="{{ path('app_race_share', {id: race.id}) }}" class="sp-btn-ghost rp-btn-sm rp-jump" title="{{ 'race_share.share_title'|trans }}" data-share-link>
+            <i class="bi bi-share"></i> {{ 'race_share.share_button'|trans }}
+        </a>
+        {# Accès direct à la section des temps de passage (scénarios) #}
+        <a href="#scenarios" class="sp-btn-ghost rp-btn-sm rp-jump" data-sc-jump>
+            <i class="bi bi-stopwatch"></i> {{ 'race_plan.nav_scenarios'|trans }}
+            {% if scenarioView.scenarios is not empty %}<span class="rp-jump-count">{{ scenarioView.scenarios|length }}</span>{% endif %}
+        </a>
+    </div>
 </div>
 
 {% if not _hasRoute %}
@@ -128,7 +139,7 @@
                     <li><i class="bi bi-map"></i> {{ 'race_plan.upload_feature_profile'|trans }}</li>
                     <li><i class="bi bi-cup-hot"></i> {{ 'race_plan.upload_feature_checkpoints'|trans }}</li>
                     <li><i class="bi bi-bar-chart-steps"></i> {{ 'race_plan.upload_feature_segments'|trans }}</li>
-                    <li class="rp-features-next"><i class="bi bi-stopwatch"></i> {{ 'race_plan.upload_feature_next'|trans }}</li>
+                    <li><i class="bi bi-stopwatch"></i> {{ 'race_plan.upload_feature_times'|trans }}</li>
                 </ul>
                 <p class="rp-upload-where"><i class="bi bi-info-circle"></i> {{ 'race_plan.upload_where'|trans }}</p>
             </div>
@@ -364,6 +375,13 @@
                                 {% endif %}
                             </td>
                             <td>
+                                {# Message public (page partagée), distinct des notes privées #}
+                                {% if cp.publicMessage %}
+                                    <span class="rp-public-msg" title="{{ 'race_share.public_message_tooltip'|trans({'%message%': cp.publicMessage}) }}"
+                                          role="img" aria-label="{{ 'race_share.public_message_title'|trans }}" data-public-message>
+                                        <i class="bi bi-chat-heart-fill" aria-hidden="true"></i>
+                                    </span>
+                                {% endif %}
                                 {% if cp.notes %}
                                     <span class="rp-notes" title="{{ cp.notes }}">{{ cp.notes }}</span>
                                 {% endif %}
@@ -411,6 +429,9 @@
         </div>
     {% endif %}
 </div>
+
+{# ── Temps de passage : scénarios (phase 2) ─────── #}
+{% include 'race/_scenarios.html.twig' %}
 
 {# ── Modale : ajouter / modifier un repère ──────── #}
 <div class="modal fade" id="checkpointModal" tabindex="-1" aria-hidden="true" aria-labelledby="checkpointModalTitle"
@@ -498,11 +519,23 @@
                         <div class="sp-form-help">{{ 'race_plan.field_cutoff_help'|trans }}</div>
                     </div>
 
-                    {# Notes #}
-                    <div class="mb-0">
+                    {# Notes (privées) #}
+                    <div class="mb-3">
                         <label class="sp-form-label" for="cp-notes">{{ 'race_plan.field_notes'|trans }}</label>
                         <textarea id="cp-notes" name="notes" class="sp-form-input" rows="2" maxlength="5000"
+                                  aria-describedby="cp-notes-help"
                                   placeholder="{{ 'race_plan.field_notes_placeholder'|trans }}"></textarea>
+                        <div class="sp-form-help" id="cp-notes-help"><i class="bi bi-lock"></i> {{ 'race_plan.field_notes_private'|trans }}</div>
+                    </div>
+
+                    {# Message pour les proches (plan partagé, voir RaceShareController) #}
+                    <div class="mb-0">
+                        <label class="sp-form-label" for="cp-public-message">{{ 'race_plan.field_public_message'|trans }}</label>
+                        <textarea id="cp-public-message" name="public_message" class="sp-form-input" rows="2"
+                                  maxlength="{{ constant('App\\Entity\\RaceShare::MAX_POINT_MESSAGE_LENGTH') }}"
+                                  aria-describedby="cp-public-message-help"
+                                  placeholder="{{ 'race_plan.field_public_message_placeholder'|trans }}"></textarea>
+                        <div class="sp-form-help" id="cp-public-message-help"><i class="bi bi-people"></i> {{ 'race_plan.field_public_message_help'|trans }}</div>
                     </div>
 
                 </div>
@@ -547,6 +580,12 @@
 <style>
 /* En-tête */
 .rp-header-main { min-width: 0; }
+.rp-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.rp-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+.rp-jump { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; white-space: nowrap; flex-shrink: 0; }
+.rp-public-msg { display: inline-flex; color: var(--sp-orange); font-size: 13px; cursor: help; }
+.rp-public-msg + .rp-notes { margin-top: 2px; }
+.rp-jump-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--sp-orange); color: #fff; font-size: 10.5px; font-weight: 800; }
 .rp-title { font-size: 26px; overflow-wrap: anywhere; margin-bottom: 8px; }
 .rp-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
 .rp-badge {
@@ -950,6 +989,7 @@ function fill(cp, km = null) {
     f('stop_minutes').value = c.stopMinutes ?? '';
     f('cutoff').value       = c.cutoff ?? '';
     f('notes').value        = c.notes ?? '';
+    f('public_message').value = c.publicMessage ?? '';
 
     const type = c.type ?? options[0].querySelector('input').value;
     options.forEach(opt => { const i = opt.querySelector('input'); i.checked = i.value === type; });

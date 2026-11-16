@@ -16,6 +16,11 @@ return [
         'path' => './assets/app.js',
         'entrypoint' => true,
     ],
+    // Page publique d'un plan de course partagé (/p/{token}) : entrée légère, sans Bootstrap ni les autres controllers
+    'race_public' => [
+        'path' => './assets/race_public.js',
+        'entrypoint' => true,
+    ],
     'bootstrap' => [
         'version' => '5.3.8',
     ],

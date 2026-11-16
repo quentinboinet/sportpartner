@@ -26,6 +26,11 @@ class Activity
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?Sport $sport = null;
 
+    /** Matériel utilisé (chaussures, vélo) ; repasse à null si le matériel est supprimé. */
+    #[ORM\ManyToOne(targetEntity: Gear::class)]
+    #[ORM\JoinColumn(name: 'gear_id', nullable: true, onDelete: 'SET NULL')]
+    private ?Gear $gear = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $name = null;
 
@@ -107,10 +112,17 @@ class Activity
         return sprintf('%d:%02d', intdiv($paceSeconds, 60), $paceSeconds % 60);
     }
 
-    /** Speed in km/h (useful for cycling) */
+    /** Speed in km/h (useful for cycling) ; à défaut de vitesse moyenne Strava, distance / temps en mouvement */
     public function getSpeedKmh(): ?float
     {
-        return $this->averageSpeed ? round($this->averageSpeed * 3.6, 1) : null;
+        if ($this->averageSpeed) {
+            return round($this->averageSpeed * 3.6, 1);
+        }
+        if (!$this->movingTimeSeconds || !$this->distanceMeters) {
+            return null;
+        }
+
+        return round($this->distanceMeters / $this->movingTimeSeconds * 3.6, 1);
     }
 
     /** Slug du sport - alias de getSport()->getSlug() pour la compatibilité ascendante */
@@ -131,6 +143,9 @@ class Activity
 
     public function getSport(): ?Sport { return $this->sport; }
     public function setSport(?Sport $sport): static { $this->sport = $sport; return $this; }
+
+    public function getGear(): ?Gear { return $this->gear; }
+    public function setGear(?Gear $gear): static { $this->gear = $gear; return $this; }
 
     public function getName(): ?string { return $this->name; }
     public function setName(?string $name): static { $this->name = $name; return $this; }

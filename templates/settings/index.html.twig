@@ -33,6 +33,11 @@
                 <i class="bi bi-heart-pulse"></i>
                 {{ 'settings.nav.hr_zones'|trans }}
             </a>
+            <a href="{{ path('app_settings', {tab: 'gear'}) }}"
+               class="{{ tab == 'gear' ? 'active' }}">
+                <i class="bi bi-bicycle"></i>
+                {{ 'settings.nav.gear'|trans }}
+            </a>
             <a href="{{ path('app_settings', {tab: 'devices'}) }}"
                class="{{ tab == 'devices' ? 'active' }}">
                 <i class="bi bi-phone"></i>
@@ -58,28 +63,18 @@
 
         <div class="sp-settings-section-title">{{ 'settings.profile.section_title'|trans }}</div>
 
-        {# Avatar row #}
-        <div class="sp-settings-avatar-row">
-            <div class="sp-settings-avatar-circle">
-                <i class="bi bi-person-fill"></i>
-            </div>
-            <div class="sp-settings-avatar-info">
-                <div class="sp-settings-display-name">
-                    {{ app.user.fullName ?: app.user.email }}
-                </div>
-                <div class="sp-settings-display-meta">
-                    {% if profile and profile.handle %}@{{ profile.handle }} · {% endif %}
-                    {{ app.user.isPro() ? 'sidebar.pro_role'|trans : 'sidebar.amateur_role'|trans }}
-                </div>
-            </div>
-            <button type="button" class="sp-settings-photo-btn" disabled>
-                <i class="bi bi-camera"></i>
-                {{ 'settings.profile.change_photo'|trans }}
-            </button>
-        </div>
+        {# Avatar row : photo de profil (envoi, photo Strava, suppression) #}
+        {{ include('settings/_avatar.html.twig') }}
 
         {# Symfony Form #}
         {{ form_start(form, {attr: {class: 'sp-settings-form'}}) }}
+
+        {# Erreurs du formulaire lui-même (jeton CSRF invalide, etc.) #}
+        {% if form.vars.errors|length > 0 %}
+            <div class="alert alert-danger" role="alert" style="border-radius:10px;font-size:13px">
+                {% for error in form.vars.errors %}<div>{{ error.message }}</div>{% endfor %}
+            </div>
+        {% endif %}
 
         <div class="sp-settings-form-grid">
 
@@ -137,22 +132,8 @@
 
         </div>
 
-        <div class="sp-settings-section-title" style="margin-top:24px">{{ 'settings.goals.section_title'|trans }}</div>
-        <div class="sp-settings-form-grid">
-
-            <div class="sp-settings-field">
-                {{ form_label(form.weeklyDistanceGoalKm, 'settings.goals.weekly_distance'|trans) }}
-                {{ form_widget(form.weeklyDistanceGoalKm, {attr: {class: 'sp-settings-input'}}) }}
-                {{ form_errors(form.weeklyDistanceGoalKm) }}
-            </div>
-
-            <div class="sp-settings-field">
-                {{ form_label(form.weeklySessionsGoal, 'settings.goals.weekly_sessions'|trans) }}
-                {{ form_widget(form.weeklySessionsGoal, {attr: {class: 'sp-settings-input'}}) }}
-                {{ form_errors(form.weeklySessionsGoal) }}
-            </div>
-
-        </div>
+        {# Objectifs hebdomadaires : tous sports confondus + par sport (CollectionType weeklyGoals) #}
+        {{ include('settings/_weekly_goals.html.twig') }}
 
         <div class="sp-settings-actions">
             <a href="{{ path('app_settings', {tab: 'profile'}) }}" class="sp-btn sp-btn-outline">
@@ -164,6 +145,10 @@
         </div>
 
         {{ form_end(form) }}
+
+        {% elseif tab == 'gear' %}
+
+        {{ include('settings/_gear.html.twig') }}
 
         {% else %}
 

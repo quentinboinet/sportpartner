@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\Activity;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -30,10 +31,15 @@ class ActivityRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** @return list<array<string, mixed>> */
-    public function findWeeklyVolume(User $user, int $weeks = 12): array
+    /**
+     * Volume par semaine ISO depuis $since (lundi 00:00:00 de la plus ancienne semaine, voir
+     * WeeklyVolumeSeries::since()) ; seules les semaines avec des activités sont renvoyées,
+     * WeeklyVolumeSeries::fill() complète les autres à zéro.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function findWeeklyVolume(User $user, \DateTimeImmutable $since): array
     {
-        $since = new \DateTimeImmutable("-{$weeks} weeks");
         $conn  = $this->getEntityManager()->getConnection();
 
         // WEEK(..., 1) = mode ISO : semaine lundi→dimanche.
@@ -53,14 +59,18 @@ class ActivityRepository extends ServiceEntityRepository
                AND startDate >= :since
              GROUP BY YEARWEEK(startDate, 1)
              ORDER BY YEARWEEK(startDate, 1) ASC',
-            ['userId' => $user->getId(), 'since' => $since->format('Y-m-d')]
+            ['userId' => $user->getId(), 'since' => $since->format('Y-m-d H:i:s')]
         );
     }
 
     /** @return list<Activity> */
     public function findByUserFiltered(User $user, ?string $sportSlug = null, int $page = 1, int $perPage = 50, ?\DateTimeImmutable $since = null): array
     {
+        // Matériel + marque chargés d'avance (pastille de la liste, sans requête par ligne)
         $qb = $this->createQueryBuilder('a')
+            ->addSelect('g', 'gb')
+            ->leftJoin('a.gear', 'g')
+            ->leftJoin('g.brand', 'gb')
             ->where('a.user = :user')
             ->setParameter('user', $user)
             ->orderBy('a.startDate', 'DESC')
@@ -153,6 +163,48 @@ class ActivityRepository extends ServiceEntityRepository
             ->getArrayResult();
 
         return array_map('intval', array_column($rows, 'stravaId'));
+    }
+
+    /**
+     * Activités de l'utilisateur réduites à ce qu'il faut pour rattacher le matériel importé de
+     * Strava (sans charger les entités et leurs flux JSON).
+     *
+     * @return list<array{id: int, stravaId: ?int, gearId: ?int, distanceM: float}>
+     */
+    public function findGearLinkRows(User $user): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT id, stravaId, gear_id, distanceMeters FROM activities WHERE user_id = :userId',
+            ['userId' => $user->getId()]
+        );
+
+        return array_map(static fn (array $row): array => [
+            'id'        => (int) $row['id'],
+            'stravaId'  => $row['stravaId'] !== null ? (int) $row['stravaId'] : null,
+            'gearId'    => $row['gear_id'] !== null ? (int) $row['gear_id'] : null,
+            'distanceM' => (float) ($row['distanceMeters'] ?? 0),
+        ], $rows);
+    }
+
+    /**
+     * Rattache le matériel aux activités données (de cet utilisateur uniquement).
+     *
+     * @param list<int> $activityIds
+     *
+     * @return int Nombre d'activités mises à jour.
+     */
+    public function assignGear(User $user, int $gearId, array $activityIds): int
+    {
+        $updated = 0;
+        foreach (array_chunk($activityIds, 1000) as $chunk) {
+            $updated += (int) $this->getEntityManager()->getConnection()->executeStatement(
+                'UPDATE activities SET gear_id = :gearId WHERE user_id = :userId AND id IN (:ids)',
+                ['gearId' => $gearId, 'userId' => $user->getId(), 'ids' => $chunk],
+                ['ids' => ArrayParameterType::INTEGER]
+            );
+        }
+
+        return $updated;
     }
 
     // ── Stats page queries ─────────────────────────────────────────────────
@@ -403,5 +455,39 @@ class ActivityRepository extends ServiceEntityRepository
             $result[$row['d']] = (int)$row['kcal_est'];
         }
         return $result;
+    }
+
+    /**
+     * Totaux par sport des activités parties entre $from et $to inclus, en une requête (objectifs
+     * par sport du tableau de bord). Clé : id du sport, 0 pour les activités sans sport.
+     *
+     * @return array<int, array{distanceM: float, sessions: int, movingSeconds: int, elevationM: float}>
+     */
+    public function sumBySportBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT sport_id,
+                    COUNT(*)                             AS sessions,
+                    COALESCE(SUM(distanceMeters), 0)     AS distanceM,
+                    COALESCE(SUM(movingTimeSeconds), 0)  AS movingSeconds,
+                    COALESCE(SUM(totalElevationGain), 0) AS elevationM
+             FROM activities
+             WHERE user_id = :userId
+               AND startDate BETWEEN :from AND :to
+             GROUP BY sport_id',
+            ['userId' => $user->getId(), 'from' => $from->format('Y-m-d H:i:s'), 'to' => $to->format('Y-m-d H:i:s')]
+        );
+
+        $totals = [];
+        foreach ($rows as $row) {
+            $totals[(int) ($row['sport_id'] ?? 0)] = [
+                'distanceM'     => (float) $row['distanceM'],
+                'sessions'      => (int) $row['sessions'],
+                'movingSeconds' => (int) $row['movingSeconds'],
+                'elevationM'    => (float) $row['elevationM'],
+            ];
+        }
+
+        return $totals;
     }
 }

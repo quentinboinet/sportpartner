@@ -34,4 +34,17 @@ class ActivityTest extends TestCase
         $this->assertSame(25.8, $activity->getSpeedKmh());
         $this->assertNull((new Activity())->getSpeedKmh());
     }
+
+    public function testSpeedKmhFallsBackToDistanceOverMovingTime(): void
+    {
+        // Activité sans vitesse moyenne Strava : 160 km en 5h10 -> 31 km/h
+        $activity = (new Activity())->setDistanceMeters(160000.0)->setMovingTimeSeconds(18600);
+        $this->assertSame(31.0, $activity->getSpeedKmh());
+
+        // La vitesse moyenne Strava reste prioritaire
+        $this->assertSame(25.8, $activity->setAverageSpeed(7.17)->getSpeedKmh());
+
+        // Temps nul : pas de division par zéro
+        $this->assertNull((new Activity())->setDistanceMeters(1000.0)->setMovingTimeSeconds(0)->getSpeedKmh());
+    }
 }

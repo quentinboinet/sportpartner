@@ -5,28 +5,35 @@
 {% block body %}
 
 {# ── Calculs hebdomadaires ─────────────────────────────── #}
+{# weeklyVolume : 12 semaines consécutives, la dernière = semaine EN COURS, l'avant-dernière = semaine précédente
+   (semaines vides à zéro, voir WeeklyVolumeSeries). Tendance affichée seulement si la semaine en cours a déjà
+   une valeur (pas de « -100 % » chaque lundi matin). #}
 {% set wAll  = weeklyVolume %}
 {% set wLast = wAll|last %}
 {% set wPrev = wAll|length > 1 ? wAll[wAll|length - 2] : null %}
 
 {% set distKm     = wLast ? (wLast.totalDistance / 1000)|round(1) : 0 %}
 {% set prevDistKm = wPrev ? (wPrev.totalDistance / 1000)|round(1) : 0 %}
-{% set distTrend  = prevDistKm > 0 ? ((distKm - prevDistKm) / prevDistKm * 100)|round(0) : null %}
+{% set distTrend  = distKm > 0 and prevDistKm > 0 ? ((distKm - prevDistKm) / prevDistKm * 100)|round(0) : null %}
 
 {% set totalSecs = wLast ? wLast.totalTime : 0 %}
 {% set timeH     = (totalSecs / 3600)|round(0, 'floor') %}
 {% set timeM     = ((totalSecs % 3600) / 60)|round(0, 'floor') %}
 {% set prevSecs  = wPrev ? wPrev.totalTime : 0 %}
-{% set timeTrend = prevSecs > 0 ? ((totalSecs - prevSecs) / prevSecs * 100)|round(0) : null %}
+{% set timeTrend = totalSecs > 0 and prevSecs > 0 ? ((totalSecs - prevSecs) / prevSecs * 100)|round(0) : null %}
+
+{% set elevM     = wLast ? wLast.totalElevation|round(0) : 0 %}
+{% set prevElevM = wPrev ? wPrev.totalElevation|round(0) : 0 %}
+{% set elevTrend = elevM > 0 and prevElevM > 0 ? ((elevM - prevElevM) / prevElevM * 100)|round(0) : null %}
 
 {% set sessCount     = wLast ? wLast.count : 0 %}
 {% set prevSessCount = wPrev ? wPrev.count : 0 %}
-{% set sessTrend     = prevSessCount > 0 ? ((sessCount - prevSessCount) / prevSessCount * 100)|round(0) : null %}
+{% set sessTrend     = sessCount > 0 and prevSessCount > 0 ? ((sessCount - prevSessCount) / prevSessCount * 100)|round(0) : null %}
 
 {# TSS estimé : ~60 TSS/heure (approximation endurance) #}
 {% set estTSS  = (totalSecs / 3600 * 60)|round(0) %}
 {% set prevTSS = (prevSecs / 3600 * 60)|round(0) %}
-{% set tssTrend = prevTSS > 0 ? ((estTSS - prevTSS) / prevTSS * 100)|round(0) : null %}
+{% set tssTrend = estTSS > 0 and prevTSS > 0 ? ((estTSS - prevTSS) / prevTSS * 100)|round(0) : null %}
 
 {# Forme : dist courante / moyenne dist toutes semaines → normalisé 35-90 #}
 {% set _sumDist = 0 %}
@@ -47,10 +54,6 @@
 {% if tssPct   > 100 %}{% set tssPct   = 100 %}{% endif %}
 {% set sessPct  = sessCount > 0 ? (sessCount / weeklyGoals.sessions * 100)|round(0) : 0 %}
 {% if sessPct  > 100 %}{% set sessPct  = 100 %}{% endif %}
-
-{# Élévation totale (approx. depuis activités récentes) #}
-{% set _elevSum = 0 %}
-{% for a in recentActivities %}{% set _elevSum = _elevSum + (a.elevationGain|default(0)) %}{% endfor %}
 
 {# Label semaine #}
 {% set _weekNum   = 'now'|date('W') %}
@@ -109,6 +112,82 @@
         <a href="#" class="sp-btn sp-btn-primary">{{ 'dashboard.add_activity'|trans }}</a>
     </div>
 </div>
+
+{# ── Alerte d'usure du matériel (>= 80 %), le plus usé d'abord ; absente si tout va bien ──
+ # Fermeture mémorisée dans le navigateur par matériel ET statut : l'alerte revient si le statut
+ # s'aggrave (bientôt usé -> usé). Le script suit le bandeau pour le masquer sans clignotement. #}
+{% if gearAlerts is not empty %}
+    {% set _alertFr   = app.request.locale == 'fr' %}
+    {% set _alertMax  = 3 %}
+    {% set _alertRest = gearAlerts|length - _alertMax %}
+    <div class="sp-gear-alert sp-gear-alert--{{ (gearAlerts|first).usage.status }}" id="gearAlert"
+         role="status" aria-label="{{ 'gear.alert_label'|trans }}"
+         data-max="{{ _alertMax }}"
+         data-more-one="{{ 'gear.alert_more_one'|trans }}"
+         data-more-many="{{ 'gear.alert_more_many'|trans }}">
+        <div class="sp-gear-alert-body">
+            <ul class="sp-gear-alert-list">
+                {% for alert in gearAlerts %}
+                    {% set _g  = alert.gear %}
+                    {% set _u  = alert.usage %}
+                    {% set _st = _u.status %}
+                    <li class="sp-gear-alert-item sp-gear-alert-item--{{ _st }}"
+                        data-gear-id="{{ _g.id }}" data-status="{{ _st }}"{{ loop.index > _alertMax ? ' hidden' }}>
+                        <i class="bi {{ _st == 'worn' ? 'bi-x-octagon-fill' : 'bi-exclamation-triangle-fill' }}" aria-hidden="true"></i>
+                        <span>{{ ('gear.alert_' ~ _g.type.value ~ '_' ~ _st)|trans({
+                            '%name%': _g.fullName ~ (_g.nickname ? ' (' ~ _g.nickname ~ ')' : ''),
+                            '%km%': _u.totalDistanceKm|number_format(0, _alertFr ? ',' : '.', _alertFr ? ' ' : ','),
+                            '%pct%': _u.wearPercent,
+                        }) }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+            <div class="sp-gear-alert-foot">
+                <span class="sp-gear-alert-more"{{ _alertRest > 0 ? '' : ' hidden' }}>
+                    {{- _alertRest == 1 ? 'gear.alert_more_one'|trans : 'gear.alert_more_many'|trans({'%count%': _alertRest}) -}}
+                </span>
+                <a href="{{ path('app_settings', {tab: 'gear'}) }}" class="sp-gear-alert-link">{{ 'gear.alert_link'|trans }}</a>
+            </div>
+        </div>
+        <button type="button" class="btn-close sp-gear-alert-close" aria-label="{{ 'gear.alert_dismiss'|trans }}"></button>
+    </div>
+    <script>
+    (() => {
+        const box = document.getElementById('gearAlert');
+        if (!box) return;
+        const PREFIX = 'sp.gearAlert.';
+        const read = (key) => { try { return window.localStorage.getItem(key); } catch (e) { return null; } };
+        const write = (key) => { try { window.localStorage.setItem(key, '1'); } catch (e) { /* stockage indisponible */ } };
+        const keyOf = (li, status) => PREFIX + li.dataset.gearId + '.' + (status || li.dataset.status);
+        // Masquée pour ce statut ; masquer "usé" couvre aussi "bientôt usé" (seule une aggravation la réaffiche)
+        const dismissed = (li) => read(keyOf(li)) === '1' || (li.dataset.status === 'warn' && read(keyOf(li, 'worn')) === '1');
+
+        box.querySelectorAll('[data-gear-id]').forEach((li) => { if (dismissed(li)) li.remove(); });
+        const items = [...box.querySelectorAll('[data-gear-id]')];
+        if (items.length === 0) {
+            box.remove();
+            return;
+        }
+
+        const max = Number(box.dataset.max) || 3;
+        items.forEach((li, i) => { li.hidden = i >= max; });
+        const more = box.querySelector('.sp-gear-alert-more');
+        const rest = items.length - max;
+        more.hidden = rest <= 0;
+        if (rest > 0) {
+            more.textContent = rest === 1 ? box.dataset.moreOne : box.dataset.moreMany.replace('%count%', String(rest));
+        }
+        const worn = items.some((li) => li.dataset.status === 'worn');
+        box.classList.toggle('sp-gear-alert--worn', worn);
+        box.classList.toggle('sp-gear-alert--warn', !worn);
+
+        box.querySelector('.sp-gear-alert-close').addEventListener('click', () => {
+            items.forEach((li) => write(keyOf(li)));
+            box.remove();
+        });
+    })();
+    </script>
+{% endif %}
 
 {# ── Ligne 1 : Charge & forme  +  Prochaine échéance ── #}
 <div class="row g-3 mb-3">
@@ -248,9 +327,16 @@
                 <span class="sp-stat-lbl">{{ 'stat.elevation'|trans }}</span>
             </div>
             <div class="sp-stat-val">
-                {{ _elevSum > 0 ? _elevSum|round(0) : '--' }}{% if _elevSum > 0 %}<sup> m</sup>{% endif %}
+                {{ elevM > 0 ? elevM : '--' }}{% if elevM > 0 %}<sup> m</sup>{% endif %}
             </div>
-            <span class="sp-trend flat">-</span>
+            {% if elevTrend is not null %}
+                <span class="sp-trend {{ elevTrend >= 0 ? 'up' : 'down' }}">
+                    <i class="bi bi-arrow-{{ elevTrend >= 0 ? 'up' : 'down' }}-right"></i>
+                    {{ elevTrend > 0 ? '+' : '' }}{{ elevTrend }}%
+                </span>
+            {% else %}
+                <span class="sp-trend flat">-</span>
+            {% endif %}
         </div>
     </div>
 
@@ -413,6 +499,9 @@
                 </div>
 
             </div>
+
+            {# Objectifs par sport de la semaine en cours (WeeklyGoalProgress) #}
+            {{ include('dashboard/_sport_goals.html.twig') }}
         </div>
     </div>
 

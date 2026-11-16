@@ -1,0 +1,131 @@
+{#
+ # Carte d'un matériel dans Paramètres > Matériel (incluse par settings/_gear.html.twig).
+ # Variables : gear, gearUsage, _token, _dp, _ts.
+ #}
+{% set u = gearUsage[gear.id] %}
+{% set _status = u.status %}
+{% set _json = {
+    id: gear.id,
+    type: gear.type.value,
+    brandId: gear.brand.id,
+    model: gear.model,
+    nickname: gear.nickname ?? '',
+    purchasedAt: gear.purchasedAt ? gear.purchasedAt|date('Y-m-d') : '',
+    initialKm: gear.initialDistanceM / 1000,
+    maxKm: gear.maxDistanceM is not null ? gear.maxDistanceM / 1000 : '',
+    isDefault: gear.isDefault,
+    retired: gear.retired,
+    notes: gear.notes ?? ''
+} %}
+<article class="sp-gear-card{{ gear.retired ? ' sp-gear-card--retired' : '' }}" id="gear-{{ gear.id }}">
+    <div class="sp-gear-card-head">
+        <div class="sp-gear-icon sp-gear-icon--{{ gear.type.value }}" aria-hidden="true">
+            <i class="bi {{ gear.type.icon }}"></i>
+        </div>
+        <div class="sp-gear-title-wrap">
+            <div class="sp-gear-title">{{ gear.fullName }}</div>
+            {% if gear.nickname %}
+                <div class="sp-gear-nick">{{ gear.nickname }}</div>
+            {% endif %}
+        </div>
+        <div class="sp-gear-badges">
+            {% if gear.fromStrava %}
+                <span class="sp-gear-badge sp-gear-badge--strava" title="{{ 'gear.badge_strava_title'|trans }}"><i class="bi bi-strava" aria-hidden="true"></i> {{ 'gear.badge_strava'|trans }}</span>
+            {% endif %}
+            {% if gear.isDefault %}
+                <span class="sp-gear-badge sp-gear-badge--default"><i class="bi bi-star-fill" aria-hidden="true"></i> {{ 'gear.badge_default'|trans }}</span>
+            {% endif %}
+            {% if gear.retired %}
+                <span class="sp-gear-badge sp-gear-badge--retired">{{ 'gear.badge_retired'|trans({'%date%': gear.retiredAt|date('d/m/Y')}) }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <dl class="sp-gear-stats">
+        <div>
+            <dt>{{ 'gear.stat_total'|trans }}</dt>
+            <dd>{{ u.totalDistanceKm|number_format(0, _dp, _ts) }} <span>km</span></dd>
+        </div>
+        <div>
+            <dt>{{ 'gear.stat_activities'|trans }}</dt>
+            <dd>{{ u.activitiesCount }}</dd>
+        </div>
+        <div>
+            <dt>{{ 'gear.stat_last_use'|trans }}</dt>
+            <dd>{{ u.lastUsedAt ? u.lastUsedAt|date('d/m/Y') : '-' }}</dd>
+        </div>
+        <div>
+            <dt>{{ 'gear.stat_purchased'|trans }}</dt>
+            <dd>{{ gear.purchasedAt ? gear.purchasedAt|date('d/m/Y') : '-' }}</dd>
+        </div>
+    </dl>
+
+    <div class="sp-gear-wear sp-gear-wear--{{ _status }}">
+        {% if _status == 'none' %}
+            <div class="sp-gear-wear-none"><i class="bi bi-infinity" aria-hidden="true"></i> {{ 'gear.status_none'|trans }}</div>
+        {% else %}
+            <div class="sp-gear-wear-top">
+                <span class="sp-gear-wear-status">
+                    <i class="bi {{ _status == 'ok' ? 'bi-check-circle-fill' : (_status == 'warn' ? 'bi-exclamation-triangle-fill' : 'bi-x-octagon-fill') }}" aria-hidden="true"></i>
+                    {{ ('gear.status_' ~ _status)|trans }}
+                </span>
+                <span class="sp-gear-wear-pct">{{ u.wearPercent }} %</span>
+            </div>
+            <div class="sp-gear-wear-bar" role="progressbar"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ u.wearBarPercent }}"
+                 aria-label="{{ 'gear.wear_label'|trans }}"
+                 aria-valuetext="{{ u.wearPercent }} % - {{ ('gear.status_' ~ _status)|trans }}">
+                <span style="width:{{ u.wearBarPercent }}%"></span>
+            </div>
+            <div class="sp-gear-wear-detail">
+                {{ 'gear.wear_of'|trans({'%max%': (gear.maxDistanceM / 1000)|number_format(0, _dp, _ts)}) }}
+                ·
+                {% if _status == 'worn' %}
+                    {{ 'gear.wear_reached'|trans }}
+                {% else %}
+                    {{ 'gear.wear_remaining'|trans({'%km%': u.remainingKm|number_format(0, _dp, _ts)}) }}
+                {% endif %}
+            </div>
+        {% endif %}
+        {% if gear.initialDistanceM > 0 %}
+            <div class="sp-gear-wear-detail">{{ 'gear.initial_included'|trans({'%km%': (gear.initialDistanceM / 1000)|number_format(0, _dp, _ts)}) }}</div>
+        {% endif %}
+    </div>
+
+    {% if gear.notes %}
+        <p class="sp-gear-notes">{{ gear.notes }}</p>
+    {% endif %}
+
+    <div class="sp-gear-actions">
+        <button type="button" class="sp-gear-action" data-bs-toggle="modal" data-bs-target="#gearModal"
+                data-gear="{{ _json|json_encode }}">
+            <i class="bi bi-pencil" aria-hidden="true"></i> {{ 'gear.edit'|trans }}
+        </button>
+        <form method="post" action="{{ path('app_gear_retire', {id: gear.id}) }}">
+            <input type="hidden" name="_token" value="{{ _token }}">
+            <button type="submit" class="sp-gear-action">
+                {% if gear.retired %}
+                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> {{ 'gear.reactivate'|trans }}
+                {% else %}
+                    <i class="bi bi-archive" aria-hidden="true"></i> {{ 'gear.retire'|trans }}
+                {% endif %}
+            </button>
+        </form>
+        <form method="post" action="{{ path('app_gear_delete', {id: gear.id}) }}"
+              onsubmit="return confirm('{{ 'gear.confirm_delete'|trans|e('js') }}')">
+            <input type="hidden" name="_token" value="{{ _token }}">
+            <button type="submit" class="sp-gear-action sp-gear-action--danger">
+                <i class="bi bi-trash" aria-hidden="true"></i> {{ 'gear.delete'|trans }}
+            </button>
+        </form>
+        {% if gear.isDefault and not gear.retired %}
+            <form method="post" action="{{ path('app_gear_assign_defaults', {id: gear.id}) }}" class="sp-gear-assign-form">
+                <input type="hidden" name="_token" value="{{ _token }}">
+                <button type="submit" class="sp-gear-action sp-gear-action--accent"
+                        title="{{ ('gear.assign_help_' ~ gear.type.value)|trans }}">
+                    <i class="bi bi-link-45deg" aria-hidden="true"></i> {{ 'gear.assign_defaults'|trans }}
+                </button>
+            </form>
+        {% endif %}
+    </div>
+</article>

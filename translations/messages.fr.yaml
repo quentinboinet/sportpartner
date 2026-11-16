@@ -50,6 +50,74 @@ weather:
     click_forecast: "Cliquer pour les prévisions 7j →"
     forecast_title: "Prévisions 7 jours"
 
+# ── Météo du jour J (page d'une course) ──────
+race_weather:
+    title: "Météo du jour J"
+    loading: "Chargement de la météo…"
+    badge_forecast: "Prévision"
+    badge_observed: "Météo observée"
+    badge_climate: "Tendance historique"
+    max: "max"
+    min: "min"
+    feels_like: "Ressenti %max% / %min%"
+    risk_low: "Risque de pluie faible"
+    risk_moderate: "Risque de pluie modéré"
+    risk_high: "Risque de pluie élevé"
+    observed_wet: "Journée pluvieuse"
+    observed_dry: "Pas de pluie notable"
+    wind: "Vent"
+    gusts: "rafales %speed%"
+    uv: "Indice UV max"
+    sun: "Soleil"
+    sunrise: "Lever"
+    sunset: "Coucher"
+    hours_title: "Au fil de la journée"
+    rain_probability: "Probabilité de pluie"
+    precipitation: "Précipitations"
+    updated_at: "Mis à jour à %time%"
+    gpx_start: "Départ du parcours"
+    source_gpx: "départ du tracé GPX"
+    source_location: "lieu géocodé"
+    attribution: "Données météo : Open-Meteo.com"
+    geonames: "Lieux : GeoNames"
+    wind_from:
+        n: "Vent du nord"
+        ne: "Vent du nord-est"
+        e: "Vent d'est"
+        se: "Vent du sud-est"
+        s: "Vent du sud"
+        sw: "Vent du sud-ouest"
+        w: "Vent d'ouest"
+        nw: "Vent du nord-ouest"
+    compass:
+        n: "N"
+        ne: "NE"
+        e: "E"
+        se: "SE"
+        s: "S"
+        sw: "SO"
+        w: "O"
+        nw: "NO"
+    climate_note: "Ce n'est pas une prévision : statistiques du %from% au %to% sur les %years% dernières années (%fromYear%-%toYear%)."
+    climate_tmax: "Max. moyenne"
+    climate_tmin: "Min. moyenne"
+    climate_range: "de %min% à %max%"
+    climate_rain_days: "%share% des jours avec pluie (1 mm ou plus)"
+    climate_rain_years: "Années avec pluie : %n% sur %total%"
+    climate_wind: "Vent max moyen"
+    climate_dominant: "Temps le plus fréquent"
+    climate_snow: "Jours de neige"
+    climate_snow_value: "%n% sur %days%"
+    climate_available: "Prévisions détaillées disponibles 15 jours avant la course, à partir du %date%."
+    no_date: "Ajoute une date à la course pour voir la météo du jour J."
+    add_date: "Ajouter une date"
+    no_location: "Ajoute un lieu ou importe le GPX du parcours."
+    not_found: "Lieu introuvable : « %location% ». Précise la commune ou importe le GPX du parcours."
+    edit_location: "Modifier le lieu"
+    import_gpx: "Importer le GPX"
+    unavailable: "Météo indisponible pour le moment. Réessaie dans quelques minutes."
+    retry: "Réessayer"
+
 # ── Carte Prochaine échéance ─────────────────
 event:
     next_label: PROCHAINE ÉCHÉANCE
@@ -85,6 +153,23 @@ objectives:
     distance: distance
     charge: charge
     sessions: séances
+    by_sport:
+        title: Par sport
+        distance: "%current% / %target% km"
+        sessions_one: "%current% / %target% séance"
+        sessions_many: "%current% / %target% séances"
+        duration: "%current% / %target%"
+        elevation: "%current% / %target% m D+"
+        left_distance: "encore %value% km"
+        left_sessions_one: "encore 1 séance"
+        left_sessions_many: "encore %value% séances"
+        left_duration: "encore %value%"
+        left_elevation: "encore %value% m D+"
+        reached: Atteint
+        hours: "%h%h"
+        hours_minutes: "%h%h%m%"
+        minutes: "%m% min"
+        add_cta: "Ajouter des objectifs par sport"
 
 # ── Bannière Strava ──────────────────────────
 strava:
@@ -116,6 +201,7 @@ calendar:
     upcoming_title: Prochaines courses
     upcoming_all: Toutes
     upcoming_empty: "Aucune course datée à venir. Ajoute une date à tes courses pour les voir ici."
+    upcoming_none: Aucune à venir
     today: "Aujourd'hui"
     in_days: "{1} dans 1 jour|]1,Inf[ dans %count% jours"
     qv_distance: Distance
@@ -222,6 +308,88 @@ activity_detail:
     hr_chart_title: Fréquence cardiaque
     pace_title: Allure par kilomètre
 
+# ── Ravitaillement d'une activité (carte de la page de détail) ──────────────
+activity_fuel:
+    title: Ravitaillement
+    subtitle: ce que tu as consommé pendant la sortie
+    units_zero: "0 aliment"
+    units_one: "1 aliment"
+    units_other: "%count% aliments"
+    col_carbs: Glucides consommés
+    col_food: Aliments
+    col_drinks: Boissons
+    gauge_label: "Débit de glucides : %rate% g/h. Cible : %min%-%max% g/h, sur une échelle de 0 à %scale% g/h."
+    gauge_label_none: "Débit de glucides non calculable : durée de l'activité inconnue."
+    status_within: "Dans la cible %min%-%max% g/h"
+    status_below: En dessous de la cible
+    status_above: Au-dessus de la cible
+    status_none: "Durée inconnue : débit non calculable"
+    status_empty: Rien de saisi pour cette sortie
+    stat_food: Aliments
+    stat_drinks: Boissons
+    stat_liquid: Liquide total
+    stat_hydration: Hydratation
+    per_unit: g/u
+    per_500: g/500 ml
+    carbs_label_food: "%name% : glucides par unité, en grammes"
+    carbs_label_drink: "%name% : glucides pour 500 ml, en grammes"
+    announce: "%name% : %value%"
+    add_unit: "Ajouter une unité : %name%"
+    remove_unit: "Retirer une unité : %name%"
+    add_ml: "Ajouter %step% ml : %name%"
+    remove_ml: "Retirer %step% ml : %name%"
+    delete_custom: "Supprimer %name%"
+    items:
+        gel:
+            name: Gel
+            add: Ajouter un gel
+            remove: Retirer un gel
+        puree:
+            name: Purée
+            add: Ajouter une purée
+            remove: Retirer une purée
+        fruit_paste:
+            name: Pâte de fruit
+            add: Ajouter une pâte de fruit
+            remove: Retirer une pâte de fruit
+        gummies:
+            name: Gommes
+            add: Ajouter une portion de gommes
+            remove: Retirer une portion de gommes
+        bar:
+            name: Barre
+            add: Ajouter une barre
+            remove: Retirer une barre
+        water:
+            name: Eau
+            add: "Ajouter %step% ml d'eau"
+            remove: "Retirer %step% ml d'eau"
+        isotonic:
+            name: Isotonique
+            add: "Ajouter %step% ml de boisson isotonique"
+            remove: "Retirer %step% ml de boisson isotonique"
+        energy_drink:
+            name: "Boisson d'effort"
+            add: "Ajouter %step% ml de boisson d'effort"
+            remove: "Retirer %step% ml de boisson d'effort"
+    add_other: Autre
+    add_other_food: Ajouter un autre aliment
+    add_other_drink: Ajouter une autre boisson
+    custom_name: Nom
+    custom_name_placeholder_food: "ex. Banane"
+    custom_name_placeholder_drink: "ex. Coca"
+    custom_carbs_food: "Glucides par unité (g)"
+    custom_carbs_drink: "Glucides pour 500 ml (g)"
+    custom_submit: Ajouter
+    custom_cancel: Annuler
+    custom_error_name: "Indique un nom (%max% caractères au plus)."
+    custom_error_carbs: "Indique une valeur de 0 à %max% g."
+    save_saving: "Enregistrement…"
+    save_saved: Enregistré
+    save_error: "Erreur, réessaie"
+    save_session: "Session expirée : recharge la page"
+    save_retry: Réessayer
+
 # ── Page Activités ────────────────────────────
 activities:
     page_title: "Activités - SportPartner"
@@ -253,6 +421,7 @@ settings:
         profile: Profil
         preferences: Préférences
         hr_zones: Zones cardiaques
+        gear: Matériel
         devices: Appareils
         appearance: Apparence
         account: Compte
@@ -260,6 +429,31 @@ settings:
         section_title: Objectifs hebdomadaires
         weekly_distance: "Distance cible (km)"
         weekly_sessions: "Séances cibles"
+        all_sports: Tous sports confondus
+        by_sport: Objectifs par sport
+        by_sport_help: "Remplis seulement les cibles à suivre, au moins une par sport. Durée en heures : 5, 5,5 ou 5:30."
+        empty: "Aucun objectif par sport pour l'instant."
+        add: Ajouter un sport
+        all_used: "Chaque sport a déjà son objectif."
+        remove: "Retirer l'objectif %sport%"
+        added: "Objectif %sport% ajouté, pense à enregistrer."
+        removed: "Objectif %sport% retiré, pense à enregistrer."
+        distance: "Distance (km)"
+        sessions: Séances
+        duration: "Durée (h)"
+        elevation: "D+ (m)"
+        unknown_sport: Sport inconnu
+        conflict: "Tes objectifs par sport ont changé entre-temps (dans un autre onglet ?) : vérifie-les puis enregistre à nouveau."
+        error:
+            no_target: "Indique au moins une cible : distance, séances, durée ou D+."
+            sport_required: "Choisis un sport."
+            sport_invalid: "Ce sport n'existe pas."
+            duplicate_sport: "Ce sport a déjà un objectif."
+            distance_range: "Entre 0,1 et 2 000 km."
+            sessions_range: "Entre 1 et 30 séances."
+            duration_range: "Entre 1 min et 100 h."
+            duration_invalid: "Durée invalide : écris par exemple 5, 5,5 ou 5:30."
+            elevation_range: "Entre 1 et 50 000 m."
     profile:
         section_title: Profil athlète
         change_photo: Changer la photo
@@ -270,6 +464,167 @@ settings:
         max_hr: "FC max (bpm)"
         vma: "VMA (km/h)"
         ftp: "FTP vélo (W)"
+
+# ── Photo de profil (Paramètres > Profil, barre latérale) ────────────────────
+avatar:
+    alt: "Photo de profil"
+    hint: "JPEG, PNG, WebP ou GIF, %size% Mo maximum. L'image est recadrée en carré."
+    use_strava: "Utiliser ma photo Strava"
+    delete: "Supprimer la photo"
+    delete_confirm: "Supprimer ta photo de profil ?"
+    uploading: "Envoi en cours..."
+    importing: "Import en cours..."
+    deleting: "Suppression..."
+    flash:
+        updated: "Photo de profil mise à jour."
+        strava: "Ta photo Strava est maintenant ta photo de profil."
+        deleted: "Photo de profil supprimée."
+    error:
+        csrf: "La session a expiré : recharge la page puis réessaie."
+        missing: "Choisis une image à envoyer."
+        upload: "L'envoi de l'image a échoué, réessaie."
+        empty: "Ce fichier est vide."
+        too_large: "Image trop lourde : %size% Mo maximum."
+        type: "Format non pris en charge : choisis une image JPEG, PNG, WebP ou GIF."
+        heic: "Format HEIC (iPhone) non pris en charge : enregistre la photo en JPEG puis réessaie."
+        animated: "Les images animées ne sont pas acceptées : choisis une image fixe."
+        dimensions: "Image trop grande : réduis ses dimensions (40 mégapixels maximum) puis réessaie."
+        invalid: "Ce fichier n'est pas une image valide ou il est endommagé."
+        processing: "Impossible de traiter cette image : essaie avec une autre photo."
+    strava:
+        not_connected: "Connecte d'abord ton compte Strava."
+        auth: "Ta connexion Strava a expiré : reconnecte Strava puis réessaie."
+        rate_limit: "Strava limite le nombre de requêtes : réessaie dans 15 minutes."
+        unavailable: "Strava est injoignable pour le moment : réessaie plus tard."
+        no_photo: "Pas de photo sur ton profil Strava."
+        download: "Impossible de récupérer ta photo Strava : réessaie plus tard."
+        invalid: "Ta photo Strava n'a pas pu être utilisée : envoie une image depuis ton appareil."
+
+# ── Matériel (Paramètres > Matériel, activités) ──────────────────────────────
+gear:
+    section_title: Matériel
+    intro: "Tes chaussures et tes vélos : rattache-les à tes activités pour suivre leur kilométrage et leur usure."
+    add: Ajouter du matériel
+    add_first: Ajouter mon premier matériel
+    add_shoes: Ajouter des chaussures
+    add_bike: Ajouter un vélo
+    empty_title: Aucun matériel pour l'instant
+    empty_text: "Ajoute tes chaussures de course ou ton vélo pour suivre les kilomètres parcourus et savoir quand les remplacer. Le matériel par défaut est rattaché automatiquement à tes nouvelles activités Strava."
+    group_shoes: Chaussures
+    group_bike: Vélos
+    group_empty_shoes: "Aucune paire de chaussures en service."
+    group_empty_bike: "Aucun vélo en service."
+    retired_section: À la retraite
+    brand_other: Autre
+    type_shoes: Chaussures
+    type_bike: Vélo
+    type_shoes_desc: "Course, trail, marche, randonnée"
+    type_bike_desc: "Route, gravel, VTT"
+    badge_default: Par défaut
+    badge_retired: "Retiré le %date%"
+    stat_total: Total
+    stat_activities: Activités
+    stat_last_use: Dernière sortie
+    stat_purchased: Achat
+    status_ok: Bon état
+    status_warn: À surveiller
+    status_worn: À remplacer
+    status_none: "Usure non suivie (pas de durée de vie)"
+    wear_label: Usure
+    wear_of: "Durée de vie : %max% km"
+    wear_remaining: "encore %km% km"
+    wear_reached: "durée de vie atteinte"
+    initial_included: "Dont %km% km parcourus avant le suivi"
+    edit: Modifier
+    retire: Mettre à la retraite
+    reactivate: Réactiver
+    delete: Supprimer
+    confirm_delete: "Supprimer ce matériel ? Les activités sont conservées, elles n'auront simplement plus de matériel rattaché."
+    assign_defaults: Rattacher aux activités sans matériel
+    assign_help_shoes: "Rattache ces chaussures à tes activités de course, trail, marche et randonnée qui n'ont pas encore de matériel (depuis la date d'achat si elle est renseignée)."
+    assign_help_bike: "Rattache ce vélo à tes sorties vélo qui n'ont pas encore de matériel (depuis la date d'achat si elle est renseignée)."
+    modal_title_add: Ajouter du matériel
+    modal_title_edit: Modifier le matériel
+    save_add: Ajouter
+    save_edit: Enregistrer
+    cancel: Annuler
+    field_type: Type
+    field_type_locked: "Le type ne peut pas être modifié après la création."
+    field_brand: Marque
+    field_brand_placeholder: Choisir une marque
+    field_model: Modèle
+    field_model_placeholder: "Ex. Speedgoat 6, Tarmac SL7…"
+    field_nickname: Surnom
+    field_nickname_placeholder: "Ex. Les rouges, Vélo du dimanche…"
+    field_purchased_at: Date d'achat
+    field_initial_km: Km déjà parcourus
+    field_initial_help: "Km déjà parcourus : distance faite avant de suivre ce matériel ici."
+    field_max_km: Durée de vie
+    field_max_help: "Durée de vie : environ 700 km pour des chaussures de course ; laisser vide pour ne pas suivre l'usure."
+    field_default_shoes: Chaussures par défaut
+    field_default_bike: Vélo par défaut
+    field_default_help_shoes: "Rattachées automatiquement aux nouvelles activités Strava de course, trail, marche et randonnée."
+    field_default_help_bike: "Rattaché automatiquement aux nouvelles sorties vélo importées de Strava."
+    field_default_retired: "Un matériel à la retraite ne peut pas être le matériel par défaut."
+    field_notes: Notes
+    field_notes_placeholder: "Pointure, réglages, entretien…"
+    flash_added: Matériel ajouté.
+    flash_updated: Matériel modifié.
+    flash_retired: "Matériel mis à la retraite : il n'est plus proposé pour les nouvelles activités."
+    flash_reactivated: Matériel réactivé.
+    flash_deleted: "Matériel supprimé. Les activités concernées n'ont plus de matériel rattaché."
+    flash_assigned: "{0} Aucune activité sans matériel à rattacher à %name%.|{1} 1 activité rattachée à %name%.|]1,Inf[ %count% activités rattachées à %name%."
+    flash_retired_no_assign: "Un matériel à la retraite ne peut pas être rattaché aux activités."
+    flash_invalid_type: Type de matériel invalide.
+    flash_brand_required: "Choisis une marque compatible avec ce type de matériel."
+    flash_model_required: Le modèle est obligatoire.
+    flash_csrf: "Session expirée, merci de réessayer."
+    flash_incompatible: "Ce matériel ne peut pas être rattaché à cette activité."
+    flash_activity_updated: Matériel de l'activité enregistré.
+    flash_activity_cleared: "Matériel retiré de l'activité."
+    activity_label: Matériel
+    activity_none: Aucun
+    activity_submit: Enregistrer
+    activity_retired_suffix: "(à la retraite)"
+    activity_empty: "Aucun matériel compatible."
+    activity_add_link: Ajouter du matériel
+    # Import Strava (Paramètres > Matériel)
+    badge_strava: Strava
+    badge_strava_title: "Importé de Strava"
+    import_title: Importer depuis Strava
+    import_text: "Récupère tes chaussures et tes vélos Strava, rattache-les à tes activités déjà importées et reprends leur kilométrage total Strava."
+    import_replace: Remplacer les rattachements existants
+    import_replace_help: "Coché : chaque activité reprend le matériel indiqué sur Strava, même si tu en avais choisi un autre ici. Décoché : seules les activités sans matériel sont rattachées."
+    import_note: "Le modèle et le nom viennent de Strava ; la durée de vie, la date d'achat et les notes restent celles saisies ici. Le matériel principal Strava devient ton matériel par défaut si tu n'en as pas déjà un."
+    import_btn: Importer depuis Strava
+    import_busy: "Import en cours…"
+    import_reconnect: Reconnecter Strava
+    import_reconnect_help: "Accès refusé, ou matériel jamais utilisé absent ? Reconnecte Strava pour autoriser la lecture de ton profil."
+    import_connect_hint: "Connecte ton compte Strava pour importer tes chaussures et tes vélos."
+    import_connect_btn: Connecter Strava
+    import_done: "Import Strava terminé : %created%, %updated%, %linked%."
+    import_created: "{0} 0 matériel importé|{1} 1 matériel importé|]1,Inf[ %count% matériels importés"
+    import_updated: "{0} 0 mis à jour|{1} 1 mis à jour|]1,Inf[ %count% mis à jour"
+    import_linked: "{0} 0 activité rattachée|{1} 1 activité rattachée|]1,Inf[ %count% activités rattachées"
+    import_empty: "Aucun matériel trouvé sur Strava. Associe tes chaussures ou ton vélo à tes activités sur Strava, puis relance l'import."
+    import_skipped: "{1} 1 matériel n'a pas pu être lu sur Strava : il a été ignoré.|]1,Inf[ %count% matériels n'ont pas pu être lus sur Strava : ils ont été ignorés."
+    import_truncated: "Historique très long : seules tes %count% activités Strava les plus récentes ont été analysées."
+    import_scope_hint: "Astuce : reconnecte Strava pour importer aussi le matériel que tu n'as encore jamais utilisé dans une activité."
+    import_error_not_connected: "Connecte d'abord ton compte Strava pour importer ton matériel."
+    import_error_auth: "Strava a refusé l'accès à ton matériel. Reconnecte ton compte Strava (« Reconnecter Strava ») puis relance l'import."
+    import_error_rate_limit: "Limite de requêtes Strava atteinte. Réessaie dans 15 minutes."
+    import_error_unavailable: "Strava ne répond pas pour le moment. Réessaie plus tard."
+    import_error_unexpected: "L'import a échoué. Réessaie dans quelques instants."
+    # Alerte d'usure (tableau de bord)
+    alert_label: Matériel à surveiller
+    alert_shoes_worn: "Tes %name% ont %km% km (%pct% % de leur durée de vie) : pense à les remplacer."
+    alert_shoes_warn: "Tes %name% ont %km% km (%pct% % de leur durée de vie) : bientôt à remplacer."
+    alert_bike_worn: "Ton vélo %name% a %km% km (%pct% % du kilométrage prévu) : pense à le faire réviser."
+    alert_bike_warn: "Ton vélo %name% a %km% km (%pct% % du kilométrage prévu) : révision à prévoir."
+    alert_more_one: "et 1 autre matériel à vérifier"
+    alert_more_many: "et %count% autres matériels à vérifier"
+    alert_link: Voir mon matériel
+    alert_dismiss: Masquer cette alerte
 
 # ── Authentification ─────────────────────────
 auth:
@@ -370,6 +725,18 @@ race_show:
     step_gpx: "Importer le GPX du parcours (fichier ou lien)"
     step_checkpoints: "Placer les repères : ravitos, cols, barrières horaires"
     step_times: "Définir tes temps de passage (bientôt)"
+    step_times_link: "Définir tes temps de passage"
+    scenarios_title: "Objectifs de temps"
+    scenarios_link: "Temps de passage"
+    scenarios_empty: "Aucun scénario pour l'instant : fixe une heure de départ, un temps visé et tes temps de passage à chaque repère."
+    scenario_target: "Objectif %time%"
+    scenario_no_target: "Pas de temps visé"
+    scenario_start: "Départ %time%"
+    scenario_arrival: "Arrivée %time%"
+    scenario_print: "Imprimer la fiche du scénario « %name% »"
+    scenarios_heading: "Scénarios"
+    scenario_target_time: "Temps visé %time%"
+    scenario_strategy_title: "Stratégie d'allure"
     checkpoints: repères
     aid_stations: ravitos
     info_title: Infos
@@ -394,6 +761,7 @@ race_plan:
     upload_feature_checkpoints: "Repères et ravitaillements placés d'un clic sur le profil"
     upload_feature_segments: "Distance, D+, D- et pente moyenne entre chaque repère"
     upload_feature_next: "Bientôt : temps de passage, barrières horaires et bracelet d'allure"
+    upload_feature_times: "Temps de passage, barrières horaires et bracelet d'allure à imprimer"
     upload_where: "Le GPX se trouve en général sur le site de l'organisation. Tu peux aussi l'exporter depuis Strava, Garmin Connect, Visorando…"
     dropzone_title: Glisse ton fichier GPX ici
     dropzone_or: ou clique pour le choisir
@@ -469,6 +837,10 @@ race_plan:
     field_cutoff_help: "hh:mm depuis le départ (ex : 30:15 pour 30 h 15). Laisse vide s'il n'y en a pas."
     field_notes: Notes
     field_notes_placeholder: "Nutrition, matériel, point d'eau, assistance…"
+    field_notes_private: "Privées : jamais affichées sur le plan partagé."
+    field_public_message: Message pour tes proches
+    field_public_message_placeholder: "Ex. Venez côté gauche après le ravito."
+    field_public_message_help: "Affiché sur le lien de partage du plan, à ce point de passage (500 caractères au plus)."
     cancel: Annuler
     save_add: Ajouter
     save_edit: Enregistrer
@@ -496,6 +868,129 @@ race_plan:
     flash_checkpoint_saved: "Repère enregistré."
     flash_checkpoint_deleted: "Repère supprimé."
     flash_checkpoint_invalid: "Repère invalide : vérifie le nom, la distance et la barrière horaire."
+    # Temps de passage (scénarios, partial race/_scenarios.html.twig)
+    nav_scenarios: "Temps de passage"
+    sc_title: "Temps de passage"
+    sc_sub: "Tes scénarios de course : temps visé, heure et allure à chaque repère"
+    sc_empty_text: "Un scénario, c'est un objectif de temps (A, B, C…) : une heure de départ, un temps visé à l'arrivée et tes temps de passage à chaque repère. Le tableau calcule aussitôt l'heure de passage, l'allure de chaque tronçon et ta marge sur les barrières horaires."
+    sc_feature_target: "Temps visé et heure d'arrivée prévue"
+    sc_feature_splits: "Temps de passage, heure et allure à chaque repère"
+    sc_feature_cutoffs: "Marge sur chaque barrière horaire"
+    sc_feature_distribute: "Répartition automatique du temps visé selon la distance et le dénivelé"
+    sc_feature_strategy: "Stratégies d'allure : départ prudent, negative split, gestion ultra…"
+    sc_create_first: "Créer mon premier scénario"
+    sc_btn_add: "Scénario"
+    sc_btn_add_title: "Ajouter un scénario"
+    sc_limit: "%max% scénarios maximum : supprime-en un pour en créer un autre."
+    sc_tablist_label: "Scénarios"
+    sc_field_name: "Nom"
+    sc_field_name_placeholder: "Ex : Objectif A, Finir, Plan météo…"
+    sc_field_name_help: "Laisse vide pour « Objectif A », « Objectif B »…"
+    sc_field_start: "Heure de départ"
+    sc_field_target: "Temps visé"
+    sc_field_target_placeholder: "Ex : 3:15"
+    sc_field_duration_help: "h:mm ou h:mm:ss depuis le départ (ex : 3:15, 27:30, 3h15)"
+    sc_modal_title: "Nouveau scénario"
+    sc_modal_help: "Un objectif de temps de plus : par exemple un plan A ambitieux, un plan B prudent et un plan C pour finir."
+    sc_modal_submit: "Créer le scénario"
+    sc_sum_target: "Temps visé"
+    sc_sum_arrival: "Arrivée prévue"
+    sc_sum_pace: "Allure en mouvement"
+    sc_sum_stops: "Arrêts"
+    sc_sum_cutoffs: "Barrières"
+    sc_sum_pinned: "Temps fixés"
+    sc_cutoffs_none: "Aucune"
+    sc_cutoff_ok_n: "%n% ok"
+    sc_cutoff_tight_n: "%n% serrée(s)"
+    sc_cutoff_missed_n: "%n% dépassée(s)"
+    sc_save: "Enregistrer"
+    sc_unsaved: "Modifications non enregistrées"
+    sc_distribute: "Répartir"
+    sc_distribute_help: "Efface les temps fixés et recalcule tous les passages à partir du temps visé et de la stratégie d'allure enregistrés."
+    sc_distribute_need_target: "Sans temps visé enregistré, les repères après le dernier temps fixé restent vides et « Répartir » est indisponible."
+    sc_pins_help: "Les temps « auto » sont calculés entre tes temps fixés et le temps visé, au prorata de l'effort (km + D+/100, arrêts aux ravitos compris) modulé par la stratégie d'allure. Saisis un temps pour le fixer : les autres se recalculent, le temps visé ne bouge jamais."
+    sc_confirm_distribute: "Effacer les temps fixés de ce scénario et recalculer tous les passages à partir du temps visé ?"
+    sc_confirm_distribute_dirty: "Tes modifications non enregistrées seront perdues : la répartition utilise le temps visé enregistré. Continuer ?"
+    sc_confirm_dirty: "Tu as des modifications non enregistrées qui seront perdues. Continuer ?"
+    sc_duplicate: "Dupliquer"
+    sc_duplicate_title: "Créer une copie de ce scénario (temps fixés compris)"
+    sc_print: "Imprimer"
+    sc_print_title: "Fiche imprimable (nouvel onglet)"
+    sc_delete: "Supprimer"
+    sc_confirm_delete: "Supprimer le scénario « %name% » et ses temps de passage ?"
+    sc_col_cp: "Repère"
+    sc_col_gain: "D+ cumulé"
+    sc_col_time: "Temps de passage"
+    sc_col_clock: "Heure"
+    sc_col_stop: "Arrêt"
+    sc_col_pace: "Allure tronçon"
+    sc_col_avg: "Allure moy."
+    sc_col_cutoff: "Barrière"
+    sc_gain_title: "+%gain% m sur le tronçon"
+    sc_time_placeholder: "h:mm"
+    sc_auto: "auto"
+    sc_auto_title: "Calculé automatiquement : saisis un temps pour le fixer"
+    sc_pinned_title: "Temps fixé : les temps auto sont calculés à partir de lui"
+    sc_unpin: "Repasser en automatique"
+    sc_state_auto: "Calculé automatiquement"
+    sc_state_pinned: "Temps fixé"
+    sc_time_label: "Temps de passage à %name%"
+    sc_finish_time_label: "Temps visé à l'arrivée"
+    sc_day: "J+%n%"
+    sc_day_title: "%n% jour(s) après le jour du départ"
+    sc_stop: "+%n% min"
+    sc_departure: "Repart à %time%"
+    sc_per_km: "/km"
+    sc_speed: "%v% km/h"
+    sc_pace_title: "%time% pour %km% km depuis %from%"
+    sc_margin_ok: "Marge %m%"
+    sc_margin_tight: "Marge %m%"
+    sc_margin_missed: "Dépassée de %m%"
+    sc_status_ok: "Barrière respectée"
+    sc_status_tight: "Marge serrée : moins de 15 min"
+    sc_status_missed: "Barrière dépassée"
+    sc_err_not_increasing: "Ce temps doit être supérieur à celui du repère précédent."
+    sc_err_after_finish: "Ce temps dépasse le temps visé à l'arrivée."
+    sc_err_stops_exceed: "Les arrêts prévus aux ravitos atteignent ou dépassent le temps visé."
+    sc_err_invalid: "Format attendu : h:mm, h:mm:ss ou 3h15."
+    sc_err_zero: "Le temps visé doit être supérieur à 0."
+    sc_errors_one: "1 temps de passage incohérent : vérifie la ligne signalée."
+    sc_errors_many: "%count% temps de passage incohérents : vérifie les lignes signalées."
+    sc_no_distance: "Importe le GPX ou renseigne la distance de la course pour calculer les allures."
+    flash_scenario_added: "Scénario créé."
+    flash_scenario_saved: "Scénario enregistré."
+    flash_scenario_distributed: "Temps fixés effacés : tous les passages sont recalculés à partir du temps visé."
+    flash_scenario_duplicated: "Scénario dupliqué."
+    flash_scenario_deleted: "Scénario supprimé."
+    flash_scenario_limit: "Limite atteinte : 6 scénarios maximum par course."
+    flash_scenario_invalid: "Scénario invalide : vérifie le nom (60 caractères max), l'heure de départ, la stratégie d'allure et le format des temps (h:mm ou h:mm:ss)."
+    flash_scenario_need_target: "Définis et enregistre d'abord un temps visé pour répartir les temps de passage."
+    flash_scenario_stops_exceed: "Répartition impossible : les arrêts prévus aux ravitos atteignent ou dépassent le temps visé."
+    sc_default_name: "Objectif %letter%"
+    sc_copy_suffix: " (copie)"
+    sc_err_name_blank: "Donne un nom au scénario."
+    sc_margin_tight_text: "Marge serrée %m%"
+    sc_distribute_help_inline: "« Répartir » efface les temps fixés et recalcule tous les passages à partir du temps visé et de la stratégie d'allure enregistrés."
+    sc_confirm_print_dirty: "Modifications non enregistrées : la fiche imprimée reprendra la dernière version enregistrée de ce scénario. Ouvrir la fiche quand même ? (Annule pour enregistrer d'abord.)"
+    # Stratégies d'allure (App\Entity\PacingStrategy / PacingIntensity)
+    sc_field_strategy: "Stratégie d'allure"
+    sc_field_intensity: "Intensité"
+    sc_strategy_suggested: "(conseillée)"
+    sc_dev: "%v% %"
+    sc_dev_title: "Écart avec l'allure moyenne en mouvement du scénario (%pace% /km) : + plus lent, - plus rapide"
+    pacing_even: "Régulier"
+    pacing_conservative: "Départ prudent"
+    pacing_negative: "Negative split"
+    pacing_aggressive: "Prise de risque"
+    pacing_ultra: "Gestion ultra"
+    pacing_even_desc: "Allure constante : seuls le dénivelé et les arrêts aux ravitos font varier les temps de passage."
+    pacing_conservative_desc: "Départ volontairement plus lent sur les 30 premiers % de la course, puis allure régulière pour garder des forces."
+    pacing_negative_desc: "Première moitié un peu plus lente, seconde plus rapide : tu accélères progressivement jusqu'à l'arrivée."
+    pacing_aggressive_desc: "Départ plus rapide pour prendre de l'avance, puis ralentissement progressif jusqu'à l'arrivée."
+    pacing_ultra_desc: "Ralentissement régulier tout au long de la course, typique des longues distances : la fin est nettement plus lente que le début."
+    pacing_intensity_light: "Légère"
+    pacing_intensity_medium: "Moyenne"
+    pacing_intensity_strong: "Marquée"
 
 # ── Nutrition ─────────────────────────────────────────────────────────────────
 nutrition:
@@ -564,7 +1059,7 @@ race_print:
     col_time: Passage
     col_clock: Heure
     col_stop: Arrêt
-    col_pace: Allure
+    col_pace: "Allure /km"
     col_cutoff: Barrière / marge
     start: Départ
     finish: Arrivée
@@ -596,3 +1091,114 @@ race_print:
     empty_title: Aucun scénario à imprimer
     empty_text: "Crée d'abord un scénario (un objectif de temps) dans le plan de course : ses temps de passage pourront ensuite être imprimés en fiche ou en bracelet."
     empty_cta: Aller au plan de course
+    target_time: Temps visé
+    moving_pace: Allure en mouvement
+    moving_pace_title: "Temps visé moins les arrêts, divisé par la distance"
+    alert_stops_exceed: "Les arrêts prévus atteignent ou dépassent le temps visé : vérifie le temps visé et les temps d'arrêt dans le plan."
+    strategy: Stratégie
+    strategy_title: "Stratégie d'allure qui façonne les temps calculés"
+    strategy_intensity: "intensité %level%"
+
+# ── Partage du plan de course : réglages du propriétaire (/courses/{id}/partage) ──
+race_share:
+    page_title: "Partager - %name% - SportPartner"
+    share_button: "Partager"
+    share_title: "Partager le plan de course avec tes proches"
+    public_message_title: "Message pour tes proches (page partagée)"
+    public_message_tooltip: "Message pour tes proches : %message%"
+    eyebrow: "Partager le plan de course"
+    intro: "Envoie un lien à tes proches : sans compte, ils voient tes horaires prévus, le parcours et les messages que tu leur laisses à chaque point de passage."
+    link_title: "Lien de partage"
+    status_on: "Partage activé"
+    status_off: "Partage désactivé"
+    link_label: "Lien à envoyer"
+    copy: "Copier le lien"
+    copied: "Lien copié."
+    copy_manual: "Copie automatique impossible : le lien est sélectionné, copie-le à la main (Ctrl+C ou appui long)."
+    preview: "Aperçu"
+    enable: "Activer le partage"
+    disable: "Désactiver le partage"
+    regenerate: "Régénérer le lien"
+    confirm_regenerate: "Créer un nouveau lien ? L'ancien ne fonctionnera plus : il faudra envoyer le nouveau à tes proches."
+    confirm_unsaved: "Tes modifications non enregistrées seront perdues."
+    link_help: "Désactiver rend le lien inaccessible (page introuvable) ; le réactiver redonne le même lien. Régénérer crée un nouveau lien et coupe l'ancien."
+    off_text: "Active le partage pour obtenir un lien à envoyer à tes proches. Tu peux préparer tes messages avant."
+    off_text_existing: "Le partage est désactivé : le lien affiche une page introuvable. Réactive-le pour qu'il fonctionne de nouveau."
+    privacy_title: "Ce que voient tes proches :"
+    privacy_text: "le nom, la date et le lieu de la course, le nom affiché, les horaires prévus du scénario choisi, le parcours et tes messages. Jamais ton e-mail, tes notes privées ni tes autres scénarios."
+    display_title: "Affichage"
+    display_name: "Nom affiché"
+    display_name_placeholder: "Ton prénom"
+    display_name_help: "Visible en haut de la page. Laisse vide pour n'afficher aucun nom."
+    scenario: "Scénario partagé"
+    scenario_help: "Ses horaires sont affichés. S'il est supprimé, le premier scénario prend le relais."
+    no_scenario: "Aucun scénario pour l'instant : la page indiquera « Horaires pas encore définis »."
+    no_scenario_link: "Créer un scénario"
+    options: "Afficher aussi"
+    show_paces: "Les allures prévues"
+    show_cutoffs: "Les barrières horaires"
+    messages_title: "Messages pour tes proches"
+    messages_sub: "Une indication par point de passage : où te voir, ce que tu porteras, ce dont tu auras besoin. Les notes privées des repères ne sont jamais partagées."
+    message: "Message général"
+    message_placeholder: "Ex. Merci de venir m'encourager ! Je porterai un maillot rouge."
+    message_for: "Message pour : %name%"
+    points_label: "Points de passage"
+    start: "Départ"
+    finish: "Arrivée"
+    start_placeholder: "Ex. Rendez-vous au sas 3, côté église."
+    point_placeholder: "Ex. Venez côté gauche après le ravito."
+    finish_placeholder: "Ex. On se retrouve devant la tente des finishers."
+    private_note: "Note privée, non partagée :"
+    time_none: "Horaire non défini"
+    time_elapsed: "%time% après le départ"
+    day_offset: "J+%n%"
+    unsaved: "Modifications non enregistrées"
+    save: "Enregistrer"
+    error_too_long: "Texte trop long."
+    error_invalid: "Valeur invalide."
+    flash_saved: "Réglages du partage enregistrés."
+    flash_invalid: "Certains champs sont trop longs ou invalides : rien n'a été enregistré."
+    flash_enabled: "Partage activé : envoie le lien à tes proches."
+    flash_disabled: "Partage désactivé : le lien ne fonctionne plus."
+    flash_regenerated: "Nouveau lien créé : l'ancien ne fonctionne plus."
+    flash_csrf: "Session expirée : recharge la page et réessaie."
+
+# ── Partage du plan de course : page publique (/p/{token}) ──
+race_public:
+    page_title: "%race% - Plan de course"
+    page_title_named: "%race% - Plan de course de %name%"
+    eyebrow: "Plan de course"
+    eyebrow_named: "Plan de course de %name%"
+    lang_switch: "Langue"
+    start_time: "Départ"
+    finish_time: "Arrivée prévue"
+    distance: "Distance"
+    gain: "D+"
+    add_calendar: "Ajouter à mon agenda"
+    next_title: "Prochain passage estimé"
+    next_text: "%name% vers %time%"
+    next_start: "Départ prévu à %time%"
+    next_done: "Arrivée prévue vers %time% : la course devrait être terminée."
+    planned_note: "Horaires prévus d'après le plan de course : ce n'est pas un suivi en direct."
+    message_title: "Message"
+    message_from: "Message de %name%"
+    timeline_title: "Points de passage"
+    no_times: "Horaires pas encore définis"
+    no_times_text: "Les heures de passage apparaîtront ici dès qu'elles seront prévues."
+    start: "Départ"
+    finish: "Arrivée"
+    aid_station: "Ravito"
+    pace: "Allure %pace% /km"
+    cutoff: "Barrière"
+    cutoff_elapsed: "Barrière : %time% après le départ"
+    time_start: "à"
+    time_around: "vers"
+    time_after: "après"
+    day_offset: "J+%n%"
+    day_offset_title: "%n% jour(s) après le jour du départ"
+    map_title: "Parcours"
+    map_label: "Carte du parcours"
+    profile_label: "Profil d'altitude du parcours"
+    footer: "Page partagée avec SportPartner."
+    ics_summary_named: "%race% - %name%"
+    ics_by: "Plan de course de %name%"

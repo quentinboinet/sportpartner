@@ -1,0 +1,248 @@
+{#
+ # Carte « Météo du jour J » (page d'une course, en tête de la colonne de droite).
+ # Les données sont chargées après l'affichage de la page par race_weather_controller.js
+ # depuis app_race_weather (JSON). Les états sans données (pas de date, pas de lieu, lieu
+ # introuvable, météo indisponible) sont des gabarits <template> clonés par le controller.
+ # Les données de l'API et le lieu saisi ne sont jamais insérés en HTML (textContent).
+ #}
+{% set _rw_labels = {
+    loading: 'race_weather.loading'|trans,
+    badge_forecast: 'race_weather.badge_forecast'|trans,
+    badge_observed: 'race_weather.badge_observed'|trans,
+    badge_climate: 'race_weather.badge_climate'|trans,
+    max: 'race_weather.max'|trans,
+    min: 'race_weather.min'|trans,
+    feels_like: 'race_weather.feels_like'|trans,
+    risk_low: 'race_weather.risk_low'|trans,
+    risk_moderate: 'race_weather.risk_moderate'|trans,
+    risk_high: 'race_weather.risk_high'|trans,
+    observed_wet: 'race_weather.observed_wet'|trans,
+    observed_dry: 'race_weather.observed_dry'|trans,
+    wind: 'race_weather.wind'|trans,
+    gusts: 'race_weather.gusts'|trans,
+    uv: 'race_weather.uv'|trans,
+    sun: 'race_weather.sun'|trans,
+    sunrise: 'race_weather.sunrise'|trans,
+    sunset: 'race_weather.sunset'|trans,
+    hours_title: 'race_weather.hours_title'|trans,
+    rain_probability: 'race_weather.rain_probability'|trans,
+    precipitation: 'race_weather.precipitation'|trans,
+    updated_at: 'race_weather.updated_at'|trans,
+    gpx_start: 'race_weather.gpx_start'|trans,
+    source_gpx: 'race_weather.source_gpx'|trans,
+    source_location: 'race_weather.source_location'|trans,
+    climate_note: 'race_weather.climate_note'|trans,
+    climate_tmax: 'race_weather.climate_tmax'|trans,
+    climate_tmin: 'race_weather.climate_tmin'|trans,
+    climate_range: 'race_weather.climate_range'|trans,
+    climate_rain_days: 'race_weather.climate_rain_days'|trans,
+    climate_rain_years: 'race_weather.climate_rain_years'|trans,
+    climate_wind: 'race_weather.climate_wind'|trans,
+    climate_dominant: 'race_weather.climate_dominant'|trans,
+    climate_snow: 'race_weather.climate_snow'|trans,
+    climate_snow_value: 'race_weather.climate_snow_value'|trans,
+    climate_available: 'race_weather.climate_available'|trans,
+    wind_from: {
+        n: 'race_weather.wind_from.n'|trans, ne: 'race_weather.wind_from.ne'|trans,
+        e: 'race_weather.wind_from.e'|trans, se: 'race_weather.wind_from.se'|trans,
+        s: 'race_weather.wind_from.s'|trans, sw: 'race_weather.wind_from.sw'|trans,
+        w: 'race_weather.wind_from.w'|trans, nw: 'race_weather.wind_from.nw'|trans,
+    },
+    compass: {
+        n: 'race_weather.compass.n'|trans, ne: 'race_weather.compass.ne'|trans,
+        e: 'race_weather.compass.e'|trans, se: 'race_weather.compass.se'|trans,
+        s: 'race_weather.compass.s'|trans, sw: 'race_weather.compass.sw'|trans,
+        w: 'race_weather.compass.w'|trans, nw: 'race_weather.compass.nw'|trans,
+    },
+} %}
+{# Bouton qui ouvre la modale de modification de la course (race/_race_modal.html.twig) #}
+{% macro rw_edit_button(label, icon, raceData) %}
+    {% if raceData %}
+        <button type="button" class="sp-btn rs-btn-ghost rs-wx-btn" data-bs-toggle="modal" data-bs-target="#raceModal"
+                data-race="{{ raceData|json_encode }}">
+            <i class="bi {{ icon }}" aria-hidden="true"></i> {{ label }}
+        </button>
+    {% endif %}
+{% endmacro %}
+
+<section class="sp-card rs-wx" aria-labelledby="rs-wx-title" aria-busy="true"
+         data-controller="race-weather"
+         data-race-weather-url-value="{{ path('app_race_weather', {id: race.id}) }}"
+         data-race-weather-locale-value="{{ app.request.locale }}"
+         data-race-weather-labels-value="{{ _rw_labels|json_encode }}">
+    <div class="rs-wx-head">
+        <h2 class="rs-section-title rs-wx-title" id="rs-wx-title">
+            <i class="bi bi-cloud-sun" aria-hidden="true"></i> {{ 'race_weather.title'|trans }}
+        </h2>
+        <span class="rs-wx-badge" data-race-weather-target="badge" hidden></span>
+    </div>
+    <p class="rs-wx-day" data-race-weather-target="day" hidden></p>
+
+    {# Squelette pendant le chargement #}
+    <div class="rs-wx-skel" data-race-weather-target="skeleton" aria-hidden="true">
+        <div class="rs-wx-skel-top">
+            <span class="rs-wx-skel-icon"></span>
+            <span class="rs-wx-skel-lines"><span></span><span></span></span>
+        </div>
+        <span class="rs-wx-skel-line"></span>
+        <span class="rs-wx-skel-strip">{% for i in 1..6 %}<span></span>{% endfor %}</span>
+    </div>
+    <p class="visually-hidden" role="status" data-race-weather-target="status">{{ 'race_weather.loading'|trans }}</p>
+
+    <div class="rs-wx-body" data-race-weather-target="content" hidden></div>
+
+    <p class="rs-wx-credit" data-race-weather-target="credit" hidden>
+        <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">{{ 'race_weather.attribution'|trans }}</a>
+        <span data-race-weather-target="geoCredit" hidden>
+            · <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">{{ 'race_weather.geonames'|trans }}</a>
+        </span>
+    </p>
+
+    <template data-race-weather-target="tplNoDate">
+        <div class="rs-wx-empty">
+            <span class="rs-wx-empty-icon"><i class="bi bi-calendar-plus" aria-hidden="true"></i></span>
+            <div class="rs-wx-empty-body">
+                <p>{{ 'race_weather.no_date'|trans }}</p>
+                <div class="rs-wx-actions">{{ _self.rw_edit_button('race_weather.add_date'|trans, 'bi-calendar-event', raceData ?? null) }}</div>
+            </div>
+        </div>
+    </template>
+    <template data-race-weather-target="tplNoLocation">
+        <div class="rs-wx-empty">
+            <span class="rs-wx-empty-icon"><i class="bi bi-geo-alt" aria-hidden="true"></i></span>
+            <div class="rs-wx-empty-body">
+                <p>{{ 'race_weather.no_location'|trans }}</p>
+                <div class="rs-wx-actions">
+                    {{ _self.rw_edit_button('race_weather.edit_location'|trans, 'bi-pencil', raceData ?? null) }}
+                    <a href="{{ path('app_race_plan', {id: race.id}) }}" class="sp-btn rs-btn-ghost rs-wx-btn">
+                        <i class="bi bi-upload" aria-hidden="true"></i> {{ 'race_weather.import_gpx'|trans }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </template>
+    <template data-race-weather-target="tplNotFound">
+        <div class="rs-wx-empty">
+            <span class="rs-wx-empty-icon"><i class="bi bi-geo-alt" aria-hidden="true"></i></span>
+            <div class="rs-wx-empty-body">
+                <p>{{ 'race_weather.not_found'|trans({'%location%': race.location ?? ''}) }}</p>
+                <div class="rs-wx-actions">
+                    {{ _self.rw_edit_button('race_weather.edit_location'|trans, 'bi-pencil', raceData ?? null) }}
+                    <a href="{{ path('app_race_plan', {id: race.id}) }}" class="sp-btn rs-btn-ghost rs-wx-btn">
+                        <i class="bi bi-upload" aria-hidden="true"></i> {{ 'race_weather.import_gpx'|trans }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </template>
+    <template data-race-weather-target="tplUnavailable">
+        <div class="rs-wx-empty">
+            <span class="rs-wx-empty-icon"><i class="bi bi-cloud-slash" aria-hidden="true"></i></span>
+            <div class="rs-wx-empty-body">
+                <p>{{ 'race_weather.unavailable'|trans }}</p>
+                <div class="rs-wx-actions">
+                    <button type="button" class="sp-btn rs-btn-ghost rs-wx-btn" data-action="race-weather#retry">
+                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> {{ 'race_weather.retry'|trans }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+</section>
+
+<style>
+.rs-wx { padding: 18px 20px; min-width: 0; }
+.rs-wx-head { display: flex; align-items: center; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; }
+.rs-wx-title { margin: 0; display: inline-flex; align-items: center; gap: 7px; }
+.rs-wx-title i { color: var(--sp-orange); font-size: 16px; }
+.rs-wx-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; background: rgba(22,23,42,.07); color: var(--sp-dark); white-space: nowrap; }
+.rs-wx-badge--forecast { background: rgba(232,64,12,.1); color: #B4320A; }
+.rs-wx-badge--observed { background: rgba(34,197,94,.12); color: #15803D; }
+.rs-wx-day { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--sp-muted); }
+
+/* Squelette */
+.rs-wx-skel { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.rs-wx-skel-top { display: flex; align-items: center; gap: 14px; }
+.rs-wx-skel-icon, .rs-wx-skel-lines span, .rs-wx-skel-line, .rs-wx-skel-strip span { display: block; background: rgba(22,23,42,.08); border-radius: 8px; animation: rs-wx-pulse 1.4s ease-in-out infinite; }
+.rs-wx-skel-icon { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; }
+.rs-wx-skel-lines { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.rs-wx-skel-lines span:first-child { height: 20px; width: 55%; }
+.rs-wx-skel-lines span:last-child { height: 12px; width: 75%; }
+.rs-wx-skel-line { height: 34px; }
+.rs-wx-skel-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.rs-wx-skel-strip span { height: 78px; }
+@keyframes rs-wx-pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .rs-wx-skel * { animation: none; } }
+
+/* Résumé du jour */
+.rs-wx-now { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.rs-wx-icon { font-size: 42px; line-height: 1; color: var(--sp-dark); flex-shrink: 0; }
+.rs-wx-now-main { min-width: 0; }
+.rs-wx-temps { display: flex; align-items: flex-end; gap: 14px; }
+.rs-wx-temp { display: inline-flex; flex-direction: column; line-height: 1.1; }
+.rs-wx-temp-val { font-size: 24px; font-weight: 800; color: var(--sp-text); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.rs-wx-temp--min .rs-wx-temp-val { font-size: 18px; color: #4B5563; }
+.rs-wx-temp-lbl { font-size: 10px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .05em; }
+.rs-wx-desc { margin: 6px 0 0; font-size: 13px; font-weight: 700; color: var(--sp-text); }
+.rs-wx-feel { margin: 1px 0 0; font-size: 12px; color: var(--sp-muted); }
+
+/* Pluie : niveau en texte + icône (la couleur n'est qu'un renfort) */
+.rs-wx-risk { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 8px 11px; border-radius: 10px; font-size: 13px; line-height: 1.35; }
+.rs-wx-risk i { font-size: 15px; line-height: 1.2; flex-shrink: 0; }
+.rs-wx-risk-body { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.rs-wx-risk--stacked .rs-wx-risk-body { flex-direction: column; align-items: flex-start; }
+.rs-wx-risk strong { font-weight: 700; }
+.rs-wx-risk-detail { font-weight: 500; font-variant-numeric: tabular-nums; }
+.rs-wx-risk--low { background: rgba(6,182,212,.09); color: #155E75; }
+.rs-wx-risk--moderate { background: rgba(59,130,246,.12); color: #1E40AF; }
+.rs-wx-risk--high { background: rgba(30,58,138,.13); color: #172554; }
+.rs-wx-risk--dry { background: rgba(34,197,94,.1); color: #14532D; }
+
+/* Vent, UV, soleil */
+.rs-wx-facts { margin: 12px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.rs-wx-facts > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 13px; }
+.rs-wx-facts dt { font-weight: 600; color: var(--sp-muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.rs-wx-facts dd { margin: 0; font-weight: 700; color: var(--sp-text); text-align: right; display: inline-flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 2px 6px; min-width: 0; font-variant-numeric: tabular-nums; }
+.rs-wx-dir { display: inline-flex; align-items: center; gap: 3px; }
+.rs-wx-arrow { display: inline-block; font-size: 13px; color: var(--sp-dark); transition: none; }
+.rs-wx-muted { font-weight: 500; color: var(--sp-muted); }
+
+/* Créneaux de 3 h : défilement horizontal sur petit écran.
+   position: relative - les .visually-hidden (position absolue) restent dans la zone de défilement */
+.rs-wx-sub { margin: 14px 0 6px; font-size: 10px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .05em; }
+.rs-wx-hours { position: relative; list-style: none; margin: 0; padding: 0 0 4px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(62px, 1fr); gap: 6px; overflow-x: auto; scrollbar-width: thin; scroll-snap-type: x proximity; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.rs-wx-hours:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: 2px; border-radius: 10px; }
+.rs-wx-hour { scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border-radius: 10px; background: var(--sp-bg); font-size: 11px; color: var(--sp-text); font-variant-numeric: tabular-nums; text-align: center; }
+.rs-wx-hour-time { font-weight: 700; color: var(--sp-muted); }
+.rs-wx-hour-icon { font-size: 20px; line-height: 1.2; color: var(--sp-dark); }
+.rs-wx-hour-temp { font-size: 14px; font-weight: 800; }
+.rs-wx-hour-rain, .rs-wx-hour-wind { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; color: #374151; }
+.rs-wx-hour-rain i { color: #1D4ED8; }
+
+/* Tendance historique */
+.rs-wx-note { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 8px 11px; border-radius: 10px; background: rgba(245,158,11,.13); color: #713F12; font-size: 12px; line-height: 1.45; }
+.rs-wx-note i { margin-top: 1px; }
+.rs-wx-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.rs-wx-stat { background: var(--sp-bg); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.rs-wx-stat-val { font-size: 18px; font-weight: 800; color: var(--sp-text); font-variant-numeric: tabular-nums; }
+.rs-wx-stat-lbl { font-size: 10px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .05em; }
+.rs-wx-stat-range { font-size: 11px; color: #4B5563; font-variant-numeric: tabular-nums; }
+.rs-wx-soon { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; font-size: 12px; color: var(--sp-text); line-height: 1.45; }
+.rs-wx-soon i { color: var(--sp-orange); margin-top: 1px; }
+
+/* Lieu, mise à jour, attribution */
+.rs-wx-meta { margin: 14px 0 0; display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--sp-muted); }
+.rs-wx-meta p { margin: 0; display: flex; align-items: flex-start; gap: 6px; line-height: 1.45; overflow-wrap: anywhere; }
+.rs-wx-meta i { margin-top: 1px; flex-shrink: 0; }
+.rs-wx-credit { margin: 4px 0 0; font-size: 11px; color: var(--sp-muted); }
+.rs-wx-credit a { color: var(--sp-muted); text-decoration: underline; text-underline-offset: 2px; }
+.rs-wx-credit a:hover { color: var(--sp-orange); }
+
+/* États sans données */
+.rs-wx-empty { display: flex; align-items: flex-start; gap: 12px; margin-top: 12px; }
+.rs-wx-empty-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--sp-bg); color: #4B5563; display: inline-flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+.rs-wx-empty-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.rs-wx-empty p { margin: 0; font-size: 13px; color: var(--sp-text); line-height: 1.45; overflow-wrap: anywhere; }
+.rs-wx-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rs-wx-btn { padding: 6px 14px; font-size: 12px; }
+</style>

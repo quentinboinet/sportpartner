@@ -1,0 +1,344 @@
+{#
+ # Paramètres > Matériel : import Strava, chaussures et vélos de l'utilisateur, usure, actions et modale d'ajout / modification.
+ # Variables : gears (list<Gear>), gearUsage (array<int, GearUsage>), brands (list<GearBrand>), gearTypes (list<GearType>).
+ #}
+{% set _fr = app.request.locale == 'fr' %}
+{% set _dp = _fr ? ',' : '.' %}
+{% set _ts = _fr ? ' ' : ',' %}
+{% set _token = csrf_token('gear') %}
+
+<div class="sp-gear-header">
+    <div>
+        <div class="sp-settings-section-title" style="margin-bottom:4px">{{ 'gear.section_title'|trans }}</div>
+        <p class="sp-gear-intro">{{ 'gear.intro'|trans }}</p>
+    </div>
+    {% if gears is not empty %}
+        <button type="button" class="sp-btn sp-btn-primary sp-gear-add-btn" data-bs-toggle="modal" data-bs-target="#gearModal">
+            <i class="bi bi-plus-lg"></i> {{ 'gear.add'|trans }}
+        </button>
+    {% endif %}
+</div>
+
+{# ── Import depuis Strava (formulaire si le compte est connecté, sinon lien de connexion) ── #}
+{% set _stravaReady = app.user.stravaConnected and app.user.stravaAccessToken %}
+<section class="sp-gear-import" aria-labelledby="gear-import-title">
+    <div class="sp-gear-import-icon" aria-hidden="true"><i class="bi bi-strava"></i></div>
+    <div class="sp-gear-import-body">
+        <h3 class="sp-gear-import-title" id="gear-import-title">{{ 'gear.import_title'|trans }}</h3>
+        {% if _stravaReady %}
+            <p class="sp-gear-import-text">{{ 'gear.import_text'|trans }}</p>
+            <form method="post" action="{{ path('app_gear_import_strava') }}" id="gearImportForm">
+                <input type="hidden" name="_token" value="{{ _token }}">
+                <label class="sp-gear-check sp-gear-import-check">
+                    <input type="checkbox" name="replace_links" value="1">
+                    <span>
+                        <span class="sp-gear-check-title">{{ 'gear.import_replace'|trans }}</span>
+                        <span class="sp-gear-check-help">{{ 'gear.import_replace_help'|trans }}</span>
+                    </span>
+                </label>
+                <div class="sp-gear-import-actions">
+                    <button type="submit" class="sp-btn sp-btn-primary" id="gearImportBtn" data-busy-label="{{ 'gear.import_busy'|trans }}">
+                        <i class="bi bi-cloud-arrow-down" aria-hidden="true"></i>
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true" hidden></span>
+                        <span data-label>{{ 'gear.import_btn'|trans }}</span>
+                    </button>
+                    <a href="{{ path('app_oauth_strava') }}" class="sp-gear-import-reconnect">
+                        <i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ 'gear.import_reconnect'|trans }}
+                    </a>
+                </div>
+                <p class="sp-gear-import-note">{{ 'gear.import_note'|trans }} {{ 'gear.import_reconnect_help'|trans }}</p>
+                <span class="visually-hidden" role="status" id="gearImportStatus"></span>
+            </form>
+        {% else %}
+            <p class="sp-gear-import-text">{{ 'gear.import_connect_hint'|trans }}</p>
+            <a href="{{ path('app_oauth_strava') }}" class="sp-btn sp-btn-outline sp-gear-import-connect">
+                <i class="bi bi-link-45deg" aria-hidden="true"></i> {{ 'gear.import_connect_btn'|trans }}
+            </a>
+        {% endif %}
+    </div>
+</section>
+
+{% if gears is empty %}
+
+    <div class="sp-gear-empty">
+        <div class="sp-gear-empty-icons" aria-hidden="true">
+            {% for type in gearTypes %}<i class="bi {{ type.icon }}"></i>{% endfor %}
+        </div>
+        <h2 class="sp-gear-empty-title">{{ 'gear.empty_title'|trans }}</h2>
+        <p class="sp-gear-empty-text">{{ 'gear.empty_text'|trans }}</p>
+        <button type="button" class="sp-btn sp-btn-primary" data-bs-toggle="modal" data-bs-target="#gearModal">
+            <i class="bi bi-plus-lg"></i> {{ 'gear.add_first'|trans }}
+        </button>
+    </div>
+
+{% else %}
+
+    {% for type in gearTypes %}
+        {% set _active  = gears|filter(g => g.type == type and not g.retired) %}
+        {% set _retired = gears|filter(g => g.type == type and g.retired) %}
+
+        <section class="sp-gear-group" aria-labelledby="gear-group-{{ type.value }}">
+            <div class="sp-gear-group-head">
+                <h3 class="sp-gear-group-title" id="gear-group-{{ type.value }}">
+                    <i class="bi {{ type.icon }}" aria-hidden="true"></i>
+                    {{ type.groupKey|trans }}
+                    <span class="sp-gear-group-count">{{ _active|length }}</span>
+                </h3>
+                <button type="button" class="sp-gear-link-btn" data-bs-toggle="modal" data-bs-target="#gearModal" data-gear-type="{{ type.value }}">
+                    <i class="bi bi-plus-lg"></i> {{ ('gear.add_' ~ type.value)|trans }}
+                </button>
+            </div>
+
+            {% if _active is empty %}
+                <p class="sp-gear-group-empty">{{ ('gear.group_empty_' ~ type.value)|trans }}</p>
+            {% else %}
+                <div class="sp-gear-grid">
+                    {% for gear in _active %}
+                        {{ include('settings/_gear_card.html.twig') }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if _retired is not empty %}
+                <details class="sp-gear-retired">
+                    <summary>
+                        <i class="bi bi-chevron-right sp-gear-retired-chevron" aria-hidden="true"></i>
+                        {{ 'gear.retired_section'|trans }} <span class="sp-gear-group-count">{{ _retired|length }}</span>
+                    </summary>
+                    <div class="sp-gear-grid">
+                        {% for gear in _retired %}
+                            {{ include('settings/_gear_card.html.twig') }}
+                        {% endfor %}
+                    </div>
+                </details>
+            {% endif %}
+        </section>
+    {% endfor %}
+
+{% endif %}
+
+{# ── Modale : ajouter / modifier un matériel ── #}
+{% set _defaultMax = {} %}
+{% for type in gearTypes %}
+    {% set _defaultMax = _defaultMax|merge({(type.value): type.defaultMaxDistanceM is not null ? type.defaultMaxDistanceM / 1000 : ''}) %}
+{% endfor %}
+<div class="modal fade sp-gear-modal" id="gearModal" tabindex="-1" aria-hidden="true" aria-labelledby="gearModalTitle"
+     data-add-url="{{ path('app_gear_add') }}"
+     data-edit-url="{{ path('app_gear_edit', {id: '999999999'}) }}"
+     data-title-add="{{ 'gear.modal_title_add'|trans }}"
+     data-title-edit="{{ 'gear.modal_title_edit'|trans }}"
+     data-submit-add="{{ 'gear.save_add'|trans }}"
+     data-submit-edit="{{ 'gear.save_edit'|trans }}"
+     data-brand-placeholder="{{ 'gear.field_brand_placeholder'|trans }}"
+     data-default-max="{{ _defaultMax|json_encode }}"
+     data-brands="{{ brands|map(b => {id: b.id, name: b.other ? 'gear.brand_other'|trans : b.name, shoes: b.forShoes, bike: b.forBike})|json_encode }}">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content sp-gear-modal-content">
+            <div class="modal-header sp-gear-modal-header">
+                <h5 class="modal-title" id="gearModalTitle">{{ 'gear.modal_title_add'|trans }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ 'gear.cancel'|trans }}"></button>
+            </div>
+            <form method="post" action="{{ path('app_gear_add') }}" id="gearForm">
+                <input type="hidden" name="_token" value="{{ _token }}">
+                <div class="modal-body sp-gear-modal-body">
+
+                    {# Type : chaussures / vélo (non modifiable ensuite) #}
+                    <fieldset class="mb-3">
+                        <legend class="sp-form-label">{{ 'gear.field_type'|trans }}</legend>
+                        <div class="sp-gear-type-options">
+                            {% for type in gearTypes %}
+                                <label class="sp-gear-type-option">
+                                    <input type="radio" name="type" value="{{ type.value }}" {{ loop.first ? 'checked' : '' }}>
+                                    <i class="bi {{ type.icon }}" aria-hidden="true"></i>
+                                    <span>
+                                        <span class="sp-gear-type-title">{{ type.labelKey|trans }}</span>
+                                        <span class="sp-gear-type-sub">{{ ('gear.type_' ~ type.value ~ '_desc')|trans }}</span>
+                                    </span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                        <div class="sp-form-help" id="gear-type-locked" hidden>{{ 'gear.field_type_locked'|trans }}</div>
+                    </fieldset>
+
+                    {# Marque + modèle #}
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-sm-5">
+                            <label class="sp-form-label" for="gear-brand">{{ 'gear.field_brand'|trans }} <span class="sp-gear-req">*</span></label>
+                            <select id="gear-brand" name="brand_id" class="sp-form-input" required>
+                                <option value="">{{ 'gear.field_brand_placeholder'|trans }}</option>
+                                {% for b in brands %}
+                                    <option value="{{ b.id }}">{{ b.other ? 'gear.brand_other'|trans : b.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-7">
+                            <label class="sp-form-label" for="gear-model">{{ 'gear.field_model'|trans }} <span class="sp-gear-req">*</span></label>
+                            <input type="text" id="gear-model" name="model" class="sp-form-input" required maxlength="120"
+                                   placeholder="{{ 'gear.field_model_placeholder'|trans }}">
+                        </div>
+                    </div>
+
+                    {# Surnom + date d'achat #}
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-sm-7">
+                            <label class="sp-form-label" for="gear-nickname">{{ 'gear.field_nickname'|trans }}</label>
+                            <input type="text" id="gear-nickname" name="nickname" class="sp-form-input" maxlength="60"
+                                   placeholder="{{ 'gear.field_nickname_placeholder'|trans }}">
+                        </div>
+                        <div class="col-12 col-sm-5">
+                            <label class="sp-form-label" for="gear-purchased">{{ 'gear.field_purchased_at'|trans }}</label>
+                            <input type="date" id="gear-purchased" name="purchased_at" class="sp-form-input">
+                        </div>
+                    </div>
+
+                    {# Kilométrage initial + durée de vie #}
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="sp-form-label" for="gear-initial">{{ 'gear.field_initial_km'|trans }}</label>
+                            <div class="sp-input-unit">
+                                <input type="number" id="gear-initial" name="initial_km" class="sp-form-input"
+                                       min="0" max="100000" step="1" inputmode="numeric" placeholder="0">
+                                <span>km</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="sp-form-label" for="gear-max">{{ 'gear.field_max_km'|trans }}</label>
+                            <div class="sp-input-unit">
+                                <input type="number" id="gear-max" name="max_km" class="sp-form-input"
+                                       min="1" max="1000000" step="1" inputmode="numeric" aria-describedby="gear-max-help">
+                                <span>km</span>
+                            </div>
+                        </div>
+                        <div class="col-12 sp-form-help" style="margin-top:6px" id="gear-max-help">
+                            {{ 'gear.field_initial_help'|trans }} {{ 'gear.field_max_help'|trans }}
+                        </div>
+                    </div>
+
+                    {# Matériel par défaut #}
+                    <div class="mb-3">
+                        <label class="sp-gear-check">
+                            <input type="checkbox" name="is_default" value="1" id="gear-default">
+                            <span>
+                                {% for type in gearTypes %}
+                                    <span class="sp-gear-check-title" data-for-type="{{ type.value }}" {{ loop.first ? '' : 'hidden' }}>{{ ('gear.field_default_' ~ type.value)|trans }}</span>
+                                    <span class="sp-gear-check-help" data-for-type="{{ type.value }}" {{ loop.first ? '' : 'hidden' }}>{{ ('gear.field_default_help_' ~ type.value)|trans }}</span>
+                                {% endfor %}
+                            </span>
+                        </label>
+                        <div class="sp-form-help" id="gear-default-retired" hidden>{{ 'gear.field_default_retired'|trans }}</div>
+                    </div>
+
+                    {# Notes #}
+                    <div class="mb-0">
+                        <label class="sp-form-label" for="gear-notes">{{ 'gear.field_notes'|trans }}</label>
+                        <textarea id="gear-notes" name="notes" class="sp-form-input" rows="2" maxlength="2000"
+                                  placeholder="{{ 'gear.field_notes_placeholder'|trans }}"></textarea>
+                    </div>
+
+                </div>
+                <div class="modal-footer sp-gear-modal-footer">
+                    <button type="button" class="sp-btn sp-btn-outline" data-bs-dismiss="modal">{{ 'gear.cancel'|trans }}</button>
+                    <button type="submit" class="sp-btn sp-btn-primary" id="gearSubmit">{{ 'gear.save_add'|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+const modalEl = document.getElementById('gearModal');
+const form    = document.getElementById('gearForm');
+const f       = (name) => form.elements.namedItem(name);
+const ds      = modalEl.dataset;
+const brands  = JSON.parse(ds.brands);
+const defMax  = JSON.parse(ds.defaultMax);
+const brandEl = f('brand_id');
+const maxEl   = f('max_km');
+const typeEls = [...form.querySelectorAll('input[name="type"]')];
+let editing   = false;
+
+const currentType = () => (typeEls.find(i => i.checked) || typeEls[0]).value;
+
+// Marques proposées pour le type choisi (l'ordre du serveur met "Autre" en dernier)
+function fillBrands(type, selectedId) {
+    brandEl.replaceChildren(new Option(ds.brandPlaceholder, ''));
+    for (const b of brands) {
+        if (b[type]) brandEl.add(new Option(b.name, String(b.id)));
+    }
+    const wanted = selectedId != null ? String(selectedId) : '';
+    brandEl.value = [...brandEl.options].some(o => o.value === wanted) ? wanted : '';
+}
+
+function syncType(resetMax) {
+    const type = currentType();
+    fillBrands(type, brandEl.value);
+    form.querySelectorAll('[data-for-type]').forEach(el => { el.hidden = el.dataset.forType !== type; });
+    // À l'ajout, la durée de vie suit le type tant qu'elle n'a pas été modifiée à la main
+    if (resetMax && !editing && maxEl.dataset.touched !== '1') {
+        maxEl.value = defMax[type] ?? '';
+    }
+}
+
+typeEls.forEach(i => i.addEventListener('change', () => syncType(true)));
+maxEl.addEventListener('input', () => { maxEl.dataset.touched = '1'; });
+
+function fill(gear, presetType) {
+    editing = !!gear;
+    const g = gear || {};
+    form.action = editing ? ds.editUrl.replace('999999999', String(g.id)) : ds.addUrl;
+    modalEl.querySelector('.modal-title').textContent = editing ? ds.titleEdit : ds.titleAdd;
+    document.getElementById('gearSubmit').textContent = editing ? ds.submitEdit : ds.submitAdd;
+
+    const type = g.type || presetType || typeEls[0].value;
+    typeEls.forEach(i => { i.checked = i.value === type; i.disabled = editing; });
+    document.getElementById('gear-type-locked').hidden = !editing;
+
+    maxEl.dataset.touched = '';
+    fillBrands(type, g.brandId ?? null);
+    f('model').value        = g.model ?? '';
+    f('nickname').value     = g.nickname ?? '';
+    f('purchased_at').value = g.purchasedAt ?? '';
+    f('initial_km').value   = editing && g.initialKm ? Math.round(g.initialKm) : '';
+    maxEl.value             = editing ? (g.maxKm === '' ? '' : Math.round(g.maxKm)) : (defMax[type] ?? '');
+    f('notes').value        = g.notes ?? '';
+
+    const def = f('is_default');
+    def.checked  = !!g.isDefault;
+    def.disabled = !!g.retired;
+    document.getElementById('gear-default-retired').hidden = !g.retired;
+    syncType(false);
+}
+
+// Ouverture : data-gear = modification, data-gear-type = ajout d'un type donné, sinon ajout
+modalEl.addEventListener('show.bs.modal', (e) => {
+    const btn = e.relatedTarget;
+    const raw = btn?.dataset.gear;
+    fill(raw ? JSON.parse(raw) : null, btn?.dataset.gearType);
+});
+modalEl.addEventListener('shown.bs.modal', () => f('model').focus());
+
+// Import Strava : requête synchrone de plusieurs secondes, bouton désactivé + indicateur pendant l'envoi
+const importForm = document.getElementById('gearImportForm');
+if (importForm) {
+    const btn = document.getElementById('gearImportBtn');
+    const label = btn.querySelector('[data-label]');
+    const idleLabel = label.textContent;
+    const setBusy = (busy) => {
+        btn.disabled = busy;
+        btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+        btn.querySelector('.spinner-border').hidden = !busy;
+        btn.querySelector('.bi').hidden = busy;
+        label.textContent = busy ? btn.dataset.busyLabel : idleLabel;
+        document.getElementById('gearImportStatus').textContent = busy ? btn.dataset.busyLabel : '';
+    };
+    importForm.addEventListener('submit', (e) => {
+        if (btn.disabled) {
+            e.preventDefault();
+            return;
+        }
+        setBusy(true);
+    });
+    // Retour arrière (cache du navigateur) : bouton réactivé
+    window.addEventListener('pageshow', (e) => { if (e.persisted) setBusy(false); });
+}
+</script>

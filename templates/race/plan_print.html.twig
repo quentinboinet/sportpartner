@@ -1,26 +1,624 @@
-{# Fiche imprimable du plan de course : version provisoire (remplacée par l'interface de la phase 2). #}
-<!doctype html>
-<html lang="{{ app.request.locale }}">
+{#
+  Impression d'un scénario du plan de course (RaceScenarioController::print).
+  Deux formats dans la même page, choisis par la classe du <body> (fmt-sheet / fmt-band) :
+    - "Fiche"    : tableau A4 portrait des temps de passage ;
+    - "Bracelet" : bandes de ~28 mm à découper et enrouler autour du poignet.
+  ?format=band ouvre directement le bracelet (le petit script en bas bascule sans recharger).
+  Variables : race, route (?RaceRoute), scenario (?RaceScenario), scenarioView (?array, entrée "scenarios"
+  de ScenarioViewBuilder), scenarios (list<RaceScenario>), calc (SplitCalculator::compute() ou null),
+  checkpoints (list<RaceCheckpoint> du parcours, triés). Le résumé de la fiche rappelle la stratégie d'allure
+  (scenarioView.strategy / intensity) qui a façonné les temps calculés.
+  Page autonome : n'étend pas base.html.twig (pas de sidebar, pas d'importmap).
+#}
+{% import _self as m %}
+
+{% macro clock(c) %}{% if c %}{{ c.time }}{% if c.dayOffset > 0 %}<span class="pp-day">{{ 'race_print.day_offset'|trans({'%n%': c.dayOffset}) }}</span>{% endif %}{% endif %}{% endmacro %}
+
+{% macro stop(seconds) %}{% if seconds < 3600 %}{{ 'race_print.minutes'|trans({'%n%': (seconds / 60)|round}) }}{% else %}{{ 'race_print.hours_minutes'|trans({'%h%': (seconds // 3600), '%m%': '%02d'|format(((seconds % 3600) / 60)|round)}) }}{% endif %}{% endmacro %}
+
+{% macro blank(cls) %}<span class="pp-blank {{ cls|default('') }}" aria-hidden="true"></span>{% endmacro %}
+
+{% macro cutoff(row) %}
+    {%- if row.cutoffSeconds is not null -%}
+        <span class="pp-cut-time">{{ row.cutoffSeconds|race_duration }}</span>
+        {%- if row.cutoffStatus != 'none' -%}
+            {%- set _margin = row.cutoffMarginSeconds -%}
+            <span class="pp-cut pp-cut--{{ row.cutoffStatus }}">
+                <span class="pp-cut-sym" aria-hidden="true">{{ row.cutoffStatus == 'ok' ? '✓' : (row.cutoffStatus == 'tight' ? '!' : '✗') }}</span>
+                {{ _margin >= 0 ? '+' : '' }}{{ _margin|race_duration }}
+                <span class="pp-cut-label">{{ ('race_print.cutoff_' ~ row.cutoffStatus)|trans }}</span>
+            </span>
+        {%- endif -%}
+    {%- endif -%}
+{% endmacro %}
+
+{% set _fr = app.request.locale == 'fr' %}
+{% set _dec = _fr ? ',' : '.' %}
+{% set _th = _fr ? ' ' : ',' %}
+{% set _format = app.request.query.get('format') == 'band' ? 'band' : 'sheet' %}
+{% set _hasRoute = route is not null %}
+{% set _planUrl = path('app_race_plan', {id: race.id, _fragment: scenario ? 'scenario-' ~ scenario.id : 'scenarios'}) %}
+{% set _raceDate = race.raceDate ? race.raceDate|date('d/m/Y') : race.year %}
+<!DOCTYPE html>
+<html lang="{{ app.request.locale|default('fr') }}">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ race.name }} - SportPartner</title>
+    <meta name="robots" content="noindex">
+    <title>{{ scenario
+        ? 'race_print.page_title'|trans({'%race%': race.name, '%scenario%': scenario.name})
+        : 'race_print.page_title_empty'|trans({'%race%': race.name}) }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --sp-orange: #E8400C;
+            --sp-dark: #16172A;
+            --sp-bg: #EDEBE4;
+            --sp-text: #111827;
+            --sp-muted: #6B7280;
+            --sp-green: #22C55E;
+            --sp-red: #EF4444;
+            --sp-teal: #06B6D4;
+            --sp-yellow: #F59E0B;
+            --pp-line: #C9CCD3;
+            --pp-ink: #111827;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            margin: 0;
+            background: var(--sp-bg);
+            color: var(--sp-text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .fmt-sheet .pp-band, .fmt-band .pp-sheet { display: none; }
+
+        /* ── Barre d'outils (écran uniquement) ─────────────────────────── */
+        .pp-toolbar {
+            position: sticky; top: 0; z-index: 10;
+            display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+            padding: 10px 16px;
+            background: var(--sp-dark); color: #fff;
+            font-size: 13px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
+        }
+        .pp-toolbar a { color: inherit; text-decoration: none; }
+        .pp-back { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; opacity: .85; }
+        .pp-back:hover { opacity: 1; }
+        .pp-tool-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .pp-tool-label { color: rgba(255, 255, 255, .5); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-right: 2px; }
+        .pp-seg { display: inline-flex; flex-wrap: wrap; border: 1px solid rgba(255, 255, 255, .18); border-radius: 8px; overflow: hidden; }
+        .pp-seg a { padding: 6px 11px; font-weight: 600; color: rgba(255, 255, 255, .78); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pp-seg a + a { border-left: 1px solid rgba(255, 255, 255, .18); }
+        .pp-seg a:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+        .pp-seg a.is-active, .pp-seg a[aria-current="true"] { background: #fff; color: var(--sp-dark); }
+        .pp-spacer { flex: 1; }
+        .pp-print-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 8px 16px; border: 0; border-radius: 8px;
+            background: var(--sp-orange); color: #fff; font: inherit; font-weight: 700; cursor: pointer;
+        }
+        .pp-print-btn:hover { background: #D03009; }
+        .pp-print-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+        /* ── Feuille (aperçu écran = A4) ───────────────────────────────── */
+        .pp-viewport { padding: 24px 16px 48px; overflow-x: auto; }
+        .pp-page {
+            width: 210mm; max-width: 100%; min-height: 297mm;
+            margin: 0 auto; padding: 12mm 10mm;
+            background: #fff; color: var(--pp-ink);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, .12);
+            font-size: 9pt; line-height: 1.3;
+        }
+
+        /* En-tête */
+        .pp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 6mm; border-bottom: 1.5pt solid var(--pp-ink); padding-bottom: 3mm; margin-bottom: 4mm; }
+        .pp-head-main { flex: 1; min-width: 0; }
+        .pp-eyebrow { font-size: 7.5pt; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--sp-orange); }
+        .pp-title { margin: 1mm 0 1.5mm; font-size: 17pt; line-height: 1.15; font-weight: 800; letter-spacing: -.01em; overflow-wrap: anywhere; }
+        .pp-meta { display: flex; flex-wrap: wrap; gap: 1mm 4mm; color: #374151; font-size: 8.5pt; }
+        .pp-meta i { margin-right: 1mm; }
+        .pp-scenario-box { flex-shrink: 0; max-width: 62mm; text-align: right; }
+        .pp-scenario-label { font-size: 7pt; text-transform: uppercase; letter-spacing: .1em; color: var(--sp-muted); font-weight: 700; }
+        .pp-scenario-name { font-size: 12pt; font-weight: 800; overflow-wrap: anywhere; }
+
+        .pp-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border: .75pt solid var(--pp-ink); border-radius: 2mm; margin-bottom: 4mm; }
+        .pp-stat { padding: 1.6mm 2mm; border-left: .5pt solid var(--pp-line); min-width: 0; }
+        .pp-stat:first-child { border-left: 0; }
+        .pp-stat-label { font-size: 6.5pt; text-transform: uppercase; letter-spacing: .06em; color: var(--sp-muted); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pp-stat-value { font-size: 11.5pt; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; min-height: 5mm; }
+        .pp-stat-value small { font-size: 7.5pt; font-weight: 600; color: #374151; }
+        .pp-stat-value .pp-blank { width: 18mm; }
+        /* Stratégie d'allure : ligne pleine largeur sous les chiffres du résumé */
+        .pp-stat--wide { grid-column: 1 / -1; display: flex; align-items: baseline; flex-wrap: wrap; gap: .5mm 3mm; border-left: 0; border-top: .5pt solid var(--pp-line); }
+        .pp-stat--wide .pp-stat-label { flex-shrink: 0; }
+        .pp-stat--wide .pp-stat-value { font-size: 9.5pt; min-height: 0; white-space: normal; }
+        .pp-stat--wide .pp-stat-value small { font-size: 8pt; }
+        .pp-stat-desc { flex: 1 1 60mm; min-width: 0; font-size: 7.5pt; color: #374151; }
+
+        .pp-alert { display: flex; gap: 2mm; align-items: flex-start; border: 1pt solid var(--pp-ink); border-left-width: 3pt; padding: 2mm 3mm; margin-bottom: 3mm; font-size: 8.5pt; font-weight: 600; }
+        .pp-note { color: #374151; font-size: 8pt; margin: -1mm 0 3mm; }
+
+        /* Tableau */
+        .pp-table-wrap { overflow-x: auto; }
+        .pp-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
+        .pp-table th {
+            font-size: 6.8pt; text-transform: uppercase; letter-spacing: .05em; font-weight: 800;
+            text-align: left; padding: 1.4mm 1.2mm; border-bottom: 1pt solid var(--pp-ink); vertical-align: bottom;
+        }
+        .pp-table td { padding: 1.2mm 1.2mm 1.1mm; vertical-align: top; border-bottom: .5pt solid var(--pp-line); }
+        .pp-table tbody { break-inside: avoid; page-break-inside: avoid; }
+        .pp-table tr { break-inside: avoid; page-break-inside: avoid; }
+        .pp-table tbody.pp-has-notes tr:first-child td { border-bottom: 0; padding-bottom: .4mm; }
+        .pp-table .pp-r { text-align: right; white-space: nowrap; }
+        .pp-table th.pp-r { white-space: normal; }
+        .pp-table .pp-c { text-align: center; }
+        .pp-cp-name { font-weight: 700; overflow-wrap: anywhere; }
+        .pp-cp-name i { color: var(--sp-teal); margin-right: .8mm; }
+        .pp-tag { display: inline-block; margin-left: 1mm; padding: 0 1.2mm; border: .6pt solid var(--pp-ink); border-radius: 1mm; font-size: 6pt; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; vertical-align: 1px; }
+        .pp-time { font-size: 10.5pt; font-weight: 800; }
+        .pp-clock { font-size: 9.5pt; font-weight: 700; }
+        .pp-day { display: inline-block; margin-left: 1mm; padding: 0 .8mm; border-radius: .8mm; background: var(--pp-ink); color: #fff; font-size: 6.5pt; font-weight: 800; vertical-align: 1px; }
+        .pp-sub { display: block; font-size: 7pt; color: #4B5563; font-weight: 500; white-space: nowrap; }
+        .pp-seg-km { font-weight: 700; }
+        .pp-pin {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 5mm; height: 5mm; padding: 0 1mm; border-radius: 50%;
+            background: var(--sp-dark); color: #fff; font-size: 7pt; font-weight: 800;
+        }
+        .pp-pin--aid_station { background: var(--sp-teal); border-radius: 1.2mm; color: #fff; }
+        .pp-pin--start, .pp-pin--finish { background: var(--sp-orange); }
+        .pp-row--start td, .pp-row--finish td { background: #F6F5F1; }
+        .pp-row--finish td { border-top: 1pt solid var(--pp-ink); border-bottom: 1pt solid var(--pp-ink); }
+        .pp-row--finish .pp-time { font-size: 12pt; }
+        .pp-notes td { padding-top: 0; font-size: 7.5pt; color: #374151; }
+        .pp-notes-text { display: block; white-space: pre-line; overflow-wrap: anywhere; border-left: 1.5pt solid var(--pp-line); padding-left: 2mm; }
+        .pp-notes-text i { margin-right: 1mm; }
+        .pp-err { display: block; margin-top: .6mm; font-size: 6.8pt; font-weight: 700; }
+        .pp-err i { margin-right: .6mm; }
+
+        /* Cases vides à remplir à la main */
+        .pp-blank { display: inline-block; width: 15mm; height: 4.2mm; border-bottom: .8pt dotted #6B7280; vertical-align: bottom; }
+        .pp-blank--sm { width: 10mm; }
+
+        /* Barrières : lisibles en noir et blanc (symbole + texte), couleur en plus */
+        .pp-cut-time { display: block; font-weight: 700; }
+        .pp-cut { display: inline-flex; align-items: center; flex-wrap: wrap; gap: .3mm .8mm; margin-top: .6mm; padding: .2mm 1.2mm .2mm .4mm; border-radius: 1mm; font-size: 7pt; font-weight: 700; white-space: nowrap; border: .6pt solid transparent; max-width: 100%; }
+        .pp-cut-sym { display: inline-flex; align-items: center; justify-content: center; width: 3.4mm; height: 3.4mm; border-radius: 50%; font-size: 6.5pt; font-weight: 900; line-height: 1; }
+        .pp-cut-label { font-weight: 800; text-transform: uppercase; font-size: 6pt; letter-spacing: .04em; }
+        .pp-cut--ok { color: #166534; }
+        .pp-cut--ok .pp-cut-sym { border: .7pt solid currentColor; }
+        .pp-cut--tight { background: #FEF3C7; border-color: #92400E; color: #78350F; }
+        .pp-cut--tight .pp-cut-sym { background: #78350F; color: #fff; }
+        .pp-cut--missed { background: #991B1B; border-color: #991B1B; color: #fff; }
+        .pp-cut--missed .pp-cut-sym { background: #fff; color: #991B1B; }
+
+        .pp-legend { display: flex; flex-wrap: wrap; gap: 1.5mm 5mm; align-items: center; margin-top: 3mm; font-size: 7pt; color: #374151; }
+        .pp-legend strong { text-transform: uppercase; letter-spacing: .06em; font-size: 6.5pt; }
+        .pp-legend .pp-cut { margin-top: 0; }
+
+        .pp-footer { display: flex; justify-content: space-between; gap: 4mm; margin-top: 6mm; padding-top: 2mm; border-top: .5pt solid var(--pp-line); font-size: 7pt; color: var(--sp-muted); break-inside: avoid; }
+        .pp-footer strong { color: var(--pp-ink); }
+
+        /* ── Bracelet ──────────────────────────────────────────────────── */
+        .pp-band-hint { display: flex; gap: 2mm; align-items: flex-start; font-size: 8pt; color: #374151; margin-bottom: 4mm; }
+        .pp-band-hint i { font-size: 11pt; line-height: 1; }
+        .pp-strips { display: flex; flex-direction: column; gap: 5mm; }
+        .pp-strip {
+            position: relative;
+            display: grid; /* colonnes fixées en ligne (style) selon le nombre de repères par bande */
+            width: 180mm; height: 28mm;
+            border: 1pt dashed #000;
+            background: #fff; color: #000;
+            break-inside: avoid; page-break-inside: avoid;
+            font-variant-numeric: tabular-nums;
+        }
+        .pp-strip-scissors { position: absolute; top: -2.3mm; left: 30mm; z-index: 1; padding: 0 .6mm; font-size: 8pt; line-height: 1; background: #fff; color: #000; }
+        .pp-strip-label {
+            display: flex; flex-direction: column; justify-content: space-between; min-width: 0;
+            padding: 1.5mm 1.6mm; background: #111; color: #fff; font-size: 6.3pt; line-height: 1.2;
+        }
+        .pp-strip-race { font-weight: 800; font-size: 6.8pt; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+        .pp-strip-scn { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .85; }
+        .pp-strip-info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pp-strip-info strong { font-size: 7.5pt; }
+        .pp-strip-idx { font-weight: 800; opacity: .7; }
+        .pp-cell {
+            display: flex; flex-direction: column; justify-content: space-between; min-width: 0;
+            padding: 1.2mm 1.1mm 1.1mm; border-left: .6pt solid #000; line-height: 1.1;
+            overflow: hidden;
+        }
+        .pp-cell--aid_station { background: #E3E3E3; }
+        .pp-cell--finish { background: #111; color: #fff; }
+        .pp-cell-top { display: flex; justify-content: space-between; align-items: baseline; gap: .6mm; font-size: 6.6pt; font-weight: 700; white-space: nowrap; }
+        .pp-cell-top i { font-size: 6.6pt; }
+        .pp-cell-name { font-size: 6.4pt; font-weight: 700; line-height: 1.12; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; max-height: 5.2mm; }
+        .pp-cell-time { font-size: 12.5pt; font-weight: 900; letter-spacing: -.02em; white-space: nowrap; }
+        .pp-cell-clock { font-size: 7.6pt; font-weight: 700; white-space: nowrap; }
+        .pp-cell-clock .pp-day { font-size: 5.6pt; margin-left: .5mm; }
+        .pp-cell--finish .pp-day { background: #fff; color: #111; }
+        .pp-cell-cut { font-size: 6pt; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pp-cell .pp-blank { width: 100%; height: 4.6mm; border-bottom-color: #000; }
+        .pp-cell .pp-blank--sm { height: 3.2mm; }
+        .pp-cell--finish .pp-blank { border-bottom-color: #fff; }
+
+        /* ── État vide ─────────────────────────────────────────────────── */
+        .pp-empty { max-width: 520px; margin: 18mm auto; text-align: center; font-size: 11pt; }
+        .pp-empty i { font-size: 34pt; color: var(--sp-orange); }
+        .pp-empty h2 { font-size: 15pt; margin: 3mm 0 2mm; }
+        .pp-empty p { color: #374151; line-height: 1.5; }
+        .pp-empty a { display: inline-flex; align-items: center; gap: 6px; margin-top: 3mm; padding: 9px 16px; border-radius: 8px; background: var(--sp-orange); color: #fff; font-weight: 700; text-decoration: none; }
+
+        @media (max-width: 640px) {
+            .pp-viewport { padding: 12px 8px 32px; }
+            .pp-spacer { display: none; }
+        }
+
+        /* ── Impression ───────────────────────────────────────────────── */
+        @page { size: A4 portrait; margin: 10mm 10mm 10mm; }
+        @media print {
+            body { background: #fff; }
+            .pp-toolbar { display: none !important; }
+            .pp-viewport { padding: 0; overflow: visible; }
+            .pp-page { width: auto; max-width: none; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+            .pp-table-wrap { overflow: visible; }
+            .pp-table thead { display: table-header-group; }
+            .pp-head, .pp-stats, .pp-alert { break-inside: avoid; break-after: avoid; }
+            .pp-empty a { display: none; }
+            a { color: inherit; text-decoration: none; }
+        }
+    </style>
 </head>
-<body>
-    <h1>{{ race.name }}</h1>
-    {% if scenario is null or calc is null %}
-        <p data-empty-state>-</p>
-    {% else %}
-        <h2 data-scenario-id="{{ scenario.id }}">{{ scenario.name }}</h2>
-        <table>
-            {% for row in calc.rows|merge([calc.finish]) %}
-                <tr data-checkpoint-id="{{ row.checkpointId }}">
-                    <td>{{ row.name }}</td>
-                    <td>{{ (row.distanceM / 1000)|number_format(1) }} km</td>
-                    <td>{{ row.arrivalSeconds|race_duration }}</td>
-                </tr>
-            {% endfor %}
-        </table>
+<body class="fmt-{{ _format }}">
+
+<nav class="pp-toolbar" aria-label="{{ 'race_print.toolbar'|trans }}">
+    <a class="pp-back" href="{{ _planUrl }}"><i class="bi bi-arrow-left"></i> {{ 'race_print.back'|trans }}</a>
+
+    {% if scenarios|length > 1 %}
+        <div class="pp-tool-group">
+            <span class="pp-tool-label">{{ 'race_print.scenario'|trans }}</span>
+            <div class="pp-seg">
+                {% for s in scenarios %}
+                    <a href="{{ path('app_race_plan_print', {id: race.id, scenario: s.id, format: _format}) }}"
+                       class="{{ scenario and s.id == scenario.id ? 'is-active' }}"
+                       title="{{ s.name }}" data-scenario-link
+                       {% if scenario and s.id == scenario.id %}aria-current="page"{% endif %}>{{ s.name }}</a>
+                {% endfor %}
+            </div>
+        </div>
     {% endif %}
+
+    {# Liens (sans JS : rechargement sur ?format=) ; le format actif est marqué aria-current (aria-pressed est réservé aux boutons) #}
+    <div class="pp-tool-group">
+        <span class="pp-tool-label">{{ 'race_print.format'|trans }}</span>
+        <div class="pp-seg" role="group" aria-label="{{ 'race_print.format'|trans }}">
+            {% for f in ['sheet', 'band'] %}
+                <a href="{{ path('app_race_plan_print', scenario ? {id: race.id, scenario: scenario.id, format: f} : {id: race.id, format: f}) }}"
+                   data-format="{{ f }}" {% if _format == f %}aria-current="true"{% endif %}>
+                    <i class="bi {{ f == 'sheet' ? 'bi-file-earmark-text' : 'bi-smartwatch' }}"></i>
+                    {{ ('race_print.format_' ~ f)|trans }}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <span class="pp-spacer"></span>
+    <button type="button" class="pp-print-btn" data-print {{ calc is null ? 'disabled' }}>
+        <i class="bi bi-printer"></i> {{ 'race_print.print'|trans }}
+    </button>
+</nav>
+
+<main class="pp-viewport">
+{% if scenario is null or calc is null %}
+    <div class="pp-page" data-empty-state>
+        <div class="pp-empty">
+            <i class="bi bi-stopwatch"></i>
+            <h2>{{ 'race_print.empty_title'|trans }}</h2>
+            <p>{{ 'race_print.empty_text'|trans }}</p>
+            <a href="{{ _planUrl }}"><i class="bi bi-signpost-split"></i> {{ 'race_print.empty_cta'|trans }}</a>
+        </div>
+    </div>
+{% else %}
+    {% set _notes = {} %}
+    {% for cp in checkpoints %}
+        {% if cp.notes is not empty %}
+            {% set _notes = _notes|merge({('cp' ~ cp.id): cp.notes}) %}
+        {% endif %}
+    {% endfor %}
+    {% set _target = scenarioView.target %}
+    {% set _start = scenarioView.startTime %}
+    {% set _totals = calc.totals %}
+    {% set _hasTimes = calc.rows|filter(r => r.arrivalSeconds is not null)|length > 0 or _target is not null %}
+    {% set _stopsError = calc.errors|filter(e => e.code == 'stops_exceed_target')|length > 0 %}
+    {% set _hasCutoffs = calc.rows|filter(r => r.cutoffSeconds is not null)|length > 0 %}
+
+    {# ═══════════════════════ FICHE ═══════════════════════ #}
+    <div class="pp-page pp-sheet" data-scenario-id="{{ scenario.id }}">
+        <header class="pp-head">
+            <div class="pp-head-main">
+                <div class="pp-eyebrow">{{ 'race_print.eyebrow'|trans }}</div>
+                <h1 class="pp-title">{{ race.name }}</h1>
+                <div class="pp-meta">
+                    <span><i class="bi bi-calendar-event"></i>{{ _raceDate }}</span>
+                    {% if race.location %}<span><i class="bi bi-geo-alt"></i>{{ race.location }}</span>{% endif %}
+                    {% if _start %}<span><i class="bi bi-clock"></i>{{ 'race_print.start_at'|trans({'%time%': _start}) }}</span>{% endif %}
+                </div>
+            </div>
+            <div class="pp-scenario-box">
+                <div class="pp-scenario-label">{{ 'race_print.scenario'|trans }}</div>
+                <div class="pp-scenario-name">{{ scenario.name }}</div>
+            </div>
+        </header>
+
+        <section class="pp-stats">
+            <div class="pp-stat">
+                <div class="pp-stat-label">{{ 'race_print.distance'|trans }}</div>
+                <div class="pp-stat-value">{{ (_totals.distanceM / 1000)|number_format(1, _dec, _th) }} <small>km</small></div>
+            </div>
+            <div class="pp-stat">
+                <div class="pp-stat-label">{{ 'race_print.gain'|trans }}</div>
+                <div class="pp-stat-value">
+                    {% if _hasRoute %}{{ _totals.gainM|number_format(0, _dec, _th) }} <small>m</small>
+                    {% elseif race.elevationGain %}{{ race.elevationGain|number_format(0, _dec, _th) }} <small>m</small>
+                    {% else %}{{ m.blank() }}{% endif %}
+                </div>
+            </div>
+            <div class="pp-stat">
+                <div class="pp-stat-label">{{ 'race_print.start_time'|trans }}</div>
+                <div class="pp-stat-value">{{ _start ?: m.blank() }}</div>
+            </div>
+            <div class="pp-stat">
+                <div class="pp-stat-label">{{ 'race_print.target_time'|trans }}</div>
+                <div class="pp-stat-value">{{ _target ?: m.blank() }}</div>
+            </div>
+            <div class="pp-stat">
+                {# Allure de déplacement (arrêts exclus), même libellé que la page plan : le titre ne s'imprime pas #}
+                <div class="pp-stat-label" title="{{ 'race_print.moving_pace_title'|trans }}">{{ 'race_print.moving_pace'|trans }}</div>
+                <div class="pp-stat-value">
+                    {% if _totals.avgPaceSecPerKm is not null %}{{ _totals.avgPaceSecPerKm|race_pace }} <small>/km</small>{% else %}{{ m.blank() }}{% endif %}
+                </div>
+            </div>
+            <div class="pp-stat">
+                <div class="pp-stat-label">{{ 'race_print.total_stops'|trans }}</div>
+                <div class="pp-stat-value">{{ m.stop(_totals.stopSeconds) }}</div>
+            </div>
+            {% set _strategy = scenarioView.strategy %}
+            <div class="pp-stat pp-stat--wide" data-pp-strategy="{{ _strategy.value }}">
+                <div class="pp-stat-label" title="{{ 'race_print.strategy_title'|trans }}">{{ 'race_print.strategy'|trans }}</div>
+                <div class="pp-stat-value">
+                    {{- _strategy.labelKey|trans -}}
+                    {%- if _strategy.usesIntensity %} <small data-pp-intensity="{{ scenarioView.intensity.value }}">({{ 'race_print.strategy_intensity'|trans({'%level%': (scenarioView.intensity.labelKey|trans)|lower}) }})</small>{% endif -%}
+                </div>
+                <div class="pp-stat-desc">{{ _strategy.descriptionKey|trans }}</div>
+            </div>
+        </section>
+
+        {% if _stopsError %}
+            <div class="pp-alert" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> {{ 'race_print.alert_stops_exceed'|trans }}</div>
+        {% endif %}
+        {% if not _hasTimes %}
+            <p class="pp-note"><i class="bi bi-pencil"></i> {{ 'race_print.no_times'|trans }}</p>
+        {% elseif not _totals.complete %}
+            <p class="pp-note"><i class="bi bi-pencil"></i> {{ 'race_print.incomplete'|trans }}</p>
+        {% endif %}
+
+        <div class="pp-table-wrap">
+            <table class="pp-table">
+                <colgroup>
+                    <col style="width:5%">
+                    <col style="width:{{ _hasRoute ? '20%' : '29%' }}">
+                    <col style="width:6%">
+                    {% if _hasRoute %}<col style="width:7%">{% endif %}
+                    <col style="width:{{ _hasRoute ? '10%' : '8%' }}">
+                    <col style="width:10%">
+                    <col style="width:10%">
+                    <col style="width:8%">
+                    <col style="width:7%">
+                    <col style="width:17%">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="pp-c">#</th>
+                        <th>{{ 'race_print.col_name'|trans }}</th>
+                        <th class="pp-r">{{ 'race_print.col_km'|trans }}</th>
+                        {% if _hasRoute %}<th class="pp-r">{{ 'race_print.col_gain'|trans }}</th>{% endif %}
+                        <th class="pp-r">{{ 'race_print.col_segment'|trans }}</th>
+                        <th class="pp-r">{{ 'race_print.col_time'|trans }}</th>
+                        <th class="pp-r">{{ 'race_print.col_clock'|trans }}</th>
+                        <th class="pp-r">{{ 'race_print.col_stop'|trans }}</th>
+                        <th class="pp-r">{{ 'race_print.col_pace'|trans }}</th>
+                        <th>{{ 'race_print.col_cutoff'|trans }}</th>
+                    </tr>
+                </thead>
+
+                <tbody class="pp-row--start">
+                    <tr>
+                        <td class="pp-c"><span class="pp-pin pp-pin--start"><i class="bi bi-play-fill"></i></span></td>
+                        <td class="pp-cp-name">{{ 'race_print.start'|trans }}</td>
+                        <td class="pp-r">{{ 0|number_format(1, _dec, _th) }}</td>
+                        {% if _hasRoute %}<td class="pp-r">0</td>{% endif %}
+                        <td></td>
+                        <td class="pp-r"><span class="pp-time">0:00</span></td>
+                        <td class="pp-r"><span class="pp-clock">{{ _start ?: m.blank('pp-blank--sm') }}</span></td>
+                        <td></td><td></td><td></td>
+                    </tr>
+                </tbody>
+
+                {% for row in calc.rows|merge([calc.finish]) %}
+                    {% set _isFinish = row.type == 'finish' %}
+                    {% set _isAid = row.type == 'aid_station' %}
+                    {% set _note = not _isFinish and _notes['cp' ~ row.checkpointId] is defined ? _notes['cp' ~ row.checkpointId] : null %}
+                    <tbody class="pp-row--{{ row.type }}{{ _note ? ' pp-has-notes' }}" data-checkpoint-id="{{ row.checkpointId }}">
+                        <tr>
+                            <td class="pp-c">
+                                {% if _isFinish %}
+                                    <span class="pp-pin pp-pin--finish"><i class="bi bi-flag-fill"></i></span>
+                                {% else %}
+                                    <span class="pp-pin pp-pin--{{ row.type }}">{{ loop.index }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="pp-cp-name">
+                                    {%- if _isAid %}<i class="bi bi-cup-hot-fill"></i>{% endif -%}
+                                    {{ _isFinish ? 'race_print.finish'|trans : row.name }}
+                                </span>
+                                {%- if _isAid %}<span class="pp-tag">{{ 'race_print.aid_tag'|trans }}</span>{% endif %}
+                                {% for code in row.errors %}
+                                    <span class="pp-err"><i class="bi bi-exclamation-triangle-fill"></i>{{ ('race_print.error_' ~ code)|trans }}</span>
+                                {% endfor %}
+                            </td>
+                            <td class="pp-r">{{ (row.distanceM / 1000)|number_format(1, _dec, _th) }}</td>
+                            {% if _hasRoute %}<td class="pp-r">{{ row.cumulativeGainM|number_format(0, _dec, _th) }}</td>{% endif %}
+                            <td class="pp-r">
+                                <span class="pp-seg-km">{{ (row.segmentDistanceM / 1000)|number_format(1, _dec, _th) }}</span>
+                                {% if _hasRoute %}<span class="pp-sub">+{{ row.segmentGainM }} / -{{ row.segmentLossM }}</span>{% endif %}
+                            </td>
+                            <td class="pp-r">
+                                {% if row.arrivalSeconds is not null %}
+                                    <span class="pp-time">{{ row.arrivalSeconds|race_duration_input }}</span>
+                                {% else %}
+                                    {{ m.blank() }}
+                                {% endif %}
+                            </td>
+                            <td class="pp-r">
+                                {% if row.clock %}
+                                    <span class="pp-clock">{{ m.clock(row.clock) }}</span>
+                                {% else %}
+                                    {{ m.blank('pp-blank--sm') }}
+                                {% endif %}
+                            </td>
+                            <td class="pp-r">
+                                {% if row.stopSeconds > 0 %}
+                                    {{ m.stop(row.stopSeconds) }}
+                                    {% if row.departureClock %}
+                                        <span class="pp-sub">{{ 'race_print.departure'|trans({'%time%': row.departureClock.time}) }}</span>
+                                    {% elseif row.departureSeconds is not null %}
+                                        <span class="pp-sub">{{ 'race_print.departure'|trans({'%time%': row.departureSeconds|race_duration_input}) }}</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td class="pp-r">
+                                {% if row.segmentPaceSecPerKm is not null %}
+                                    {{ row.segmentPaceSecPerKm|race_pace }}
+                                {% endif %}
+                            </td>
+                            <td>{{ m.cutoff(row) }}</td>
+                        </tr>
+                        {% if _note %}
+                            <tr class="pp-notes">
+                                <td></td>
+                                <td colspan="{{ _hasRoute ? 9 : 8 }}"><span class="pp-notes-text"><i class="bi bi-journal-text"></i>{{ _note }}</span></td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                {% endfor %}
+            </table>
+        </div>
+
+        {% if _hasCutoffs %}
+            <div class="pp-legend">
+                <strong>{{ 'race_print.legend_title'|trans }}</strong>
+                <span><span class="pp-cut pp-cut--ok"><span class="pp-cut-sym">✓</span><span class="pp-cut-label">{{ 'race_print.cutoff_ok'|trans }}</span></span> {{ 'race_print.legend_ok'|trans }}</span>
+                <span><span class="pp-cut pp-cut--tight"><span class="pp-cut-sym">!</span><span class="pp-cut-label">{{ 'race_print.cutoff_tight'|trans }}</span></span> {{ 'race_print.legend_tight'|trans }}</span>
+                <span><span class="pp-cut pp-cut--missed"><span class="pp-cut-sym">✗</span><span class="pp-cut-label">{{ 'race_print.cutoff_missed'|trans }}</span></span> {{ 'race_print.legend_missed'|trans }}</span>
+            </div>
+        {% endif %}
+
+        <footer class="pp-footer">
+            <span>{{ 'race_print.generated_by'|trans }} <strong>SportPartner</strong></span>
+            <span>{{ 'race_print.printed_on'|trans({'%date%': 'now'|date('d/m/Y H:i')}) }}</span>
+        </footer>
+    </div>
+
+    {# ═══════════════════════ BRACELET ═══════════════════════ #}
+    {% set _cells = calc.rows|merge([calc.finish]) %}
+    {% set _stripCount = (_cells|length / 8)|round(0, 'ceil') %}
+    {% set _perStrip = (_cells|length / _stripCount)|round(0, 'ceil') %}
+    <div class="pp-page pp-band" data-scenario-id="{{ scenario.id }}">
+        <p class="pp-band-hint"><i class="bi bi-scissors"></i><span>{{ 'race_print.band_hint'|trans }}</span></p>
+        <div class="pp-strips">
+            {% for strip in _cells|batch(_perStrip) %}
+                <div class="pp-strip" style="grid-template-columns: 25mm repeat({{ _perStrip }}, minmax(0, 1fr))">
+                    <i class="bi bi-scissors pp-strip-scissors" aria-hidden="true"></i>
+                    <div class="pp-strip-label">
+                        <div class="pp-strip-race">{{ race.name }}</div>
+                        <div class="pp-strip-scn">{{ scenario.name }}</div>
+                        <div class="pp-strip-info">{{ 'race_print.band_target'|trans }} <strong>{{ _target ?: '...' }}</strong></div>
+                        <div class="pp-strip-info">{{ 'race_print.band_start'|trans }} <strong>{{ _start ?: '...' }}</strong></div>
+                        <div class="pp-strip-idx">{{ loop.index }}/{{ loop.length }}</div>
+                    </div>
+                    {% for row in strip %}
+                        {% set _isFinish = row.type == 'finish' %}
+                        {% set _label = _isFinish ? 'race_print.finish'|trans : row.name %}
+                        <div class="pp-cell pp-cell--{{ row.type }}" title="{{ _label }}">
+                            <div class="pp-cell-top">
+                                <span>{{ (row.distanceM / 1000)|number_format(1, _dec, _th) }} km</span>
+                                {% if row.type == 'aid_station' %}<i class="bi bi-cup-hot-fill" aria-label="{{ 'race_print.aid_tag'|trans }}"></i>
+                                {% elseif _isFinish %}<i class="bi bi-flag-fill"></i>{% endif %}
+                            </div>
+                            <div class="pp-cell-name">{{ _label|length > 30 ? _label|slice(0, 29) ~ '.' : _label }}</div>
+                            <div class="pp-cell-time">{{ row.arrivalSeconds is not null ? row.arrivalSeconds|race_duration : m.blank() }}</div>
+                            <div class="pp-cell-clock">{{ row.clock ? m.clock(row.clock) : m.blank('pp-blank--sm') }}</div>
+                            {% if row.cutoffSeconds is not null %}
+                                {# Avec une heure de départ, la barrière est donnée en heure (comme la ligne au-dessus), pas en temps écoulé #}
+                                {% set _cutClock = race_clock(scenario.startTime, row.cutoffSeconds) %}
+                                <div class="pp-cell-cut">
+                                    {{- 'race_print.band_cutoff'|trans({'%time%': _cutClock ? _cutClock.time : row.cutoffSeconds|race_duration}) -}}
+                                    {%- if _cutClock and _cutClock.dayOffset > 0 %}<span class="pp-day">{{ 'race_print.day_offset'|trans({'%n%': _cutClock.dayOffset}) }}</span>{% endif -%}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+        <footer class="pp-footer">
+            <span>{{ 'race_print.generated_by'|trans }} <strong>SportPartner</strong></span>
+            <span>{{ 'race_print.printed_on'|trans({'%date%': 'now'|date('d/m/Y H:i')}) }}</span>
+        </footer>
+    </div>
+{% endif %}
+</main>
+
+<script>
+    (function () {
+        var body = document.body;
+        function setFormat(format) {
+            body.classList.toggle('fmt-band', format === 'band');
+            body.classList.toggle('fmt-sheet', format !== 'band');
+            document.querySelectorAll('[data-format]').forEach(function (a) {
+                if (a.getAttribute('data-format') === format) {
+                    a.setAttribute('aria-current', 'true');
+                } else {
+                    a.removeAttribute('aria-current');
+                }
+            });
+            document.querySelectorAll('[data-scenario-link]').forEach(function (a) {
+                var url = new URL(a.href, location.href);
+                url.searchParams.set('format', format);
+                a.setAttribute('href', url.pathname + url.search);
+            });
+            try {
+                var current = new URL(location.href);
+                current.searchParams.set('format', format);
+                history.replaceState(null, '', current.pathname + current.search);
+            } catch (e) { /* aperçu sans historique : sans conséquence */ }
+        }
+        document.addEventListener('click', function (event) {
+            var toggle = event.target.closest('[data-format]');
+            if (toggle) {
+                event.preventDefault();
+                setFormat(toggle.getAttribute('data-format'));
+                return;
+            }
+            if (event.target.closest('[data-print]')) {
+                window.print();
+            }
+        });
+    })();
+</script>
 </body>
 </html>

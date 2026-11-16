@@ -50,6 +50,74 @@ weather:
     click_forecast: "Click for 7-day forecast →"
     forecast_title: "7-Day Forecast"
 
+# ── Race-day weather (race page) ─────────────
+race_weather:
+    title: "Race-day weather"
+    loading: "Loading the weather…"
+    badge_forecast: "Forecast"
+    badge_observed: "Observed weather"
+    badge_climate: "Historical trend"
+    max: "high"
+    min: "low"
+    feels_like: "Feels like %max% / %min%"
+    risk_low: "Low chance of rain"
+    risk_moderate: "Moderate chance of rain"
+    risk_high: "High chance of rain"
+    observed_wet: "Rainy day"
+    observed_dry: "No significant rain"
+    wind: "Wind"
+    gusts: "gusts %speed%"
+    uv: "Max UV index"
+    sun: "Daylight"
+    sunrise: "Sunrise"
+    sunset: "Sunset"
+    hours_title: "Through the day"
+    rain_probability: "Chance of rain"
+    precipitation: "Precipitation"
+    updated_at: "Updated at %time%"
+    gpx_start: "Course start"
+    source_gpx: "GPX track start"
+    source_location: "geocoded location"
+    attribution: "Weather data: Open-Meteo.com"
+    geonames: "Places: GeoNames"
+    wind_from:
+        n: "Wind from the north"
+        ne: "Wind from the north-east"
+        e: "Wind from the east"
+        se: "Wind from the south-east"
+        s: "Wind from the south"
+        sw: "Wind from the south-west"
+        w: "Wind from the west"
+        nw: "Wind from the north-west"
+    compass:
+        n: "N"
+        ne: "NE"
+        e: "E"
+        se: "SE"
+        s: "S"
+        sw: "SW"
+        w: "W"
+        nw: "NW"
+    climate_note: "Not a forecast: statistics from %from% to %to% over the last %years% years (%fromYear%-%toYear%)."
+    climate_tmax: "Average high"
+    climate_tmin: "Average low"
+    climate_range: "%min% to %max%"
+    climate_rain_days: "%share% of days with rain (1 mm or more)"
+    climate_rain_years: "Years with rain: %n% of %total%"
+    climate_wind: "Average max wind"
+    climate_dominant: "Most frequent weather"
+    climate_snow: "Snow days"
+    climate_snow_value: "%n% of %days%"
+    climate_available: "Detailed forecast available 15 days before the race, from %date%."
+    no_date: "Add a date to the race to see the race-day weather."
+    add_date: "Add a date"
+    no_location: "Add a location or import the course GPX."
+    not_found: "Location not found: “%location%”. Enter the town or import the course GPX."
+    edit_location: "Edit the location"
+    import_gpx: "Import the GPX"
+    unavailable: "Weather unavailable right now. Try again in a few minutes."
+    retry: "Try again"
+
 # ── Carte Prochaine échéance ─────────────────
 event:
     next_label: NEXT EVENT
@@ -85,6 +153,23 @@ objectives:
     distance: distance
     charge: load
     sessions: sessions
+    by_sport:
+        title: By sport
+        distance: "%current% / %target% km"
+        sessions_one: "%current% / %target% session"
+        sessions_many: "%current% / %target% sessions"
+        duration: "%current% / %target%"
+        elevation: "%current% / %target% m gain"
+        left_distance: "%value% km to go"
+        left_sessions_one: "1 session to go"
+        left_sessions_many: "%value% sessions to go"
+        left_duration: "%value% to go"
+        left_elevation: "%value% m to go"
+        reached: Reached
+        hours: "%h%h"
+        hours_minutes: "%h%h %m%m"
+        minutes: "%m% min"
+        add_cta: "Add goals per sport"
 
 # ── Bannière Strava ──────────────────────────
 strava:
@@ -116,6 +201,7 @@ calendar:
     upcoming_title: Upcoming races
     upcoming_all: All
     upcoming_empty: "No upcoming dated race. Add a date to your races to see them here."
+    upcoming_none: None coming up
     today: Today
     in_days: "{1} in 1 day|]1,Inf[ in %count% days"
     qv_distance: Distance
@@ -222,6 +308,88 @@ activity_detail:
     hr_chart_title: Heart Rate
     pace_title: Pace per kilometer
 
+# ── Activity fueling (card on the detail page) ──────────────────────────────
+activity_fuel:
+    title: Fueling
+    subtitle: what you ate and drank during the session
+    units_zero: "0 food items"
+    units_one: "1 food item"
+    units_other: "%count% food items"
+    col_carbs: Carbs consumed
+    col_food: Food
+    col_drinks: Drinks
+    gauge_label: "Carb intake rate: %rate% g/h. Target: %min%-%max% g/h, on a 0 to %scale% g/h scale."
+    gauge_label_none: "Carb intake rate unavailable: unknown activity duration."
+    status_within: "Within target %min%-%max% g/h"
+    status_below: Below target
+    status_above: Above target
+    status_none: "Unknown duration: rate unavailable"
+    status_empty: Nothing logged for this session
+    stat_food: Food
+    stat_drinks: Drinks
+    stat_liquid: Total fluid
+    stat_hydration: Hydration
+    per_unit: g/unit
+    per_500: g/500 ml
+    carbs_label_food: "%name%: carbs per unit, in grams"
+    carbs_label_drink: "%name%: carbs per 500 ml, in grams"
+    announce: "%name%: %value%"
+    add_unit: "Add one: %name%"
+    remove_unit: "Remove one: %name%"
+    add_ml: "Add %step% ml: %name%"
+    remove_ml: "Remove %step% ml: %name%"
+    delete_custom: "Delete %name%"
+    items:
+        gel:
+            name: Gel
+            add: Add a gel
+            remove: Remove a gel
+        puree:
+            name: Fruit puree
+            add: Add a fruit puree
+            remove: Remove a fruit puree
+        fruit_paste:
+            name: Fruit jelly
+            add: Add a fruit jelly
+            remove: Remove a fruit jelly
+        gummies:
+            name: Chews
+            add: Add a pack of chews
+            remove: Remove a pack of chews
+        bar:
+            name: Bar
+            add: Add a bar
+            remove: Remove a bar
+        water:
+            name: Water
+            add: "Add %step% ml of water"
+            remove: "Remove %step% ml of water"
+        isotonic:
+            name: Isotonic
+            add: "Add %step% ml of isotonic drink"
+            remove: "Remove %step% ml of isotonic drink"
+        energy_drink:
+            name: Energy drink
+            add: "Add %step% ml of energy drink"
+            remove: "Remove %step% ml of energy drink"
+    add_other: Other
+    add_other_food: Add another food
+    add_other_drink: Add another drink
+    custom_name: Name
+    custom_name_placeholder_food: "e.g. Banana"
+    custom_name_placeholder_drink: "e.g. Cola"
+    custom_carbs_food: "Carbs per unit (g)"
+    custom_carbs_drink: "Carbs per 500 ml (g)"
+    custom_submit: Add
+    custom_cancel: Cancel
+    custom_error_name: "Enter a name (%max% characters max)."
+    custom_error_carbs: "Enter a value from 0 to %max% g."
+    save_saving: "Saving…"
+    save_saved: Saved
+    save_error: "Error, try again"
+    save_session: "Session expired: reload the page"
+    save_retry: Retry
+
 # ── Activities page ───────────────────────────
 activities:
     page_title: "Activities - SportPartner"
@@ -253,6 +421,7 @@ settings:
         profile: Profile
         preferences: Preferences
         hr_zones: HR Zones
+        gear: Gear
         devices: Devices
         appearance: Appearance
         account: Account
@@ -260,6 +429,31 @@ settings:
         section_title: Weekly Goals
         weekly_distance: "Target distance (km)"
         weekly_sessions: "Target sessions"
+        all_sports: All sports combined
+        by_sport: Goals per sport
+        by_sport_help: "Only fill in the targets you want to track, at least one per sport. Duration in hours: 5, 5.5 or 5:30."
+        empty: "No goal per sport yet."
+        add: Add a sport
+        all_used: "Every sport already has a goal."
+        remove: "Remove the %sport% goal"
+        added: "%sport% goal added, remember to save."
+        removed: "%sport% goal removed, remember to save."
+        distance: "Distance (km)"
+        sessions: Sessions
+        duration: "Duration (h)"
+        elevation: "Elev. gain (m)"
+        unknown_sport: Unknown sport
+        conflict: "Your goals per sport changed in the meantime (in another tab?): check them and save again."
+        error:
+            no_target: "Enter at least one target: distance, sessions, duration or elevation gain."
+            sport_required: "Choose a sport."
+            sport_invalid: "This sport does not exist."
+            duplicate_sport: "This sport already has a goal."
+            distance_range: "Between 0.1 and 2,000 km."
+            sessions_range: "Between 1 and 30 sessions."
+            duration_range: "Between 1 min and 100 h."
+            duration_invalid: "Invalid duration: write for example 5, 5.5 or 5:30."
+            elevation_range: "Between 1 and 50,000 m."
     profile:
         section_title: Athlete Profile
         change_photo: Change photo
@@ -270,6 +464,167 @@ settings:
         max_hr: "Max HR (bpm)"
         vma: "MAS (km/h)"
         ftp: "Cycling FTP (W)"
+
+# ── Profile photo (Settings > Profile, sidebar) ──────────────────────────────
+avatar:
+    alt: "Profile photo"
+    hint: "JPEG, PNG, WebP or GIF, %size% MB max. The image is cropped to a square."
+    use_strava: "Use my Strava photo"
+    delete: "Remove photo"
+    delete_confirm: "Remove your profile photo?"
+    uploading: "Uploading..."
+    importing: "Importing..."
+    deleting: "Removing..."
+    flash:
+        updated: "Profile photo updated."
+        strava: "Your Strava photo is now your profile photo."
+        deleted: "Profile photo removed."
+    error:
+        csrf: "Your session expired: reload the page and try again."
+        missing: "Choose an image to upload."
+        upload: "The upload failed, please try again."
+        empty: "This file is empty."
+        too_large: "Image too large: %size% MB max."
+        type: "Unsupported format: choose a JPEG, PNG, WebP or GIF image."
+        heic: "HEIC format (iPhone) is not supported: save the photo as JPEG and try again."
+        animated: "Animated images are not accepted: choose a still image."
+        dimensions: "Image too large: reduce its dimensions (40 megapixels max) and try again."
+        invalid: "This file is not a valid image or it is damaged."
+        processing: "This image could not be processed: try another photo."
+    strava:
+        not_connected: "Connect your Strava account first."
+        auth: "Your Strava connection has expired: reconnect Strava and try again."
+        rate_limit: "Strava is limiting requests: try again in 15 minutes."
+        unavailable: "Strava cannot be reached right now: try again later."
+        no_photo: "No photo on your Strava profile."
+        download: "Your Strava photo could not be retrieved: try again later."
+        invalid: "Your Strava photo could not be used: upload an image from your device instead."
+
+# ── Gear (Settings > Gear, activities) ───────────────────────────────────────
+gear:
+    section_title: Gear
+    intro: "Your shoes and bikes: link them to your activities to track their mileage and wear."
+    add: Add gear
+    add_first: Add my first gear
+    add_shoes: Add shoes
+    add_bike: Add a bike
+    empty_title: No gear yet
+    empty_text: "Add your running shoes or your bike to track the distance covered and know when to replace them. Your default gear is linked automatically to your new Strava activities."
+    group_shoes: Shoes
+    group_bike: Bikes
+    group_empty_shoes: "No shoes in use."
+    group_empty_bike: "No bike in use."
+    retired_section: Retired
+    brand_other: Other
+    type_shoes: Shoes
+    type_bike: Bike
+    type_shoes_desc: "Running, trail, walking, hiking"
+    type_bike_desc: "Road, gravel, MTB"
+    badge_default: Default
+    badge_retired: "Retired on %date%"
+    stat_total: Total
+    stat_activities: Activities
+    stat_last_use: Last used
+    stat_purchased: Purchased
+    status_ok: Good condition
+    status_warn: Keep an eye on it
+    status_worn: Replace soon
+    status_none: "Wear not tracked (no lifespan)"
+    wear_label: Wear
+    wear_of: "Lifespan: %max% km"
+    wear_remaining: "%km% km left"
+    wear_reached: "lifespan reached"
+    initial_included: "Including %km% km covered before tracking"
+    edit: Edit
+    retire: Retire
+    reactivate: Reactivate
+    delete: Delete
+    confirm_delete: "Delete this gear? Activities are kept, they simply won't have any gear linked anymore."
+    assign_defaults: Link to activities without gear
+    assign_help_shoes: "Links these shoes to your running, trail, walking and hiking activities that have no gear yet (since the purchase date if set)."
+    assign_help_bike: "Links this bike to your rides that have no gear yet (since the purchase date if set)."
+    modal_title_add: Add gear
+    modal_title_edit: Edit gear
+    save_add: Add
+    save_edit: Save
+    cancel: Cancel
+    field_type: Type
+    field_type_locked: "The type cannot be changed after creation."
+    field_brand: Brand
+    field_brand_placeholder: Choose a brand
+    field_model: Model
+    field_model_placeholder: "E.g. Speedgoat 6, Tarmac SL7…"
+    field_nickname: Nickname
+    field_nickname_placeholder: "E.g. The red ones, Sunday bike…"
+    field_purchased_at: Purchase date
+    field_initial_km: Km already covered
+    field_initial_help: "Km already covered: distance done before tracking this gear here."
+    field_max_km: Lifespan
+    field_max_help: "Lifespan: about 700 km for running shoes; leave empty to not track wear."
+    field_default_shoes: Default shoes
+    field_default_bike: Default bike
+    field_default_help_shoes: "Linked automatically to new Strava running, trail, walking and hiking activities."
+    field_default_help_bike: "Linked automatically to new rides imported from Strava."
+    field_default_retired: "Retired gear cannot be the default gear."
+    field_notes: Notes
+    field_notes_placeholder: "Size, settings, maintenance…"
+    flash_added: Gear added.
+    flash_updated: Gear updated.
+    flash_retired: "Gear retired: it is no longer offered for new activities."
+    flash_reactivated: Gear reactivated.
+    flash_deleted: "Gear deleted. The related activities no longer have any gear linked."
+    flash_assigned: "{0} No activity without gear to link to %name%.|{1} 1 activity linked to %name%.|]1,Inf[ %count% activities linked to %name%."
+    flash_retired_no_assign: "Retired gear cannot be linked to activities."
+    flash_invalid_type: Invalid gear type.
+    flash_brand_required: "Choose a brand that matches this type of gear."
+    flash_model_required: The model is required.
+    flash_csrf: "Session expired, please try again."
+    flash_incompatible: "This gear cannot be linked to this activity."
+    flash_activity_updated: Activity gear saved.
+    flash_activity_cleared: "Gear removed from the activity."
+    activity_label: Gear
+    activity_none: None
+    activity_submit: Save
+    activity_retired_suffix: "(retired)"
+    activity_empty: "No compatible gear."
+    activity_add_link: Add gear
+    # Strava import (Settings > Gear)
+    badge_strava: Strava
+    badge_strava_title: "Imported from Strava"
+    import_title: Import from Strava
+    import_text: "Fetch your Strava shoes and bikes, link them to your already imported activities and take over their Strava total mileage."
+    import_replace: Replace existing links
+    import_replace_help: "Checked: every activity gets the gear set on Strava, even if you picked another one here. Unchecked: only activities without gear are linked."
+    import_note: "Model and name come from Strava; lifespan, purchase date and notes stay as entered here. Your Strava primary gear becomes your default gear if you don't have one yet."
+    import_btn: Import from Strava
+    import_busy: "Importing…"
+    import_reconnect: Reconnect Strava
+    import_reconnect_help: "Access denied, or unused gear missing? Reconnect Strava to allow reading your profile."
+    import_connect_hint: "Connect your Strava account to import your shoes and bikes."
+    import_connect_btn: Connect Strava
+    import_done: "Strava import complete: %created%, %updated%, %linked%."
+    import_created: "{0} 0 gear items imported|{1} 1 gear item imported|]1,Inf[ %count% gear items imported"
+    import_updated: "{0} 0 updated|{1} 1 updated|]1,Inf[ %count% updated"
+    import_linked: "{0} 0 activities linked|{1} 1 activity linked|]1,Inf[ %count% activities linked"
+    import_empty: "No gear found on Strava. Assign your shoes or bike to your activities on Strava, then run the import again."
+    import_skipped: "{1} 1 gear item could not be read from Strava and was skipped.|]1,Inf[ %count% gear items could not be read from Strava and were skipped."
+    import_truncated: "Very long history: only your %count% most recent Strava activities were analysed."
+    import_scope_hint: "Tip: reconnect Strava to also import gear you have never used in an activity."
+    import_error_not_connected: "Connect your Strava account first to import your gear."
+    import_error_auth: 'Strava denied access to your gear. Reconnect your Strava account ("Reconnect Strava") and run the import again.'
+    import_error_rate_limit: "Strava request limit reached. Please try again in 15 minutes."
+    import_error_unavailable: "Strava is not responding right now. Please try again later."
+    import_error_unexpected: "The import failed. Please try again in a moment."
+    # Wear alert (dashboard)
+    alert_label: Gear to check
+    alert_shoes_worn: "Your %name% have %km% km (%pct%% of their lifespan): time to replace them."
+    alert_shoes_warn: "Your %name% have %km% km (%pct%% of their lifespan): replace them soon."
+    alert_bike_worn: "Your bike %name% has %km% km (%pct%% of its planned mileage): time for a service."
+    alert_bike_warn: "Your bike %name% has %km% km (%pct%% of its planned mileage): service coming up."
+    alert_more_one: "and 1 more gear item to check"
+    alert_more_many: "and %count% more gear items to check"
+    alert_link: View my gear
+    alert_dismiss: Dismiss this alert
 
 # ── Authentification ─────────────────────────
 auth:
@@ -370,6 +725,18 @@ race_show:
     step_gpx: "Import the course GPX (file or link)"
     step_checkpoints: "Place checkpoints: aid stations, passes, cut-offs"
     step_times: "Set your split times (coming soon)"
+    step_times_link: "Set your split times"
+    scenarios_title: "Time goals"
+    scenarios_link: "Split times"
+    scenarios_empty: "No scenario yet: set a start time, a target time and your split times at each checkpoint."
+    scenario_target: "Goal %time%"
+    scenario_no_target: "No target time"
+    scenario_start: "Start %time%"
+    scenario_arrival: "Finish %time%"
+    scenario_print: "Print the sheet of the “%name%” scenario"
+    scenarios_heading: "Scenarios"
+    scenario_target_time: "Target %time%"
+    scenario_strategy_title: "Pacing strategy"
     checkpoints: checkpoints
     aid_stations: aid stations
     info_title: Details
@@ -394,6 +761,7 @@ race_plan:
     upload_feature_checkpoints: "Checkpoints and aid stations placed with one click on the profile"
     upload_feature_segments: "Distance, gain, loss and average grade between checkpoints"
     upload_feature_next: "Coming soon: split times, cutoffs and pace band"
+    upload_feature_times: "Split times, cutoffs and a printable pace band"
     upload_where: "The GPX is usually available on the race website. You can also export it from Strava, Garmin Connect, Komoot…"
     dropzone_title: Drop your GPX file here
     dropzone_or: or click to browse
@@ -469,6 +837,10 @@ race_plan:
     field_cutoff_help: "hh:mm from the start (e.g. 30:15 for 30 h 15). Leave empty if there is none."
     field_notes: Notes
     field_notes_placeholder: "Nutrition, gear, water point, crew access…"
+    field_notes_private: "Private: never shown on the shared plan."
+    field_public_message: Message for your supporters
+    field_public_message_placeholder: "E.g. Stand on the left after the aid station."
+    field_public_message_help: "Shown on the plan's share link, at this checkpoint (500 characters max)."
     cancel: Cancel
     save_add: Add
     save_edit: Save
@@ -496,6 +868,129 @@ race_plan:
     flash_checkpoint_saved: "Checkpoint saved."
     flash_checkpoint_deleted: "Checkpoint deleted."
     flash_checkpoint_invalid: "Invalid checkpoint: check the name, distance and cutoff time."
+    # Split times (scenarios, partial race/_scenarios.html.twig)
+    nav_scenarios: "Split times"
+    sc_title: "Split times"
+    sc_sub: "Your race scenarios: target time, clock time and pace at each checkpoint"
+    sc_empty_text: "A scenario is a time goal (A, B, C…): a start time, a target finish time and your split times at each checkpoint. The table instantly computes the clock time, the pace of each section and your margin on cutoffs."
+    sc_feature_target: "Target time and expected finish time"
+    sc_feature_splits: "Split time, clock time and pace at each checkpoint"
+    sc_feature_cutoffs: "Margin on every cutoff"
+    sc_feature_distribute: "Automatic split of the target time based on distance and elevation gain"
+    sc_feature_strategy: "Pacing strategies: conservative start, negative split, ultra pacing…"
+    sc_create_first: "Create my first scenario"
+    sc_btn_add: "Scenario"
+    sc_btn_add_title: "Add a scenario"
+    sc_limit: "%max% scenarios max: delete one to create another."
+    sc_tablist_label: "Scenarios"
+    sc_field_name: "Name"
+    sc_field_name_placeholder: "E.g. Goal A, Just finish, Bad weather plan…"
+    sc_field_name_help: "Leave empty for “Goal A”, “Goal B”…"
+    sc_field_start: "Start time"
+    sc_field_target: "Target time"
+    sc_field_target_placeholder: "E.g. 3:15"
+    sc_field_duration_help: "h:mm or h:mm:ss from the start (e.g. 3:15, 27:30, 3h15)"
+    sc_modal_title: "New scenario"
+    sc_modal_help: "One more time goal: for example an ambitious plan A, a cautious plan B and a plan C to just finish."
+    sc_modal_submit: "Create scenario"
+    sc_sum_target: "Target time"
+    sc_sum_arrival: "Expected finish"
+    sc_sum_pace: "Moving pace"
+    sc_sum_stops: "Stops"
+    sc_sum_cutoffs: "Cutoffs"
+    sc_sum_pinned: "Pinned times"
+    sc_cutoffs_none: "None"
+    sc_cutoff_ok_n: "%n% ok"
+    sc_cutoff_tight_n: "%n% tight"
+    sc_cutoff_missed_n: "%n% missed"
+    sc_save: "Save"
+    sc_unsaved: "Unsaved changes"
+    sc_distribute: "Distribute"
+    sc_distribute_help: "Clears the pinned times and recalculates every split from the saved target time and pacing strategy."
+    sc_distribute_need_target: "Without a saved target time, checkpoints after the last pinned time stay empty and “Distribute” is unavailable."
+    sc_pins_help: "“Auto” times are computed between your pinned times and the target time, in proportion to effort (km + gain/100, aid station stops included) shaped by the pacing strategy. Type a time to pin it: the others are recalculated, the target time never moves."
+    sc_confirm_distribute: "Clear the pinned times of this scenario and recalculate every split from the target time?"
+    sc_confirm_distribute_dirty: "Your unsaved changes will be lost: the distribution uses the saved target time. Continue?"
+    sc_confirm_dirty: "You have unsaved changes that will be lost. Continue?"
+    sc_duplicate: "Duplicate"
+    sc_duplicate_title: "Create a copy of this scenario (pinned times included)"
+    sc_print: "Print"
+    sc_print_title: "Printable sheet (new tab)"
+    sc_delete: "Delete"
+    sc_confirm_delete: "Delete the scenario “%name%” and its split times?"
+    sc_col_cp: "Checkpoint"
+    sc_col_gain: "Cum. gain"
+    sc_col_time: "Split time"
+    sc_col_clock: "Clock"
+    sc_col_stop: "Stop"
+    sc_col_pace: "Section pace"
+    sc_col_avg: "Avg pace"
+    sc_col_cutoff: "Cutoff"
+    sc_gain_title: "+%gain% m on this section"
+    sc_time_placeholder: "h:mm"
+    sc_auto: "auto"
+    sc_auto_title: "Computed automatically: type a time to pin it"
+    sc_pinned_title: "Pinned time: auto times are computed from it"
+    sc_unpin: "Back to automatic"
+    sc_state_auto: "Computed automatically"
+    sc_state_pinned: "Pinned time"
+    sc_time_label: "Split time at %name%"
+    sc_finish_time_label: "Target finish time"
+    sc_day: "Day +%n%"
+    sc_day_title: "%n% day(s) after race day"
+    sc_stop: "+%n% min"
+    sc_departure: "Leaves at %time%"
+    sc_per_km: "/km"
+    sc_speed: "%v% km/h"
+    sc_pace_title: "%time% for %km% km from %from%"
+    sc_margin_ok: "Margin %m%"
+    sc_margin_tight: "Margin %m%"
+    sc_margin_missed: "Missed by %m%"
+    sc_status_ok: "Cutoff met"
+    sc_status_tight: "Tight margin: under 15 min"
+    sc_status_missed: "Cutoff missed"
+    sc_err_not_increasing: "This time must be later than the previous checkpoint's."
+    sc_err_after_finish: "This time is past the target finish time."
+    sc_err_stops_exceed: "Planned aid station stops reach or exceed the target time."
+    sc_err_invalid: "Expected format: h:mm, h:mm:ss or 3h15."
+    sc_err_zero: "The target time must be greater than 0."
+    sc_errors_one: "1 inconsistent split time: check the highlighted row."
+    sc_errors_many: "%count% inconsistent split times: check the highlighted rows."
+    sc_no_distance: "Import the GPX or set the race distance to compute paces."
+    flash_scenario_added: "Scenario created."
+    flash_scenario_saved: "Scenario saved."
+    flash_scenario_distributed: "Pinned times cleared: every split is recalculated from the target time."
+    flash_scenario_duplicated: "Scenario duplicated."
+    flash_scenario_deleted: "Scenario deleted."
+    flash_scenario_limit: "Limit reached: 6 scenarios max per race."
+    flash_scenario_invalid: "Invalid scenario: check the name (60 characters max), the start time, the pacing strategy and the time format (h:mm or h:mm:ss)."
+    flash_scenario_need_target: "Set and save a target time first to distribute the split times."
+    flash_scenario_stops_exceed: "Cannot distribute: planned aid station stops reach or exceed the target time."
+    sc_default_name: "Goal %letter%"
+    sc_copy_suffix: " (copy)"
+    sc_err_name_blank: "Give the scenario a name."
+    sc_margin_tight_text: "Tight margin %m%"
+    sc_distribute_help_inline: "“Distribute” clears the pinned times and recalculates every split from the saved target time and pacing strategy."
+    sc_confirm_print_dirty: "Unsaved changes: the printed sheet will use the last saved version of this scenario. Open the sheet anyway? (Cancel to save first.)"
+    # Pacing strategies (App\Entity\PacingStrategy / PacingIntensity)
+    sc_field_strategy: "Pacing strategy"
+    sc_field_intensity: "Intensity"
+    sc_strategy_suggested: "(suggested)"
+    sc_dev: "%v%%"
+    sc_dev_title: "Difference from the scenario's average moving pace (%pace% /km): + slower, - faster"
+    pacing_even: "Even pace"
+    pacing_conservative: "Conservative start"
+    pacing_negative: "Negative split"
+    pacing_aggressive: "Fast start"
+    pacing_ultra: "Ultra pacing"
+    pacing_even_desc: "Steady effort: only the elevation and aid station stops change the split times."
+    pacing_conservative_desc: "Deliberately slower over the first 30% of the race, then a steady pace to save energy."
+    pacing_negative_desc: "A slightly slower first half and a faster second half: you speed up gradually until the finish."
+    pacing_aggressive_desc: "A faster start to bank time, then a gradual slowdown until the finish."
+    pacing_ultra_desc: "A steady slowdown throughout the race, typical of long distances: the end is clearly slower than the start."
+    pacing_intensity_light: "Light"
+    pacing_intensity_medium: "Medium"
+    pacing_intensity_strong: "Strong"
 
 # ── Nutrition ─────────────────────────────────────────────────────────────────
 nutrition:
@@ -564,7 +1059,7 @@ race_print:
     col_time: Split
     col_clock: Time of day
     col_stop: Stop
-    col_pace: Pace
+    col_pace: "Pace /km"
     col_cutoff: Cutoff / margin
     start: Start
     finish: Finish
@@ -596,3 +1091,114 @@ race_print:
     empty_title: No scenario to print
     empty_text: "First create a scenario (a target time) in the race plan: its split times can then be printed as a sheet or a pace band."
     empty_cta: Go to the race plan
+    target_time: Target time
+    moving_pace: Moving pace
+    moving_pace_title: "Target time minus stops, divided by the distance"
+    alert_stops_exceed: "Planned stops reach or exceed the target time: check the target time and the stop times in the plan."
+    strategy: Strategy
+    strategy_title: "Pacing strategy that shapes the computed times"
+    strategy_intensity: "%level% intensity"
+
+# ── Race plan sharing: owner settings (/courses/{id}/partage) ──
+race_share:
+    page_title: "Share - %name% - SportPartner"
+    share_button: "Share"
+    share_title: "Share the race plan with your family and friends"
+    public_message_title: "Message for your supporters (shared page)"
+    public_message_tooltip: "Message for your supporters: %message%"
+    eyebrow: "Share the race plan"
+    intro: "Send a link to your family and friends: without an account, they see your planned times, the course and the messages you leave them at each checkpoint."
+    link_title: "Share link"
+    status_on: "Sharing on"
+    status_off: "Sharing off"
+    link_label: "Link to send"
+    copy: "Copy link"
+    copied: "Link copied."
+    copy_manual: "Automatic copy is not available: the link is selected, copy it by hand (Ctrl+C or long press)."
+    preview: "Preview"
+    enable: "Turn sharing on"
+    disable: "Turn sharing off"
+    regenerate: "Regenerate link"
+    confirm_regenerate: "Create a new link? The old one will stop working: you will have to send the new one to your supporters."
+    confirm_unsaved: "Your unsaved changes will be lost."
+    link_help: "Turning sharing off makes the link unavailable (page not found); turning it back on restores the same link. Regenerating creates a new link and cuts off the old one."
+    off_text: "Turn sharing on to get a link to send to your family and friends. You can prepare your messages first."
+    off_text_existing: "Sharing is off: the link shows a page not found. Turn it back on to make it work again."
+    privacy_title: "What your supporters see:"
+    privacy_text: "the race name, date and place, the display name, the planned times of the chosen scenario, the course and your messages. Never your email, your private notes or your other scenarios."
+    display_title: "Display"
+    display_name: "Display name"
+    display_name_placeholder: "Your first name"
+    display_name_help: "Shown at the top of the page. Leave empty to show no name."
+    scenario: "Shared scenario"
+    scenario_help: "Its times are shown. If it is deleted, the first scenario takes over."
+    no_scenario: "No scenario yet: the page will say \"Times not set yet\"."
+    no_scenario_link: "Create a scenario"
+    options: "Also show"
+    show_paces: "Planned paces"
+    show_cutoffs: "Cutoff times"
+    messages_title: "Messages for your supporters"
+    messages_sub: "One note per checkpoint: where to see you, what you will wear, what you will need. The private notes of your checkpoints are never shared."
+    message: "General message"
+    message_placeholder: "E.g. Thanks for coming to cheer me on! I will wear a red shirt."
+    message_for: "Message for: %name%"
+    points_label: "Checkpoints"
+    start: "Start"
+    finish: "Finish"
+    start_placeholder: "E.g. Meet me at corral 3, by the church."
+    point_placeholder: "E.g. Stand on the left side after the aid station."
+    finish_placeholder: "E.g. Let's meet in front of the finishers' tent."
+    private_note: "Private note, not shared:"
+    time_none: "No time set"
+    time_elapsed: "%time% after the start"
+    day_offset: "Day +%n%"
+    unsaved: "Unsaved changes"
+    save: "Save"
+    error_too_long: "Text too long."
+    error_invalid: "Invalid value."
+    flash_saved: "Sharing settings saved."
+    flash_invalid: "Some fields are too long or invalid: nothing was saved."
+    flash_enabled: "Sharing on: send the link to your supporters."
+    flash_disabled: "Sharing off: the link no longer works."
+    flash_regenerated: "New link created: the old one no longer works."
+    flash_csrf: "Session expired: reload the page and try again."
+
+# ── Race plan sharing: public page (/p/{token}) ──
+race_public:
+    page_title: "%race% - Race plan"
+    page_title_named: "%race% - %name%'s race plan"
+    eyebrow: "Race plan"
+    eyebrow_named: "%name%'s race plan"
+    lang_switch: "Language"
+    start_time: "Start"
+    finish_time: "Planned finish"
+    distance: "Distance"
+    gain: "Elev. gain"
+    add_calendar: "Add to my calendar"
+    next_title: "Next estimated passage"
+    next_text: "%name% around %time%"
+    next_start: "Start planned at %time%"
+    next_done: "Finish planned around %time%: the race should be over."
+    planned_note: "Planned times from the race plan: this is not live tracking."
+    message_title: "Message"
+    message_from: "Message from %name%"
+    timeline_title: "Checkpoints"
+    no_times: "Times not set yet"
+    no_times_text: "Planned passing times will appear here once they are set."
+    start: "Start"
+    finish: "Finish"
+    aid_station: "Aid station"
+    pace: "Pace %pace% /km"
+    cutoff: "Cutoff"
+    cutoff_elapsed: "Cutoff: %time% after the start"
+    time_start: "at"
+    time_around: "around"
+    time_after: "after"
+    day_offset: "Day +%n%"
+    day_offset_title: "%n% day(s) after race day"
+    map_title: "Course"
+    map_label: "Course map"
+    profile_label: "Course elevation profile"
+    footer: "Page shared with SportPartner."
+    ics_summary_named: "%race% - %name%"
+    ics_by: "%name%'s race plan"

@@ -1,0 +1,363 @@
+{#
+ # Carte « Ravitaillement » d'une activité : aliments et boissons consommés pendant la sortie, glucides, débit
+ # (g/h) par rapport à la cible et hydratation. Incluse par activities/show.html.twig, juste sous le profil altimétrique.
+ # Données : activity_fuel(activity) (ActivityFuelViewBuilder) ; null pour les sports sans ravitaillement
+ # (musculation, natation) : rien n'est affiché.
+ # Sans JavaScript, la carte est en lecture seule (contrôles désactivés). activity_fuel_controller.js la rend
+ # modifiable, recalcule en direct (activity_fuel_calculator.js) et enregistre automatiquement (app_activity_fuel).
+ #}
+{% macro row(item, grams, fmt, cfg) %}
+    {% set _food = item.kind.value == 'food' %}
+    {% set _name = item.custom ? item.label : ('activity_fuel.items.' ~ item.key ~ '.name')|trans %}
+    {% set _p = {'%name%': _name, '%step%': cfg.drinkStep} %}
+    {% if item.custom %}
+        {% set _minus = (_food ? 'activity_fuel.remove_unit' : 'activity_fuel.remove_ml')|trans(_p) %}
+        {% set _plus = (_food ? 'activity_fuel.add_unit' : 'activity_fuel.add_ml')|trans(_p) %}
+    {% else %}
+        {% set _minus = ('activity_fuel.items.' ~ item.key ~ '.remove')|trans(_p) %}
+        {% set _plus = ('activity_fuel.items.' ~ item.key ~ '.add')|trans(_p) %}
+    {% endif %}
+    {% set _max = _food ? cfg.maxFoodUnits : cfg.maxDrinkMl %}
+    <li class="sp-fuel-row{{ item.custom ? ' sp-fuel-row--custom' : '' }}" data-activity-fuel-target="row"
+        data-kind="{{ item.kind.value }}" data-key="{{ item.key }}" data-quantity="{{ item.quantity }}" data-carbs="{{ item.carbs }}"
+        {%- if item.custom %} data-label="{{ item.label }}"{% endif %}>
+        <span class="sp-fuel-ico" aria-hidden="true"><i class="bi {{ item.icon }}"></i></span>
+        <span class="sp-fuel-main">
+            <span class="sp-fuel-name-line">
+                <span class="sp-fuel-name" data-role="name">{{ _name }}</span>
+                {% if item.custom %}
+                    <button type="button" class="sp-fuel-del" data-role="delete" data-action="activity-fuel#removeCustom"
+                            aria-label="{{ 'activity_fuel.delete_custom'|trans(_p) }}" disabled><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                {% endif %}
+            </span>
+            <span class="sp-fuel-carbs">
+                <input type="number" class="sp-fuel-carbs-input" data-role="carbs" value="{{ item.carbs }}"
+                       min="0" max="{{ cfg.maxCarbs }}" step="any" inputmode="decimal"
+                       aria-label="{{ ('activity_fuel.carbs_label_' ~ item.kind.value)|trans(_p) }}"
+                       data-action="input->activity-fuel#carbsInput change->activity-fuel#carbsChange" disabled>
+                <span class="sp-fuel-carbs-unit" aria-hidden="true">{{ (_food ? 'activity_fuel.per_unit' : 'activity_fuel.per_500')|trans }}</span>
+            </span>
+        </span>
+        <span class="sp-fuel-stepper">
+            <button type="button" class="sp-fuel-step" data-role="minus" data-action="activity-fuel#decrement"
+                    aria-label="{{ _minus }}" aria-disabled="{{ item.quantity <= 0 ? 'true' : 'false' }}" disabled><i class="bi bi-dash-lg" aria-hidden="true"></i></button>
+            <span class="sp-fuel-count" data-role="count">{{ _food ? item.quantity : item.quantity|number_format(0, fmt.dp, fmt.ts) ~ ' ml' }}</span>
+            <button type="button" class="sp-fuel-step" data-role="plus" data-action="activity-fuel#increment"
+                    aria-label="{{ _plus }}" aria-disabled="{{ item.quantity >= _max ? 'true' : 'false' }}" disabled><i class="bi bi-plus-lg" aria-hidden="true"></i></button>
+        </span>
+        <span class="sp-fuel-row-total{{ grams == 0 ? ' is-zero' : '' }}" data-role="total">{{ grams|number_format(0, fmt.dp, fmt.ts) }} g</span>
+    </li>
+{% endmacro %}
+
+{% macro add_form(kind, cfg) %}
+    <button type="button" class="sp-fuel-add" data-activity-fuel-target="addButton" data-kind="{{ kind }}" data-action="activity-fuel#openAdd"
+            aria-label="{{ ('activity_fuel.add_other_' ~ kind)|trans }}" hidden>
+        <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'activity_fuel.add_other'|trans }}
+    </button>
+    <form class="sp-fuel-add-form" data-activity-fuel-target="addForm" data-kind="{{ kind }}"
+          data-action="submit->activity-fuel#addCustom keydown.esc->activity-fuel#closeAdd" novalidate hidden>
+        <div class="sp-fuel-add-fields">
+            <label class="sp-fuel-add-field sp-fuel-add-field--name">
+                <span class="sp-fuel-add-label">{{ 'activity_fuel.custom_name'|trans }}</span>
+                <input type="text" name="label" class="sp-fuel-add-input" maxlength="{{ cfg.labelMax }}" autocomplete="off" required
+                       placeholder="{{ ('activity_fuel.custom_name_placeholder_' ~ kind)|trans }}">
+            </label>
+            <label class="sp-fuel-add-field sp-fuel-add-field--carbs">
+                <span class="sp-fuel-add-label">{{ ('activity_fuel.custom_carbs_' ~ kind)|trans }}</span>
+                <input type="number" name="carbs" class="sp-fuel-add-input" min="0" max="{{ cfg.maxCarbs }}" step="any" inputmode="decimal" required>
+            </label>
+        </div>
+        <div class="sp-fuel-add-actions">
+            <button type="submit" class="sp-fuel-add-submit">{{ 'activity_fuel.custom_submit'|trans }}</button>
+            <button type="button" class="sp-fuel-add-cancel" data-action="activity-fuel#closeAdd">{{ 'activity_fuel.custom_cancel'|trans }}</button>
+        </div>
+    </form>
+{% endmacro %}
+
+{% import _self as fuelm %}
+{% set fuel = activity_fuel(activity) %}
+{% if fuel is not null %}
+{% set _fr = app.request.locale == 'fr' %}
+{% set _fmt = {dp: _fr ? ',' : '.', ts: _fr ? ' ' : ','} %}
+{% set _cfg = fuel.config %}
+{% set _s = fuel.summary %}
+{% set _rate = _s.carbsPerHour %}
+{# Statut affiché : "empty" (neutre) tant que rien n'est saisi, "none" sans durée #}
+{% set _status = _s.status.value == 'none' or _s.hasEntries ? _s.status.value : 'empty' %}
+{% set _icons = {within: 'bi-check-circle-fill', below: 'bi-arrow-down-circle-fill', above: 'bi-arrow-up-circle-fill', none: 'bi-dash-circle', empty: 'bi-info-circle'} %}
+{% set _target = {'%min%': _cfg.targetMin, '%max%': _cfg.targetMax} %}
+{% set _statusText = {
+    within: 'activity_fuel.status_within'|trans(_target),
+    below: 'activity_fuel.status_below'|trans,
+    above: 'activity_fuel.status_above'|trans,
+    none: 'activity_fuel.status_none'|trans,
+    empty: 'activity_fuel.status_empty'|trans,
+} %}
+{% set _gaugeLabel = 'activity_fuel.gauge_label'|trans(_target|merge({'%scale%': _cfg.gaugeMax})) %}
+{% set _step = {'%step%': _cfg.drinkStep} %}
+{% set _labels = {
+    unitsZero: 'activity_fuel.units_zero'|trans,
+    unitsOne: 'activity_fuel.units_one'|trans,
+    unitsOther: 'activity_fuel.units_other'|trans,
+    gauge: _gaugeLabel,
+    gaugeNone: 'activity_fuel.gauge_label_none'|trans,
+    status: _statusText,
+    icons: _icons,
+    announce: 'activity_fuel.announce'|trans,
+    addUnit: 'activity_fuel.add_unit'|trans,
+    removeUnit: 'activity_fuel.remove_unit'|trans,
+    addMl: 'activity_fuel.add_ml'|trans(_step),
+    removeMl: 'activity_fuel.remove_ml'|trans(_step),
+    deleteCustom: 'activity_fuel.delete_custom'|trans,
+    carbsFood: 'activity_fuel.carbs_label_food'|trans,
+    carbsDrink: 'activity_fuel.carbs_label_drink'|trans,
+    errorName: 'activity_fuel.custom_error_name'|trans({'%max%': _cfg.labelMax}),
+    errorCarbs: 'activity_fuel.custom_error_carbs'|trans({'%max%': _cfg.maxCarbs}),
+    saving: 'activity_fuel.save_saving'|trans,
+    saved: 'activity_fuel.save_saved'|trans,
+    error: 'activity_fuel.save_error'|trans,
+    session: 'activity_fuel.save_session'|trans,
+} %}
+{% set _units = _s.foodUnits == 0 ? 'activity_fuel.units_zero'|trans
+    : (_s.foodUnits == 1 ? 'activity_fuel.units_one'|trans : 'activity_fuel.units_other'|trans({'%count%': _s.foodUnits|number_format(0, _fmt.dp, _fmt.ts)})) %}
+{% set _liters = (_s.liquidDl / 10)|number_format(1, _fmt.dp, _fmt.ts) %}
+{% set _blank = {custom: true, label: '', key: '', quantity: 0, carbs: 0} %}
+
+<section class="sp-card sp-fuel" aria-labelledby="sp-fuel-title"
+         data-controller="activity-fuel"
+         data-activity-fuel-url-value="{{ path('app_activity_fuel', {id: activity.id}) }}"
+         data-activity-fuel-token-value="{{ csrf_token('activity_fuel') }}"
+         data-activity-fuel-duration-value="{{ _s.durationSeconds ?? 0 }}"
+         data-activity-fuel-config-value="{{ _cfg|json_encode }}"
+         data-activity-fuel-format-value="{{ _fmt|json_encode }}"
+         data-activity-fuel-labels-value="{{ _labels|json_encode }}">
+
+    <div class="sp-fuel-head">
+        <div>
+            <h2 class="sp-card-title" id="sp-fuel-title">{{ 'activity_fuel.title'|trans }}</h2>
+            <p class="sp-card-sub sp-fuel-sub">{{ 'activity_fuel.subtitle'|trans }}</p>
+        </div>
+        <div class="sp-fuel-aside">
+            <span class="sp-fuel-save" role="status" data-activity-fuel-target="save"></span>
+            <button type="button" class="sp-fuel-retry" data-activity-fuel-target="retry" data-action="activity-fuel#retry" hidden>{{ 'activity_fuel.save_retry'|trans }}</button>
+            <span class="sp-fuel-chip" data-activity-fuel-target="chip">{{ _units }} · {{ _liters }} L</span>
+        </div>
+    </div>
+    <span class="visually-hidden" aria-live="polite" data-activity-fuel-target="announce"></span>
+
+    <div class="sp-fuel-grid">
+
+        {# ── Glucides consommés : total, débit, jauge, statut, détail ── #}
+        <div class="sp-fuel-col sp-fuel-col--carbs">
+            <h3 class="sp-fuel-col-title">{{ 'activity_fuel.col_carbs'|trans }}</h3>
+            <div class="sp-fuel-totals">
+                <span class="sp-fuel-total"><span data-activity-fuel-target="total">{{ _s.totalCarbs|number_format(0, _fmt.dp, _fmt.ts) }}</span><small> g</small></span>
+                <span class="sp-fuel-rate"><span data-activity-fuel-target="rate">{{ _rate is null ? '-' : _rate|number_format(0, _fmt.dp, _fmt.ts) }}</span><small> g/h</small></span>
+            </div>
+            <div class="sp-fuel-gauge" role="img" data-activity-fuel-target="gauge"
+                 aria-label="{{ _rate is null ? 'activity_fuel.gauge_label_none'|trans : _gaugeLabel|replace({'%rate%': _rate|number_format(0, _fmt.dp, _fmt.ts)}) }}">
+                <div class="sp-fuel-gauge-track">
+                    <span class="sp-fuel-gauge-band" style="left:{{ (_cfg.targetMin / _cfg.gaugeMax * 100)|round(2) }}%;width:{{ ((_cfg.targetMax - _cfg.targetMin) / _cfg.gaugeMax * 100)|round(2) }}%"></span>
+                    <span class="sp-fuel-gauge-marker sp-fuel-gauge-marker--{{ _status }}" data-activity-fuel-target="marker"
+                          style="left:{{ _rate is null ? 0 : (min(_rate, _cfg.gaugeMax) / _cfg.gaugeMax * 100)|round(2) }}%"{{ _rate is null ? ' hidden' : '' }}></span>
+                </div>
+                <div class="sp-fuel-gauge-ticks">
+                    {% for tick in [0, _cfg.targetMin, _cfg.targetMax, _cfg.gaugeMax] %}
+                        <span style="left:{{ (tick / _cfg.gaugeMax * 100)|round(2) }}%">{{ tick }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <p class="sp-fuel-status sp-fuel-status--{{ _status }}" data-activity-fuel-target="status">
+                <i class="bi {{ _icons[_status] }}" aria-hidden="true" data-activity-fuel-target="statusIcon"></i>
+                <span data-activity-fuel-target="statusText">{{ _statusText[_status] }}</span>
+            </p>
+            <dl class="sp-fuel-stats">
+                <div class="sp-fuel-stat">
+                    <dt>{{ 'activity_fuel.stat_food'|trans }}</dt>
+                    <dd><span data-activity-fuel-target="foodCarbs">{{ _s.foodCarbs|number_format(0, _fmt.dp, _fmt.ts) }}</span> <small>g</small></dd>
+                </div>
+                <div class="sp-fuel-stat">
+                    <dt>{{ 'activity_fuel.stat_drinks'|trans }}</dt>
+                    <dd><span data-activity-fuel-target="drinkCarbs">{{ _s.drinkCarbs|number_format(0, _fmt.dp, _fmt.ts) }}</span> <small>g</small></dd>
+                </div>
+                <div class="sp-fuel-stat">
+                    <dt>{{ 'activity_fuel.stat_liquid'|trans }}</dt>
+                    <dd><span data-activity-fuel-target="liquid">{{ _liters }}</span> <small>L</small></dd>
+                </div>
+                <div class="sp-fuel-stat">
+                    <dt>{{ 'activity_fuel.stat_hydration'|trans }}</dt>
+                    <dd><span data-activity-fuel-target="hydration">{{ _s.hydrationMlPerHour is null ? '-' : _s.hydrationMlPerHour|number_format(0, _fmt.dp, _fmt.ts) }}</span> <small>ml/h</small></dd>
+                </div>
+            </dl>
+        </div>
+
+        {# ── Aliments puis boissons ── #}
+        {% for _kind in ['food', 'drink'] %}
+            {% set _rows = _kind == 'food' ? fuel.food : fuel.drinks %}
+            <div class="sp-fuel-col">
+                <h3 class="sp-fuel-col-title" id="sp-fuel-title-{{ _kind }}">{{ (_kind == 'food' ? 'activity_fuel.col_food' : 'activity_fuel.col_drinks')|trans }}</h3>
+                <ul class="sp-fuel-list sp-fuel-list--{{ _kind }}" aria-labelledby="sp-fuel-title-{{ _kind }}" data-activity-fuel-target="list" data-kind="{{ _kind }}">
+                    {% for item in _rows %}
+                        {{ fuelm.row(item, fuel.rowCarbs(item), _fmt, _cfg) }}
+                    {% endfor %}
+                </ul>
+                <template data-activity-fuel-target="rowTemplate" data-kind="{{ _kind }}">
+                    {{ fuelm.row(_blank|merge({kind: {value: _kind}, icon: _kind == 'food' ? 'bi-basket' : 'bi-cup'}), 0, _fmt, _cfg) }}
+                </template>
+                {{ fuelm.add_form(_kind, _cfg) }}
+            </div>
+        {% endfor %}
+
+    </div>
+</section>
+
+<style>
+/* Placée sous le profil altimétrique : marges symétriques (les cartes voisines n'en ont pas) */
+.sp-fuel { margin: 16px 0; container-type: inline-size; }
+.sp-fuel-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 18px; }
+.sp-fuel-sub { margin: 0; }
+.sp-fuel-aside { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.sp-fuel-save { font-size: 11.5px; font-weight: 600; color: var(--sp-muted); }
+.sp-fuel-save:empty { display: none; }
+.sp-fuel-save.is-saved { color: #15803D; }
+.sp-fuel-save.is-error, .sp-fuel-save.is-session { color: #B91C1C; }
+.sp-fuel-retry {
+    padding: 0; border: 0; background: none; cursor: pointer;
+    color: var(--sp-orange); font-size: 11.5px; font-weight: 700; text-decoration: underline;
+}
+.sp-fuel-chip {
+    display: inline-flex; align-items: center; padding: 4px 11px; border-radius: 99px;
+    background: var(--sp-bg); color: var(--sp-text); font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+
+.sp-fuel-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+.sp-fuel-col { min-width: 0; }
+.sp-fuel-col-title {
+    margin: 0 0 8px; font-size: 9.5px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--sp-muted);
+}
+
+/* Glucides consommés */
+.sp-fuel-totals { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 14px; }
+.sp-fuel-total { font-size: 34px; font-weight: 900; letter-spacing: -.03em; line-height: 1; color: var(--sp-text); white-space: nowrap; }
+.sp-fuel-total small { font-size: 16px; font-weight: 700; letter-spacing: 0; }
+.sp-fuel-rate { font-size: 19px; font-weight: 800; letter-spacing: -.02em; color: var(--sp-orange); white-space: nowrap; }
+.sp-fuel-rate small { font-size: 12px; font-weight: 700; letter-spacing: 0; }
+.sp-fuel-gauge { margin: 16px 0 0; }
+.sp-fuel-gauge-track { position: relative; height: 10px; border-radius: 99px; background: #ECEAE4; }
+.sp-fuel-gauge-band { position: absolute; top: 0; bottom: 0; background: rgba(34, 197, 94, .32); }
+.sp-fuel-gauge-marker {
+    position: absolute; top: 50%; width: 6px; height: 22px; border-radius: 3px;
+    transform: translate(-50%, -50%); background: var(--sp-dark); box-shadow: 0 0 0 2px #fff;
+    transition: left .25s ease;
+}
+.sp-fuel-gauge-marker--within { background: #16A34A; }
+.sp-fuel-gauge-marker--below, .sp-fuel-gauge-marker--above { background: #D97706; }
+.sp-fuel-gauge-marker--empty { background: var(--sp-muted); }
+.sp-fuel-gauge-ticks { position: relative; height: 14px; margin-top: 7px; font-size: 10.5px; color: var(--sp-muted); font-variant-numeric: tabular-nums; }
+.sp-fuel-gauge-ticks span { position: absolute; top: 0; transform: translateX(-50%); }
+.sp-fuel-gauge-ticks span:first-child { transform: none; }
+.sp-fuel-gauge-ticks span:last-child { transform: translateX(-100%); }
+.sp-fuel-status { display: flex; align-items: center; gap: 6px; margin: 12px 0 14px; font-size: 12.5px; font-weight: 700; }
+.sp-fuel-status--within { color: #15803D; }
+.sp-fuel-status--below, .sp-fuel-status--above { color: #B45309; }
+.sp-fuel-status--none, .sp-fuel-status--empty { color: var(--sp-muted); font-weight: 600; }
+.sp-fuel-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.sp-fuel-stat { min-width: 0; padding: 8px 10px; border-radius: 10px; background: #F6F5F1; }
+.sp-fuel-stat dt { margin: 0 0 2px; font-size: 10.5px; font-weight: 600; color: var(--sp-muted); }
+.sp-fuel-stat dd { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.01em; color: var(--sp-text); white-space: nowrap; }
+.sp-fuel-stat dd small { font-size: 11px; font-weight: 600; color: var(--sp-muted); }
+
+/* Aliments / boissons */
+.sp-fuel-list { list-style: none; margin: 0; padding: 0; }
+.sp-fuel-row {
+    display: grid; grid-template-columns: 32px minmax(0, 1fr) auto 52px; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid rgba(0, 0, 0, .05);
+}
+.sp-fuel-row:last-child { border-bottom: 0; }
+.sp-fuel-ico { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.sp-fuel-list--food .sp-fuel-ico { background: rgba(232, 64, 12, .10); color: var(--sp-orange); }
+.sp-fuel-list--drink .sp-fuel-ico { background: rgba(6, 182, 212, .12); color: #0E7490; }
+.sp-fuel-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sp-fuel-name-line { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.sp-fuel-name { font-size: 13px; font-weight: 700; color: var(--sp-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-fuel-del {
+    flex-shrink: 0; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; color: var(--sp-muted); font-size: 11px; cursor: pointer;
+}
+.sp-fuel-del:hover { background: rgba(239, 68, 68, .10); color: #B91C1C; }
+.sp-fuel-carbs { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.sp-fuel-carbs-input {
+    width: 48px; padding: 2px 6px; border: 1px solid rgba(0, 0, 0, .10); border-radius: 6px;
+    background: var(--sp-bg); color: var(--sp-text); font-size: 12px; font-weight: 700; text-align: right;
+    font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield;
+}
+.sp-fuel-carbs-input::-webkit-outer-spin-button,
+.sp-fuel-carbs-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.sp-fuel-carbs-input:focus { outline: none; border-color: var(--sp-orange); box-shadow: 0 0 0 2px rgba(232, 64, 12, .15); }
+.sp-fuel-carbs-input[aria-invalid="true"] { border-color: #B91C1C; }
+.sp-fuel-carbs-input:disabled { width: 4ch; field-sizing: content; padding: 2px 0; border-color: transparent; background: transparent; text-align: left; }
+.sp-fuel-carbs-unit { font-size: 11px; color: var(--sp-muted); white-space: nowrap; }
+.sp-fuel-stepper { display: inline-flex; align-items: center; border: 1px solid rgba(0, 0, 0, .10); border-radius: 10px; background: #fff; }
+.sp-fuel-step {
+    width: 30px; height: 30px; padding: 0; border: 0; border-radius: 9px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; color: var(--sp-text); font-size: 13px; cursor: pointer;
+}
+.sp-fuel-step:hover:not(:disabled):not([aria-disabled="true"]) { background: rgba(0, 0, 0, .05); }
+.sp-fuel-step:disabled, .sp-fuel-step[aria-disabled="true"] { color: rgba(0, 0, 0, .22); cursor: not-allowed; }
+.sp-fuel-step:focus-visible, .sp-fuel-del:focus-visible, .sp-fuel-add:focus-visible, .sp-fuel-retry:focus-visible,
+.sp-fuel-add-submit:focus-visible, .sp-fuel-add-cancel:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: 1px; }
+.sp-fuel-count { min-width: 24px; text-align: center; font-size: 13px; font-weight: 800; color: var(--sp-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sp-fuel-list--drink .sp-fuel-count { min-width: 64px; }
+.sp-fuel-row-total { text-align: right; font-size: 13px; font-weight: 800; color: var(--sp-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sp-fuel-row-total.is-zero { color: var(--sp-muted); font-weight: 600; }
+
+/* Ajout d'un apport personnalisé */
+.sp-fuel-add {
+    display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 0 -8px; padding: 5px 8px;
+    border: 0; border-radius: 8px; background: transparent; color: var(--sp-muted);
+    font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.sp-fuel-add:hover { color: var(--sp-orange); background: rgba(232, 64, 12, .06); }
+.sp-fuel-add-form { margin-top: 10px; padding: 12px; border-radius: 12px; background: #F6F5F1; }
+.sp-fuel-add-fields { display: flex; flex-wrap: wrap; gap: 8px; }
+.sp-fuel-add-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; }
+.sp-fuel-add-field--name { flex: 1 1 150px; }
+.sp-fuel-add-field--carbs { flex: 1 1 120px; }
+.sp-fuel-add-label { font-size: 10.5px; font-weight: 700; color: var(--sp-muted); }
+.sp-fuel-add-input {
+    width: 100%; padding: 6px 9px; border: 1px solid rgba(0, 0, 0, .12); border-radius: 8px;
+    background: #fff; color: var(--sp-text); font-size: 13px;
+}
+.sp-fuel-add-input:focus { outline: none; border-color: var(--sp-orange); box-shadow: 0 0 0 2px rgba(232, 64, 12, .15); }
+.sp-fuel-add-input[aria-invalid="true"] { border-color: #B91C1C; }
+.sp-fuel-add-actions { display: flex; gap: 8px; margin-top: 10px; }
+.sp-fuel-add-submit, .sp-fuel-add-cancel { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.sp-fuel-add-submit { border: 0; background: var(--sp-dark); color: #fff; }
+.sp-fuel-add-cancel { border: 1px solid rgba(0, 0, 0, .12); background: #fff; color: var(--sp-text); }
+
+/* Largeur de la carte : 1 colonne, puis glucides au-dessus + 2 colonnes, puis 3 colonnes */
+@container (min-width: 640px) {
+    .sp-fuel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 28px; }
+    .sp-fuel-col--carbs { grid-column: 1 / -1; }
+    .sp-fuel-col--carbs .sp-fuel-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@container (min-width: 1000px) {
+    .sp-fuel-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.05fr) minmax(0, 1.05fr); gap: 0; }
+    .sp-fuel-col--carbs { grid-column: auto; }
+    .sp-fuel-col--carbs .sp-fuel-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sp-fuel-col { padding: 0 24px; }
+    .sp-fuel-col:first-child { padding-left: 0; }
+    .sp-fuel-col:last-child { padding-right: 0; }
+    .sp-fuel-col + .sp-fuel-col { border-left: 1px solid rgba(0, 0, 0, .06); }
+}
+@container (max-width: 359px) {
+    .sp-fuel-row { gap: 8px; grid-template-columns: 30px minmax(0, 1fr) auto 44px; }
+    .sp-fuel-ico { width: 30px; height: 30px; }
+    .sp-fuel-step { width: 28px; height: 28px; }
+    .sp-fuel-list--drink .sp-fuel-count { min-width: 56px; }
+}
+</style>
+{% endif %}

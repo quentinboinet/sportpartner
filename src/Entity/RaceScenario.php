@@ -6,8 +6,9 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Scénario de course (ex. "Objectif A 3h15", "Finir") : heure de départ, temps cible à l'arrivée
- * et temps de passage visés aux repères (RaceScenarioSplit). Plusieurs scénarios par course.
+ * Scénario de course (ex. "Objectif A 3h15", "Finir") : heure de départ, temps cible à l'arrivée,
+ * stratégie d'allure (PacingStrategy + PacingIntensity, qui façonnent les temps auto) et temps de passage
+ * visés aux repères (RaceScenarioSplit). Plusieurs scénarios par course.
  * Les temps de passage ne sont pas mappés en collection : ils sont chargés en une requête
  * pour tous les scénarios d'une course (RaceScenarioSplitRepository::findForScenarios).
  */
@@ -34,6 +35,17 @@ class RaceScenario
     /** Temps cible à l'arrivée : secondes écoulées depuis le départ (peut dépasser 24 h). */
     #[ORM\Column(nullable: true)]
     private ?int $targetSeconds = null;
+
+    /**
+     * Stratégie d'allure : module la répartition des temps auto (SplitCalculator::fillAutoFromEfforts).
+     * Défaut SQL 'even' (migration Version20240029_AddScenarioStrategy) : les scénarios existants restent réguliers.
+     */
+    #[ORM\Column(type: Types::STRING, length: 20, enumType: PacingStrategy::class, options: ['default' => 'even'])]
+    private PacingStrategy $strategy = PacingStrategy::Even;
+
+    /** Intensité de la stratégie (sans effet pour "Régulier"). Défaut SQL 'medium'. */
+    #[ORM\Column(type: Types::STRING, length: 10, enumType: PacingIntensity::class, options: ['default' => 'medium'])]
+    private PacingIntensity $strategyIntensity = PacingIntensity::Medium;
 
     /** Ordre d'affichage (0 = premier). */
     #[ORM\Column]
@@ -63,6 +75,12 @@ class RaceScenario
 
     public function getTargetSeconds(): ?int { return $this->targetSeconds; }
     public function setTargetSeconds(?int $s): static { $this->targetSeconds = $s; return $this; }
+
+    public function getStrategy(): PacingStrategy { return $this->strategy; }
+    public function setStrategy(PacingStrategy $s): static { $this->strategy = $s; return $this; }
+
+    public function getStrategyIntensity(): PacingIntensity { return $this->strategyIntensity; }
+    public function setStrategyIntensity(PacingIntensity $i): static { $this->strategyIntensity = $i; return $this; }
 
     public function getPosition(): int { return $this->position; }
     public function setPosition(int $p): static { $this->position = $p; return $this; }

@@ -13,7 +13,7 @@
     </div>
 </div>
 
-<div class="sp-cal-layout"
+<div class="sp-cal-page"
      data-controller="training-calendar"
      data-training-calendar-events-url-value="{{ path('app_calendar_events') }}"
      data-training-calendar-show-races-value="{{ showRaces ? 'true' : 'false' }}"
@@ -27,41 +27,57 @@
         done: 'calendar.qv_done'|trans
      }|json_encode }}">
 
-    {# ── Calendrier ──────────────────────────────── #}
-    <div class="sp-cal-main">
-        <div class="sp-cal-options">
-            <label class="sp-cal-switch">
-                <input type="checkbox" role="switch"
-                       data-training-calendar-target="toggle"
-                       data-action="training-calendar#toggleRaces"
-                       {{ showRaces ? 'checked' : '' }}>
-                <span class="sp-cal-switch-track" aria-hidden="true"></span>
-                <i class="bi bi-flag-fill" style="color:var(--sp-orange)"></i>
-                {{ 'calendar.show_races'|trans }}
-            </label>
-        </div>
-        <div class="sp-card sp-cal-card">
-            <div id="training-calendar" data-training-calendar-target="calendar"></div>
-        </div>
+    {# ── Barre : blocs repliables + option courses ─────── #}
+    <div class="sp-cal-bar">
+        <button type="button" class="sp-cal-chip" data-bs-toggle="collapse" data-bs-target="#cal-panel-summary"
+                aria-expanded="false" aria-controls="cal-panel-summary" data-cal-panel="summary">
+            <i class="bi bi-bar-chart-line sp-cal-chip-icon"></i>
+            <span class="sp-cal-chip-label">{{ 'calendar.summary_title'|trans }}</span>
+            <span class="sp-cal-chip-period" data-training-calendar-target="summaryTitle"></span>
+            <span class="sp-cal-chip-value" data-training-calendar-target="summaryHeadline">…</span>
+            <i class="bi bi-chevron-down sp-cal-chip-chevron" aria-hidden="true"></i>
+        </button>
+
+        <button type="button" class="sp-cal-chip" data-bs-toggle="collapse" data-bs-target="#cal-panel-upcoming"
+                aria-expanded="false" aria-controls="cal-panel-upcoming" data-cal-panel="upcoming">
+            <i class="bi bi-flag-fill sp-cal-chip-icon" style="color:var(--sp-orange)"></i>
+            <span class="sp-cal-chip-label">{{ 'calendar.upcoming_title'|trans }}</span>
+            {% set _next = upcomingRaces|first %}
+            {% if _next %}
+                {% set _nextDays = ((_next.raceDate|date('U') - 'today'|date('U')) / 86400)|round %}
+                <span class="sp-cal-chip-value">
+                    {{ _next.name }} · {{ _nextDays == 0 ? 'calendar.today'|trans : 'J-' ~ _nextDays }}
+                </span>
+                {% if upcomingRaces|length > 1 %}<span class="sp-cal-chip-count">+{{ upcomingRaces|length - 1 }}</span>{% endif %}
+            {% else %}
+                <span class="sp-cal-chip-value sp-cal-chip-value--muted">{{ 'calendar.upcoming_none'|trans }}</span>
+            {% endif %}
+            <i class="bi bi-chevron-down sp-cal-chip-chevron" aria-hidden="true"></i>
+        </button>
+
+        <label class="sp-cal-switch">
+            <input type="checkbox" role="switch"
+                   data-training-calendar-target="toggle"
+                   data-action="training-calendar#toggleRaces"
+                   {{ showRaces ? 'checked' : '' }}>
+            <span class="sp-cal-switch-track" aria-hidden="true"></span>
+            <i class="bi bi-flag-fill" style="color:var(--sp-orange)" aria-hidden="true"></i>
+            {{ 'calendar.show_races'|trans }}
+        </label>
     </div>
 
-    {# ── Panneau latéral ─────────────────────────── #}
-    <aside class="sp-cal-side">
-        <div class="sp-card sp-cal-side-card">
-            <h2 class="sp-cal-side-title">
-                {{ 'calendar.summary_title'|trans }}
-                <span class="sp-cal-side-period" data-training-calendar-target="summaryTitle"></span>
-            </h2>
+    {# ── Panneau Bilan (rempli par training_calendar_controller) ── #}
+    <div class="collapse" id="cal-panel-summary">
+        <div class="sp-card sp-cal-panel">
             <div data-training-calendar-target="summary">
                 <p class="sp-cal-summary-empty">…</p>
             </div>
         </div>
+    </div>
 
-        <div class="sp-card sp-cal-side-card">
-            <h2 class="sp-cal-side-title">
-                {{ 'calendar.upcoming_title'|trans }}
-                <a href="{{ path('app_races') }}" class="sp-cal-side-link">{{ 'calendar.upcoming_all'|trans }}</a>
-            </h2>
+    {# ── Panneau Prochaines courses ─────────────────── #}
+    <div class="collapse" id="cal-panel-upcoming">
+        <div class="sp-card sp-cal-panel">
             {% if upcomingRaces is empty %}
                 <p class="sp-cal-summary-empty">{{ 'calendar.upcoming_empty'|trans }}</p>
             {% else %}
@@ -87,8 +103,14 @@
                     {% endfor %}
                 </ul>
             {% endif %}
+            <a href="{{ path('app_races') }}" class="sp-cal-panel-link">{{ 'calendar.upcoming_all'|trans }} <i class="bi bi-arrow-right"></i></a>
         </div>
-    </aside>
+    </div>
+
+    {# ── Calendrier pleine largeur ──────────────────── #}
+    <div class="sp-card sp-cal-card">
+        <div id="training-calendar" data-training-calendar-target="calendar"></div>
+    </div>
 
     {# ── Vue rapide d'une activité (remplie par training_calendar_controller) ── #}
     <div class="modal fade" tabindex="-1" aria-hidden="true" aria-labelledby="qvTitle"
@@ -131,17 +153,31 @@
 </div>
 
 <style>
-.sp-cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
-@media (max-width: 991.98px) { .sp-cal-layout { grid-template-columns: minmax(0, 1fr); } }
-
-.sp-cal-options { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+/* Barre : blocs repliables (Bilan, Prochaines courses) + option courses */
+.sp-cal-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.sp-cal-chip {
+    display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%;
+    padding: 8px 14px; border-radius: 12px; border: 1px solid var(--sp-border); background: var(--sp-card);
+    font-size: 13px; color: var(--sp-text); cursor: pointer; transition: border-color .15s, box-shadow .15s;
+}
+.sp-cal-chip:hover { border-color: var(--sp-dark); }
+.sp-cal-chip[aria-expanded="true"] { border-color: var(--sp-dark); box-shadow: 0 0 0 1px var(--sp-dark) inset; }
+.sp-cal-chip-icon { font-size: 14px; flex-shrink: 0; }
+.sp-cal-chip-label { font-weight: 700; flex-shrink: 0; }
+.sp-cal-chip-period { font-size: 11px; font-weight: 600; color: var(--sp-muted); text-transform: capitalize; flex-shrink: 0; }
+.sp-cal-chip-value { font-weight: 600; color: var(--sp-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.sp-cal-chip-value--muted { color: var(--sp-muted); font-weight: 500; }
+.sp-cal-chip-count { font-size: 11px; font-weight: 700; color: var(--sp-muted); background: var(--sp-bg); border-radius: 10px; padding: 1px 7px; flex-shrink: 0; }
+.sp-cal-chip-chevron { font-size: 11px; color: var(--sp-muted); transition: transform .2s; flex-shrink: 0; }
+.sp-cal-chip[aria-expanded="true"] .sp-cal-chip-chevron { transform: rotate(180deg); }
+/* Interrupteur "Afficher les courses prévues" */
 .sp-cal-switch {
     display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
     font-size: 13px; font-weight: 600; color: var(--sp-text);
 }
 .sp-cal-switch input { position: absolute; opacity: 0; pointer-events: none; }
 .sp-cal-switch-track {
-    position: relative; width: 34px; height: 20px; border-radius: 10px;
+    position: relative; width: 34px; height: 20px; border-radius: 10px; flex-shrink: 0;
     background: var(--sp-border); transition: background .15s;
 }
 .sp-cal-switch-track::after {
@@ -151,6 +187,14 @@
 .sp-cal-switch input:checked + .sp-cal-switch-track { background: var(--sp-orange); }
 .sp-cal-switch input:checked + .sp-cal-switch-track::after { transform: translateX(14px); }
 .sp-cal-switch input:focus-visible + .sp-cal-switch-track { outline: 2px solid var(--sp-orange); outline-offset: 2px; }
+.sp-cal-bar .sp-cal-switch { margin-left: auto; }
+.sp-cal-panel { padding: 16px 18px; margin-bottom: 12px; }
+.sp-cal-panel-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--sp-muted); text-decoration: none; }
+.sp-cal-panel-link:hover { color: var(--sp-orange); }
+@media (max-width: 767.98px) {
+    .sp-cal-chip { flex: 1 1 100%; }
+    .sp-cal-bar .sp-cal-switch { margin-left: 0; }
+}
 
 .sp-cal-card { padding: 18px; }
 #training-calendar {
@@ -187,24 +231,15 @@
 .fc-dayGridMonth-view .sp-fc-ev-time,
 .fc-dayGridYear-view .sp-fc-ev-time { display: none; }
 
-.sp-cal-side { display: flex; flex-direction: column; gap: 16px; }
-.sp-cal-side-card { padding: 16px 18px; }
-.sp-cal-side-title {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-    font-size: 14px; font-weight: 700; color: var(--sp-text); margin: 0 0 12px;
-}
-.sp-cal-side-period { font-size: 11px; font-weight: 600; color: var(--sp-muted); text-transform: capitalize; }
-.sp-cal-side-link { font-size: 11px; font-weight: 600; color: var(--sp-muted); text-decoration: none; }
-.sp-cal-side-link:hover { color: var(--sp-orange); }
-.sp-cal-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.sp-cal-totals { display: grid; grid-template-columns: repeat(3, minmax(90px, 140px)); gap: 8px; margin-bottom: 12px; }
 .sp-cal-total-val { font-size: 18px; font-weight: 800; color: var(--sp-text); line-height: 1.1; }
 .sp-cal-total-lbl { font-size: 10px; font-weight: 700; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .05em; }
 .sp-cal-summary-empty { font-size: 12px; color: var(--sp-muted); margin: 0; }
-.sp-cal-sport-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.sp-cal-sport-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 24px; }
 .sp-cal-sport-list li { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .sp-cal-sport-name { font-weight: 600; color: var(--sp-text); }
 .sp-cal-sport-meta { margin-left: auto; color: var(--sp-muted); }
-.sp-cal-upcoming { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.sp-cal-upcoming { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; }
 .sp-cal-upcoming a {
     display: flex; align-items: center; gap: 10px; padding: 8px; margin: 0 -8px;
     border-radius: 8px; text-decoration: none; color: inherit; transition: background .15s;

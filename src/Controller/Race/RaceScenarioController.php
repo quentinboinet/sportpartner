@@ -1,11 +1,14 @@
 <?php
 namespace App\Controller\Race;
 
+use App\Entity\PacingIntensity;
+use App\Entity\PacingStrategy;
 use App\Entity\Race;
 use App\Entity\RaceCheckpoint;
 use App\Entity\RaceScenario;
 use App\Entity\RaceScenarioSplit;
 use App\Repository\RaceCheckpointRepository;
+use App\Repository\RaceRouteRepository;
 use App\Repository\RaceScenarioRepository;
 use App\Repository\RaceScenarioSplitRepository;
 use App\Service\Route\DurationFormat;
@@ -18,9 +21,14 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Plan de course, phase 2 : scénarios (objectifs de temps) et temps de passage aux repères.
+ * Un temps de passage enregistré (RaceScenarioSplit) est un temps FIXÉ par l'utilisateur ; les repères
+ * sans temps enregistré sont "auto" : leur temps est recalculé à chaque affichage par
+ * SplitCalculator::fillAuto() (jamais stocké, jamais lu dans le POST), selon la stratégie d'allure du scénario
+ * (champs strategy / strategy_intensity, App\Entity\PacingStrategy et PacingIntensity).
  * Toutes les actions POST redirigent vers la page plan (ancre #scenario-{sid} ou #scenarios).
  */
 #[Route('/courses/{id}', requirements: ['id' => '\d+'])]
@@ -28,19 +36,23 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class RaceScenarioController extends AbstractController
 {
     private const CSRF_ID = 'race_plan';
-    private const COPY_SUFFIX = ' (copie)';
-    private const DEFAULT_NAME_PREFIX = 'Objectif ';
 
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly RaceScenarioRepository $scenarios,
         private readonly RaceScenarioSplitRepository $splits,
         private readonly RaceCheckpointRepository $checkpoints,
+        private readonly RaceRouteRepository $routes,
         private readonly ScenarioViewBuilder $builder,
         private readonly SplitCalculator $calculator,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
+    /**
+     * Champs : name (vide = "Objectif A"...), start_time, target, strategy et strategy_intensity (absents : stratégie
+     * proposée pour le type de course, PacingStrategy::suggestedFor(), intensité moyenne).
+     */
     #[Route('/scenarios', name: 'app_race_scenario_add', methods: ['POST'])]
     public function add(Race $race, Request $request): Response
     {
@@ -61,9 +73,11 @@ final class RaceScenarioController extends AbstractController
 
         $scenario = (new RaceScenario())
             ->setRace($race)
-            ->setName(($fields['name'] ?? '') !== '' ? (string) $fields['name'] : self::defaultName($existing))
+            ->setName(($fields['name'] ?? '') !== '' ? (string) $fields['name'] : $this->defaultName($existing, $request->getLocale()))
             ->setStartTime($fields['startTime'] ?? null)
             ->setTargetSeconds($fields['target'] ?? null)
+            ->setStrategy($fields['strategy'] ?? PacingStrategy::suggestedFor($race->getType()))
+            ->setStrategyIntensity($fields['intensity'] ?? PacingIntensity::Medium)
             ->setPosition($this->scenarios->nextPosition($race));
         $this->em->persist($scenario);
         $this->em->flush();
@@ -73,8 +87,10 @@ final class RaceScenarioController extends AbstractController
     }
 
     /**
-     * Champs : name, start_time, target, splits[<checkpointId>]. Un champ absent du POST est laissé
-     * inchangé ; un temps vide supprime le temps de passage. Tout est validé avant d'écrire.
+     * Champs : name, start_time, target, strategy, strategy_intensity (absent = inchangé) et splits[<checkpointId>], qui REMPLACE l'ensemble
+     * des temps fixés des repères du tableau : valeur non vide = temps fixé à cette valeur ; vide ou absente
+     * = repère auto (temps enregistré supprimé). Les repères au-delà de la fin du tracé (absents du tableau)
+     * gardent leur temps enregistré. Tout est validé avant d'écrire.
      */
     #[Route('/scenarios/{sid}/save', name: 'app_race_scenario_save', requirements: ['sid' => '\d+'], methods: ['POST'])]
     public function save(Race $race, int $sid, Request $request): Response
@@ -86,9 +102,18 @@ final class RaceScenarioController extends AbstractController
         }
 
         $fields = $this->parseFields($request);
-        $splitValues = $fields !== null ? $this->parseSplits($request, $race) : null;
-        if ($fields === null || $splitValues === null || (\array_key_exists('name', $fields) && $fields['name'] === '')) {
+        $planCheckpointIds = $this->planCheckpointIds($race);
+        $pins = $fields !== null ? $this->parsePins($request, $planCheckpointIds) : null;
+        if ($fields === null || $pins === null || (\array_key_exists('name', $fields) && $fields['name'] === '')) {
             return $this->fail($race, 'race_plan.flash_scenario_invalid', $scenario);
+        }
+
+        // Repères du tableau sans temps posté : repassent en auto (temps enregistré supprimé)
+        $splitValues = $pins;
+        foreach ($planCheckpointIds as $checkpointId) {
+            if (!\array_key_exists($checkpointId, $splitValues)) {
+                $splitValues[$checkpointId] = null;
+            }
         }
 
         $this->em->wrapInTransaction(function () use ($scenario, $fields, $splitValues): void {
@@ -101,6 +126,12 @@ final class RaceScenarioController extends AbstractController
             if (\array_key_exists('target', $fields)) {
                 $scenario->setTargetSeconds($fields['target']);
             }
+            if (\array_key_exists('strategy', $fields)) {
+                $scenario->setStrategy($fields['strategy']);
+            }
+            if (\array_key_exists('intensity', $fields)) {
+                $scenario->setStrategyIntensity($fields['intensity']);
+            }
             $this->applySplits($scenario, $splitValues, false);
             $scenario->touch();
         });
@@ -109,7 +140,11 @@ final class RaceScenarioController extends AbstractController
         return $this->toPlan($race, $scenario);
     }
 
-    /** Remplace tous les temps de passage par une répartition du temps cible (SplitCalculator::distribute). */
+    /**
+     * "Répartir" : efface tous les temps fixés du scénario. Tous les repères repassent en auto et sont donc
+     * recalculés à partir du temps cible et de la stratégie d'allure enregistrés (SplitCalculator::fillAuto sans
+     * temps fixé = distribute()).
+     */
     #[Route('/scenarios/{sid}/distribute', name: 'app_race_scenario_distribute', requirements: ['sid' => '\d+'], methods: ['POST'])]
     public function distribute(Race $race, int $sid, Request $request): Response
     {
@@ -124,21 +159,18 @@ final class RaceScenarioController extends AbstractController
             return $this->fail($race, 'race_plan.flash_scenario_need_target', $scenario);
         }
 
-        $view = $this->builder->build($race);
-        $route = $view['route'];
-        try {
-            $arrivals = $this->calculator->distribute(
-                $route?->getPoints() ?? [],
-                $view['routeDistanceM'],
-                ScenarioViewBuilder::calculatorCheckpoints($view['checkpoints']),
-                $target,
-            );
-        } catch (\InvalidArgumentException) {
+        $route = $this->routes->findOneByRace($race);
+        $checkpoints = ScenarioViewBuilder::routeCheckpoints($route, $this->checkpoints->findByRaceOrdered($race));
+        $totalStops = $this->calculator->totalStops(
+            ScenarioViewBuilder::routeDistanceM($race, $route),
+            ScenarioViewBuilder::calculatorCheckpoints($checkpoints),
+        );
+        if ($totalStops >= $target) {
             return $this->fail($race, 'race_plan.flash_scenario_stops_exceed', $scenario);
         }
 
-        $this->em->wrapInTransaction(function () use ($scenario, $arrivals): void {
-            $this->applySplits($scenario, $arrivals, true);
+        $this->em->wrapInTransaction(function () use ($scenario): void {
+            $this->applySplits($scenario, [], true);
             $scenario->touch();
         });
         $this->addFlash('success', 'race_plan.flash_scenario_distributed');
@@ -158,16 +190,20 @@ final class RaceScenarioController extends AbstractController
             return $this->fail($race, 'race_plan.flash_scenario_limit', $source);
         }
 
-        $base = mb_substr($source->getName(), 0, RaceScenario::MAX_NAME_LENGTH - mb_strlen(self::COPY_SUFFIX));
+        $suffix = $this->translator->trans('race_plan.sc_copy_suffix', [], null, $request->getLocale()); // " (copie)"
+        $base = mb_substr($source->getName(), 0, RaceScenario::MAX_NAME_LENGTH - mb_strlen($suffix));
         $copy = (new RaceScenario())
             ->setRace($race)
-            ->setName(rtrim($base).self::COPY_SUFFIX)
+            ->setName(rtrim($base).$suffix)
             ->setStartTime($source->getStartTime())
             ->setTargetSeconds($source->getTargetSeconds())
+            ->setStrategy($source->getStrategy())
+            ->setStrategyIntensity($source->getStrategyIntensity())
             ->setPosition($this->scenarios->nextPosition($race));
 
         $this->em->wrapInTransaction(function () use ($copy, $source): void {
             $this->em->persist($copy);
+            // Temps fixés uniquement : les temps auto sont recalculés à l'affichage
             foreach ($this->splits->findForScenarios([$source])[(int) $source->getId()] ?? [] as $checkpointId => $seconds) {
                 $this->em->persist((new RaceScenarioSplit())
                     ->setScenario($copy)
@@ -230,13 +266,31 @@ final class RaceScenarioController extends AbstractController
 
     /**
      * Champs communs du scénario. Clés présentes seulement si le champ est dans le POST.
+     * strategy / strategy_intensity : valeur exacte d'un cas de PacingStrategy / PacingIntensity, sinon invalide
+     * (un tableau aussi, sans erreur 400).
      *
-     * @return array{name?: string, startTime?: ?\DateTimeImmutable, target?: ?int}|null null si invalide
+     * @return array{name?: string, startTime?: ?\DateTimeImmutable, target?: ?int, strategy?: PacingStrategy, intensity?: PacingIntensity}|null null si invalide
      */
     private function parseFields(Request $request): ?array
     {
         $post = $request->request;
         $fields = [];
+
+        $raw = $post->all();
+        if (\array_key_exists('strategy', $raw)) {
+            $strategy = PacingStrategy::tryFromInput($raw['strategy']);
+            if ($strategy === null) {
+                return null;
+            }
+            $fields['strategy'] = $strategy;
+        }
+        if (\array_key_exists('strategy_intensity', $raw)) {
+            $intensity = PacingIntensity::tryFromInput($raw['strategy_intensity']);
+            if ($intensity === null) {
+                return null;
+            }
+            $fields['intensity'] = $intensity;
+        }
 
         if ($post->has('name')) {
             $name = trim((string) preg_replace('/\s+/u', ' ', (string) $post->get('name')));
@@ -273,11 +327,26 @@ final class RaceScenarioController extends AbstractController
     }
 
     /**
-     * splits[<checkpointId>] => "H:MM[:SS]" ou "" (suppression). Repères d'une autre course ignorés.
+     * Repères du tableau des temps : ceux du parcours, sans ceux au-delà de la fin du tracé.
      *
-     * @return array<int, ?int>|null checkpointId => secondes (null = supprimer) ; null si une valeur est invalide
+     * @return list<int>
      */
-    private function parseSplits(Request $request, Race $race): ?array
+    private function planCheckpointIds(Race $race): array
+    {
+        $checkpoints = ScenarioViewBuilder::routeCheckpoints($this->routes->findOneByRace($race), $this->checkpoints->findByRaceOrdered($race));
+
+        return array_map(static fn (RaceCheckpoint $cp): int => (int) $cp->getId(), $checkpoints);
+    }
+
+    /**
+     * Temps fixés postés : splits[<checkpointId>] => "H:MM[:SS]" (fixé) ou "" (auto, donc ignoré ici).
+     * Les repères hors du tableau (autre course, au-delà du tracé) sont ignorés.
+     *
+     * @param list<int> $planCheckpointIds
+     *
+     * @return array<int, int>|null checkpointId => secondes ; null si une valeur est invalide
+     */
+    private function parsePins(Request $request, array $planCheckpointIds): ?array
     {
         try {
             $raw = $request->request->all('splits');
@@ -285,12 +354,8 @@ final class RaceScenarioController extends AbstractController
             return null;
         }
 
-        $raceCheckpointIds = [];
-        foreach ($this->checkpoints->findByRaceOrdered($race) as $cp) {
-            $raceCheckpointIds[(int) $cp->getId()] = true;
-        }
-
-        $values = [];
+        $allowed = array_fill_keys($planCheckpointIds, true);
+        $pins = [];
         foreach ($raw as $key => $value) {
             if (!\is_string($value) && !\is_int($value)) {
                 return null;
@@ -301,12 +366,12 @@ final class RaceScenarioController extends AbstractController
                 return null;
             }
             $checkpointId = (int) $key;
-            if (isset($raceCheckpointIds[$checkpointId]) && (string) $checkpointId === (string) $key) {
-                $values[$checkpointId] = $seconds;
+            if ($seconds !== null && isset($allowed[$checkpointId]) && (string) $checkpointId === (string) $key) {
+                $pins[$checkpointId] = $seconds;
             }
         }
 
-        return $values;
+        return $pins;
     }
 
     /**
@@ -347,24 +412,24 @@ final class RaceScenarioController extends AbstractController
     }
 
     /**
-     * "Objectif A", "Objectif B"... : première lettre libre parmi les noms existants.
+     * "Objectif A", "Objectif B"... ("Goal A"... en anglais) : première lettre libre parmi les noms existants.
      *
      * @param list<RaceScenario> $existing
      */
-    private static function defaultName(array $existing): string
+    private function defaultName(array $existing, string $locale): string
     {
         $used = [];
         foreach ($existing as $scenario) {
             $used[mb_strtolower($scenario->getName())] = true;
         }
         foreach (range('A', 'Z') as $letter) {
-            $name = self::DEFAULT_NAME_PREFIX.$letter;
+            $name = $this->translator->trans('race_plan.sc_default_name', ['%letter%' => $letter], null, $locale);
             if (!isset($used[mb_strtolower($name)])) {
                 return $name;
             }
         }
 
-        return self::DEFAULT_NAME_PREFIX.(\count($existing) + 1);
+        return $this->translator->trans('race_plan.sc_default_name', ['%letter%' => (string) (\count($existing) + 1)], null, $locale);
     }
 
     private function findScenario(Race $race, int $sid): RaceScenario

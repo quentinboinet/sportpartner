@@ -125,6 +125,13 @@
                         {% if activity.startDate %}
                             · {{ activity.startDate|date('H:i') }}
                         {% endif %}
+                        {% if activity.gear %}
+                            <span class="sp-gear-chip" title="{{ 'gear.activity_label'|trans }} : {{ activity.gear.fullName }}">
+                                <i class="bi {{ activity.gear.type.icon }}" aria-hidden="true"></i>
+                                <span class="visually-hidden">{{ 'gear.activity_label'|trans }} :</span>
+                                {{ activity.gear.displayName }}
+                            </span>
+                        {% endif %}
                     </div>
                 </div>
 
