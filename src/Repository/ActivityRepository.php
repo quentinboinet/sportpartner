@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Activity;
 use App\Entity\User;
+use App\Service\Notifications\RecentActivityRow;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
@@ -455,6 +456,42 @@ class ActivityRepository extends ServiceEntityRepository
             $result[$row['d']] = (int)$row['kcal_est'];
         }
         return $result;
+    }
+
+    /**
+     * Activités parties depuis $since, la plus récente d'abord, réduites à ce que regarde la liste « À faire »
+     * de la cloche : sport, durées, matériel rattaché, ravitaillement noté. Une seule requête, sans les flux JSON.
+     *
+     * @return list<RecentActivityRow>
+     */
+    public function findRecentTodoRows(User $user, \DateTimeImmutable $since, int $limit = 300): array
+    {
+        /** @var list<array{id: int|string, name: ?string, startDate: \DateTimeImmutable, movingTimeSeconds: int|string|null, elapsedTimeSeconds: int|string|null, gearId: int|string|null, sportSlug: ?string, fuelRows: int|string}> $rows */
+        $rows = $this->getEntityManager()->createQuery(
+            'SELECT a.id, a.name, a.startDate, a.movingTimeSeconds, a.elapsedTimeSeconds,
+                    IDENTITY(a.gear) AS gearId, s.slug AS sportSlug,
+                    (SELECT COUNT(f.id) FROM App\Entity\ActivityFuel f WHERE f.activity = a) AS fuelRows
+               FROM App\Entity\Activity a
+               LEFT JOIN a.sport s
+              WHERE a.user = :user
+                AND a.startDate >= :since
+              ORDER BY a.startDate DESC, a.id DESC'
+        )
+            ->setParameter('user', $user)
+            ->setParameter('since', $since)
+            ->setMaxResults($limit)
+            ->getArrayResult();
+
+        return array_map(static fn (array $row): RecentActivityRow => new RecentActivityRow(
+            id: (int) $row['id'],
+            name: $row['name'],
+            startDate: $row['startDate'],
+            sportSlug: $row['sportSlug'],
+            movingSeconds: $row['movingTimeSeconds'] !== null ? (int) $row['movingTimeSeconds'] : null,
+            elapsedSeconds: $row['elapsedTimeSeconds'] !== null ? (int) $row['elapsedTimeSeconds'] : null,
+            hasGear: $row['gearId'] !== null,
+            hasFuel: (int) $row['fuelRows'] > 0,
+        ), $rows);
     }
 
     /**

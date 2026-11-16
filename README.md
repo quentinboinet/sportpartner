@@ -22,6 +22,7 @@ Application Symfony rendue côté serveur (Twig) avec un peu de JavaScript via S
 | `/nutrition` | Nutrition | Repas du jour, objectifs caloriques et macros calculés à partir du poids du profil (70 kg par défaut), dépense estimée (métabolisme de base et sport), graphique apports / dépense de la semaine. **Lecture seule : il n'existe aucun formulaire pour saisir un repas.** |
 | `/calendar` | Calendrier | Calendrier FullCalendar (mois, semaine, année) des activités réalisées, avec en option les courses datées (`?races=1`). Les événements sont chargés par période via `GET /calendar/events?start=&end=&races=0\|1` (JSON, 400 jours max) ; les heures Strava (UTC) sont converties dans le fuseau de l'activité. Clic = vue rapide en modale (activité : stats + mini-carte ; course : statut, type, compte à rebours, notes, liens vers le plan de course). Panneau latéral : bilan de la période affichée et 5 prochaines courses. `?date=` et `?races=` sont tenus à jour dans l'URL. |
 | `/settings` | Réglages | Onglet « Profil » fonctionnel : pseudo, âge, poids, FC repos, FC max, VMA, FTP et objectifs hebdomadaires (tous sports confondus et par sport) ; photo de profil (voir « Photo de profil »). Onglet « Matériel » (`?tab=gear`, alias `?tab=materiel`) : chaussures (course, trail, marche, randonnée) et vélos, marque choisie dans la table de référence `gearBrand`, modèle, surnom, date d'achat, km déjà parcourus, durée de vie (700 km proposés pour des chaussures, vide = usure non suivie), matériel par défaut (un par type). Chaque carte affiche le total (km avant suivi + activités rattachées), le nombre d'activités, la dernière sortie et l'usure (bon état < 80 %, à surveiller, à remplacer >= 100 %). Actions : modifier (le type est figé), mettre à la retraite / réactiver, supprimer (les activités sont conservées, sans matériel), rattacher le matériel par défaut aux activités sans matériel des sports de son type (depuis la date d'achat). Bloc « Importer depuis Strava » si le compte est connecté (sinon lien de connexion), badge « Strava » sur le matériel importé : voir « Import du matériel Strava ». Routes `POST /settings/gear`, `/settings/gear/{id}/edit`, `/retire`, `/delete`, `/assign-defaults`, `/settings/gear/import-strava` (`GearController`, CSRF `gear`). Les onglets Préférences, Zones FC, Appareils, Apparence et Compte affichent « bientôt disponible ». |
+| `/notifications` | Cloche « À faire » | Liste en JSON de la cloche de la barre du haut (toutes les pages connectées) : courses proches, matériel à remplacer ou à rattacher, objectifs de la semaine, ravitaillement à noter, Strava. Voir « Cloche « À faire » ». |
 | `/switch-locale/{fr\|en}` | Langue | Enregistre la langue en session (`LocaleSubscriber`). |
 | `/oauth/strava`, `/oauth/strava/callback`, `/strava/sync` | Strava | Connexion OAuth2 puis synchronisation manuelle (voir plus bas). |
 
@@ -88,6 +89,25 @@ Lien public à envoyer aux proches pour savoir quand et où encourager. Bouton �
 - **Confidentialité et sécurité** : `PublicPlanBuilder` ne copie qu'une liste blanche de valeurs (jamais l'e-mail ou l'identifiant de l'utilisateur, les notes privées, les autres scénarios, le nom ou la stratégie du scénario, le lien ou le nom du fichier GPX, le site, les données Strava). Jeton : 24 octets de `random_bytes` en base64url (32 caractères), index unique, comparaison exacte ; jeton mal formé (sans requête), inconnu, régénéré ou partage désactivé : la même 404. En-têtes `X-Robots-Tag: noindex, nofollow` (et la balise meta), `Referrer-Policy: strict-origin-when-cross-origin` (les tuiles OpenStreetMap exigent un Referer, le jeton du chemin n'en sort pas), `Cache-Control: no-store, private`. Tous les textes sont échappés (Twig, `textContent` en JS). La page n'ouvre aucune session (ni CSRF, ni message flash, ni `app.user`) et fonctionne sans cookie.
 - Migration `Version20240030_CreateRaceShare` (table `raceShare` et colonne `raceCheckpoint.publicMessage`).
 
+### Cloche « À faire »
+
+La cloche de la barre du haut liste ce qui mérite l'attention de l'utilisateur, tiré de ses propres données. Rien n'est stocké en base (ni table, ni migration, ni tâche planifiée) et aucun service externe n'est appelé : `GET /notifications` (`NotificationsController`, JSON, `Cache-Control: no-store, private`) recalcule la liste à chaque appel. `notifications_controller.js` la charge après le chargement de la page.
+
+- **Courses** « Je suis inscrit », datées et non faites, une seule ligne par course :
+  - J0 « C'est le jour J : … » et J-1 « Demain : … » (urgent, page de la course), quel que soit le plan ;
+  - de J-2 à J-15 avec un temps visé : « … dans 7 jours » (page de la course) ;
+  - de J-2 à J-15 sans plan complet, compte à rebours et rappel fusionnés (page du plan) : « … dans 7 jours, sans plan de course » (ni GPX, ni repère, ni scénario) ou « … dans 7 jours : pas encore de temps de passage » (GPX, repères ou scénario, mais aucun temps visé) ;
+  - de J-16 à J-21 : seulement ces deux rappels du plan ;
+  - « Prévision météo du jour J disponible » en sous-titre de J-15 à J0 si la course a un lieu ou un GPX (fenêtre des prévisions de `RaceWeatherService`).
+- **Matériel** : les mêmes alertes que le bandeau d'usure du tableau de bord (« à remplacer » / « bientôt à remplacer », « à réviser » / « révision à prévoir » pour un vélo), lien vers la carte du matériel ; « 3 activités récentes sans matériel » pour les activités des 14 derniers jours sans matériel d'un sport qui en reçoit (chaussures : course, trail, marche, randonnée ; vélo : vélo) quand l'utilisateur a du matériel en service de ce type, lien vers la plus récente.
+- **Objectifs par sport** (semaine ISO en cours, comme le tableau de bord) : « Objectif vélo atteint cette semaine » ; le dimanche seulement, « Course : il te reste 12 km et 1 séance ».
+- **Ravitaillement** : activités des 14 derniers jours d'au moins 1h30, d'un sport qui a la carte Ravitaillement, sans rien de noté : les 3 plus récentes, lien vers la carte de l'activité.
+- **Strava** : « Connecte ton compte Strava » (en dernier) ; « Reconnecte Strava » si le compte est connecté mais que le jeton a expiré sans jeton de rafraîchissement.
+- **Ordre** : urgent (course aujourd'hui ou demain, matériel usé), puis à surveiller, puis informations.
+- **Masquer** : bouton par ligne, « Tout marquer comme lu », « Réafficher ». Les clés masquées sont gardées dans le navigateur (`localStorage`, une liste par compte) ; une clé contient l'état de l'alerte (`gear:12:warn` puis `gear:12:worn`, `race:5:noplan:j15` puis `race:5:noplan:j7`...), si bien qu'une alerte masquée revient quand la situation change. Les clés qui ne sont plus renvoyées sont oubliées. Le point rouge n'apparaît que s'il reste des éléments non masqués.
+
+Calcul : `TodoBuilder` (pur, règles et seuils dans son docblock), `TodoProvider` (6 requêtes agrégées au plus), `TodoPresenter` (traductions `notifications.*`, liens).
+
 ---
 
 ## Stack
@@ -104,7 +124,7 @@ Lien public à envoyer aux proches pour savoir quand et où encourager. Bouton �
 
 ```
 src/
-  Controller/      Activities (+ ActivityGearController, ActivityFuelController), Auth, Calendar, Dashboard, Nutrition, OAuth (Strava), Race (+ RacePlanController, RaceScenarioController, RaceShareController, RacePublicController), Settings (+ GearController, AvatarController), Stats, LocaleController
+  Controller/      Activities (+ ActivityGearController, ActivityFuelController), Auth, Calendar, Dashboard, Notifications, Nutrition, OAuth (Strava), Race (+ RacePlanController, RaceScenarioController, RaceShareController, RacePublicController), Settings (+ GearController, AvatarController), Stats, LocaleController
   Entity/          User, AthleteProfile, Activity, Sport, Meal (+ enum MealType), Race (+ enum RaceIntent), RaceRoute, RaceCheckpoint (+ enum CheckpointType), RaceScenario, RaceScenarioSplit, RaceShare, Gear (+ enum GearType), GearBrand, UserAvatar, ActivityFuel (+ enum FuelKind)
   Repository/      requêtes d'agrégation (stats, volumes, records…)
   Service/         Strava/StravaService, Weather/WeatherService (Open-Meteo), Units/UnitConverter,
@@ -116,7 +136,8 @@ src/
                    Nutrition/ (ActivityFuelCalculator : bilan du ravitaillement, calcul en entiers, miroir JS identique
                           assets/controllers/activity_fuel_calculator.js ; FuelPayloadValidator ; FuelCatalog : apports et limites),
                    Share/ (plan partagé : ShareToken, ShareSettingsParser, PublicPlanBuilder : données publiques en liste blanche,
-                          PlanCalendar : fichier .ics)
+                          PlanCalendar : fichier .ics),
+                   Notifications/ (cloche « À faire » : TodoBuilder pur, TodoProvider : requêtes agrégées, TodoPresenter : textes et liens)
   Form/            ProfileType (réglages du profil)
   Twig/            SidebarExtension (stats du jour), ActivityFuelExtension (activity_fuel() : carte Ravitaillement),
                    AvatarExtension (user_avatar_url() : URL de la photo de profil, sans requête),
@@ -170,6 +191,7 @@ Ils sont enregistrés à la main dans `assets/controllers/index.js`. `assets/con
 | `training-calendar` | calendrier général (FullCalendar chargé à la demande, vue rapide en modale) |
 | `weekly-goals` | réglages, onglet Profil (lignes des objectifs par sport : ajout depuis le menu, retrait) |
 | `race-share` | réglages du partage du plan (copie du lien, compteurs, heures selon le scénario, confirmations) |
+| `notifications` | cloche « À faire » de la barre du haut, sur toutes les pages connectées (chargement après la page, masquer, tout marquer comme lu) |
 | `race-public` | page publique `/p/{token}` (prochain passage prévu le jour de la course) ; enregistré dans `assets/race_public.js`, pas dans `index.js`, avec `route-preview` |
 
 `weather_activity_controller.js` existe mais n'est ni enregistré ni utilisé. `weather_constants.js` est un module partagé, pas un controller, comme `activity_fuel_calculator.js` (miroir JS d'`ActivityFuelCalculator`).
@@ -336,6 +358,7 @@ php bin/console cache:warmup --env=prod
 - **Comptes** : le « se souvenir de moi » est configuré mais inactif (aucune case `_remember_me` sur le formulaire de connexion). Pas de vérification d'e-mail (les champs `emailVerified` et `emailVerificationToken` ne sont jamais utilisés) ni de « mot de passe oublié » (`^/reset-password` figure dans `security.yaml` sans route). Aucun e-mail n'est envoyé.
 - **Données** : aucune fixture et aucun compte de démo. Il faut s'inscrire via `/register`.
 - **Nutrition** : la page n'a aucune saisie. Les repas (`Meal`) ne peuvent être créés qu'en base.
+- **Cloche « À faire »** : ni e-mail ni notification push ; les éléments masqués sont gardés dans le navigateur, pas en base (un autre navigateur les réaffiche). Les autorisations Strava accordées n'étant pas enregistrées, un compte connecté avant l'ajout de `profile:read_all` n'est pas signalé comme « à reconnecter ».
 - **Estimations** : plusieurs chiffres sont des approximations simples, pas des mesures :
   - charge (« TSS ») déduite de la durée sur la liste des activités (60 par heure) ; TRIMP de Banister (FC moyenne, FC repos et FC max du profil) dans la barre latérale ;
   - calories : 50 kcal/km sur la liste des activités, 8 kcal/min sur la page nutrition ;

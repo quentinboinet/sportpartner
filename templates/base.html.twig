@@ -100,10 +100,7 @@
                     <a href="{{ path('app_switch_locale', {locale: 'en'}) }}"
                        class="{{ app.request.locale == 'en' ? 'active' }}">EN</a>
                 </div>
-                <button class="sp-icon-btn">
-                    <i class="bi bi-bell"></i>
-                    <span class="sp-notif-dot"></span>
-                </button>
+                {{ include('_notifications.html.twig') }}
                 <a href="{{ path('app_settings') }}" class="sp-icon-btn" aria-label="{{ 'nav.settings'|trans }}" title="{{ 'nav.settings'|trans }}"><i class="bi bi-gear" aria-hidden="true"></i></a>
             </div>
         </header>

@@ -19,6 +19,7 @@ import RaceWeatherController   from './race_weather_controller.js';
 import ActivityFuelController  from './activity_fuel_controller.js';
 import WeeklyGoalsController   from './weekly_goals_controller.js';
 import RaceShareController     from './race_share_controller.js';
+import NotificationsController from './notifications_controller.js';
 
 application.register('weekly-chart',    WeeklyChartController);
 application.register('elevation-chart', ElevationChartController);
@@ -40,3 +41,4 @@ application.register('race-weather',    RaceWeatherController);
 application.register('activity-fuel',   ActivityFuelController);
 application.register('weekly-goals',    WeeklyGoalsController);
 application.register('race-share',      RaceShareController);
+application.register('notifications',   NotificationsController);

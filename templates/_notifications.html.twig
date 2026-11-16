@@ -1,0 +1,55 @@
+{#
+  Cloche « À faire » de la barre du haut : dropdown Bootstrap rempli par notifications_controller.js, qui charge
+  GET /notifications après le chargement de la page (jamais pendant le rendu). Le point rouge et le nombre lu par
+  les lecteurs d'écran ne s'affichent que s'il reste des éléments non masqués. Éléments masqués : localStorage,
+  une liste par compte (scope = id de l'utilisateur connecté).
+  Le contenu des éléments n'est inséré qu'avec textContent / setAttribute (jamais innerHTML).
+#}
+<div class="dropdown sp-notif" data-controller="notifications"
+     data-notifications-url-value="{{ path('app_notifications') }}"
+     data-notifications-scope-value="{{ app.user.id }}"
+     data-notifications-labels-value="{{ {
+         button: 'notifications.button'|trans,
+         buttonOne: 'notifications.button_count_one'|trans,
+         buttonMany: 'notifications.button_count_many'|trans,
+         loading: 'notifications.loading'|trans,
+         empty: 'notifications.empty'|trans,
+         error: 'notifications.error'|trans,
+         dismiss: 'notifications.dismiss_label'|trans,
+         restoreOne: 'notifications.restore_one'|trans,
+         restoreMany: 'notifications.restore_many'|trans,
+         urgent: 'notifications.severity_urgent'|trans,
+         warning: 'notifications.severity_warning'|trans,
+     }|json_encode }}">
+    <button type="button" class="sp-icon-btn sp-notif-btn" id="notifToggle"
+            data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+            data-bs-popper-config='{"strategy":"fixed","modifiers":[{"name":"preventOverflow","options":{"padding":12}},{"name":"offset","options":{"offset":[0,6]}}]}'
+            aria-label="{{ 'notifications.button'|trans }}" title="{{ 'notifications.title'|trans }}"
+            data-notifications-target="button">
+        <i class="bi bi-bell" aria-hidden="true"></i>
+        <span class="sp-notif-dot" data-notifications-target="dot" hidden></span>
+    </button>
+    <div class="dropdown-menu dropdown-menu-end sp-notif-menu" aria-labelledby="notifToggle">
+        <div class="sp-notif-head">
+            <p class="sp-notif-title" id="notifTitle">{{ 'notifications.title'|trans }}</p>
+            <button type="button" class="sp-notif-readall" data-notifications-target="readAll"
+                    data-action="notifications#dismissAll" hidden>{{ 'notifications.read_all'|trans }}</button>
+        </div>
+        <div class="sp-notif-body">
+            <p class="sp-notif-state" role="status" data-notifications-target="status">
+                <span class="spinner-border spinner-border-sm" aria-hidden="true" data-notifications-target="spinner"></span>
+                <span data-notifications-target="statusText">{{ 'notifications.loading'|trans }}</span>
+            </p>
+            <div class="sp-notif-error" data-notifications-target="error" hidden>
+                <button type="button" class="sp-btn sp-btn-outline sp-notif-retry" data-action="notifications#retry">
+                    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> {{ 'notifications.retry'|trans }}
+                </button>
+            </div>
+            <ul class="sp-notif-list" aria-labelledby="notifTitle" data-notifications-target="list" hidden></ul>
+        </div>
+        <div class="sp-notif-foot" data-notifications-target="foot" hidden>
+            <button type="button" class="sp-notif-restore" data-notifications-target="restore"
+                    data-action="notifications#restore"></button>
+        </div>
+    </div>
+</div>

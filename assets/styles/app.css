@@ -215,6 +215,65 @@ body {
   border: 1.5px solid var(--sp-bg);
 }
 
+/* Cloche « À faire » (partial _notifications.html.twig, notifications_controller.js) */
+.sp-notif { flex-shrink: 0; }
+.sp-icon-btn:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: 2px; }
+.sp-notif-btn[aria-expanded="true"] { background: #fff; color: var(--sp-orange); }
+.sp-notif-menu {
+  width: min(380px, calc(100vw - 24px)); padding: 0; overflow: hidden; font-size: 13px;
+  border: 1px solid var(--sp-border); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.18);
+}
+.sp-notif-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--sp-border);
+}
+.sp-notif-title { margin: 0; font-size: 14px; font-weight: 800; color: var(--sp-text); }
+.sp-notif-readall,
+.sp-notif-restore {
+  border: 0; background: transparent; padding: 4px 6px; border-radius: 6px;
+  color: var(--sp-orange); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.sp-notif-readall:hover,
+.sp-notif-restore:hover { background: rgba(232,64,12,.08); }
+.sp-notif-readall:focus-visible,
+.sp-notif-restore:focus-visible,
+.sp-notif-dismiss:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: 1px; }
+.sp-notif-body { max-height: min(420px, calc(100vh - 150px)); overflow-y: auto; overscroll-behavior: contain; }
+.sp-notif-state { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; padding: 22px 16px; color: var(--sp-muted); text-align: center; }
+.sp-notif-error { padding: 0 16px 18px; text-align: center; }
+.sp-notif-retry { font-size: 12px; padding: 6px 12px; }
+.sp-notif-list { list-style: none; margin: 0; padding: 6px; }
+.sp-notif-item { display: flex; align-items: flex-start; gap: 2px; border-radius: 8px; }
+.sp-notif-item + .sp-notif-item { margin-top: 2px; }
+.sp-notif-link.dropdown-item {
+  display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0;
+  padding: 8px 8px; border-radius: 8px; white-space: normal; color: var(--sp-text);
+}
+.sp-notif-link.dropdown-item:hover,
+.sp-notif-link.dropdown-item:focus { background: rgba(0,0,0,.045); color: var(--sp-text); }
+.sp-notif-link.dropdown-item:active { background: rgba(232,64,12,.10); color: var(--sp-text); }
+.sp-notif-link:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: -2px; }
+.sp-notif-icon {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.sp-notif-item--urgent .sp-notif-icon  { background: #FEE2E2; color: #B91C1C; }
+.sp-notif-item--warning .sp-notif-icon { background: #FEF3C7; color: #B45309; }
+.sp-notif-item--info .sp-notif-icon    { background: #E0F2FE; color: #0369A1; }
+.sp-notif-item--success .sp-notif-icon { background: #DCFCE7; color: #15803D; }
+.sp-notif-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 1px; }
+.sp-notif-item-title { font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.sp-notif-item-sub { font-size: 12px; color: var(--sp-muted); line-height: 1.3; overflow-wrap: anywhere; }
+.sp-notif-dismiss {
+  width: 30px; height: 30px; margin: 8px 2px 0 0; flex-shrink: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--sp-muted); font-size: 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.sp-notif-dismiss:hover { background: rgba(0,0,0,.06); color: var(--sp-text); }
+.sp-notif-foot { border-top: 1px solid var(--sp-border); padding: 6px 10px; text-align: center; }
+/* Ancres des liens de la cloche : pas sous la barre du haut collante */
+#act-gear-select, #sp-fuel-title, #sport-goals-title, .sp-gear-card[id] { scroll-margin-top: calc(var(--sp-topbar-h) + 16px); }
+
 .sp-content { padding: 20px 28px 36px; flex: 1; }
 
 /* ===================================

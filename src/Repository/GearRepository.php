@@ -129,6 +129,32 @@ class GearRepository extends ServiceEntityRepository
         return $defaults;
     }
 
+    /**
+     * Types du matériel en service (non retiré) de l'utilisateur, en une requête.
+     *
+     * @return list<GearType>
+     */
+    public function findActiveTypes(User $user): array
+    {
+        $values = $this->createQueryBuilder('g')
+            ->select('DISTINCT g.type AS type')
+            ->where('g.user = :user')
+            ->andWhere('g.retiredAt IS NULL')
+            ->setParameter('user', $user)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        $types = [];
+        foreach ($values as $value) {
+            $type = $value instanceof GearType ? $value : GearType::tryFrom((string) $value);
+            if ($type !== null && !in_array($type, $types, true)) {
+                $types[] = $type;
+            }
+        }
+
+        return $types;
+    }
+
     /** Retire le statut "par défaut" aux autres matériels du même utilisateur et du même type. */
     public function clearOtherDefaults(Gear $gear): void
     {
