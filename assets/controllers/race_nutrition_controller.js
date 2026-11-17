@@ -16,7 +16,9 @@ import { compute, carryList } from './race_nutrition_calculator.js';
  *    après la dernière modification, tout de suite si la page est masquée ou quittée ou si un autre formulaire de la
  *    page est envoyé ; fetch keepalive, une requête à la fois par scénario, statut role="status" ;
  *  - « Copier le plan nutrition de… » : formulaire classique (confirmation si le scénario a des lignes manuelles) ; un
- *    enregistrement en cours est attendu, un enregistrement en attente est abandonné (la copie remplace tout).
+ *    enregistrement en cours est attendu, un enregistrement en attente est abandonné (la copie remplace tout) ;
+ *  - la liste « À emporter » de chaque scénario est dans sa propre carte (cible "carry", même data-scenario-id que le
+ *    panneau), affichée et recalculée avec lui ; la jauge d'un tronçon (data-role="gauge") suit son débit en g/h.
  * Sécurité : noms des produits et des repères insérés par textContent / setAttribute uniquement, jamais innerHTML.
  */
 
@@ -42,8 +44,17 @@ function icon(name) {
     return i;
 }
 
+/**
+ * Largeur (%) de la jauge d'un tronçon : débit rapporté à 150 % de la cible, en entiers (même calcul que la macro gauge
+ * de _nutrition.html.twig). Purement visuel : le débit et son statut sont écrits dans le badge voisin.
+ */
+export function gaugeWidth(value, target) {
+    if (value === null || value === undefined || !(target > 0)) return 0;
+    return Math.min(100, Math.floor((value * 200) / (3 * target)));
+}
+
 export default class extends Controller {
-    static targets = ['panel', 'picker', 'flash', 'announce'];
+    static targets = ['panel', 'picker', 'flash', 'announce', 'carry'];
 
     static values = { token: String, config: Object, format: Object, labels: Object };
 
@@ -119,6 +130,7 @@ export default class extends Controller {
     show(id) {
         if (!this.panels.has(id)) return;
         this.panelTargets.forEach((element) => { element.hidden = element.dataset.scenarioId !== id; });
+        this.carryTargets.forEach((element) => { element.hidden = element.dataset.scenarioId !== id; });
         if (this.hasPickerTarget && this.pickerTarget.value !== id) this.pickerTarget.value = id;
     }
 
@@ -453,6 +465,11 @@ export default class extends Controller {
         if (row.place === 'segment') {
             this.rate(rowEl.querySelector('[data-role="rate"]'), row.carbsPerHour, row.status, 'g/h', fill(this.L.rateTitle, { '%target%': panel.settings.carbsPerHour }));
             this.rate(rowEl.querySelector('[data-role="frate"]'), row.fluidPerHour, row.fluidStatus, 'ml/h', fill(this.L.fluidTitle, { '%target%': panel.settings.fluidPerHour }));
+            const gauge = rowEl.querySelector('[data-role="gauge"]');
+            if (gauge) {
+                gauge.className = `rn-gauge-fill rn-gauge-fill--${row.status}`;
+                gauge.style.width = `${gaugeWidth(row.carbsPerHour, panel.settings.carbsPerHour)}%`;
+            }
         }
 
         const badge = rowEl.querySelector('[data-role="badge"]');
@@ -534,7 +551,9 @@ export default class extends Controller {
     }
 
     renderCarry(panel, stops) {
-        const list = panel.el.querySelector('[data-role="carry"]');
+        // Carte « À emporter » : panneau du même scénario (sinon, ancienne place dans le panneau Nutrition)
+        const host = this.carryTargets.find((element) => element.dataset.scenarioId === panel.id) ?? panel.el;
+        const list = host.querySelector('[data-role="carry"]');
         if (!list) return;
         const names = new Map([...panel.el.querySelectorAll('[data-row-key^="p:"]')].map((rowEl) => [rowEl.dataset.rowKey.slice(2), rowEl.dataset.label]));
         list.replaceChildren(...stops.map((stop) => {

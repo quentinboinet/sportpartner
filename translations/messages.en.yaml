@@ -1088,6 +1088,13 @@ race_plan:
     page_title: "Race plan - %name% - SportPartner"
     back: My Races
     eyebrow: Race plan
+    # Page header and sub-navigation
+    hero_countdown: Race day in
+    hero_days: "{0,1} day|]1,Inf[ days"
+    hero_race_day: Race day
+    hero_goal: Goal
+    subnav_label: Race plan sections
+    legend_edges: "Start · Finish"
     # GPX import
     upload_title: Import the race course
     upload_sub: "Start from the official GPX file and build your race plan checkpoint by checkpoint."
@@ -1148,6 +1155,8 @@ race_plan:
     minutes_short: "%n% min"
     edit: Edit
     delete: Delete
+    edit_named: "Edit checkpoint %name%"
+    delete_named: "Delete checkpoint %name%"
     confirm_delete_checkpoint: "Delete this checkpoint?"
     # Checkpoint types (CheckpointType::labelKey)
     type_point: Waypoint
@@ -1325,6 +1334,9 @@ race_plan:
     pacing_intensity_light: "Light"
     pacing_intensity_medium: "Medium"
     pacing_intensity_strong: "Strong"
+    # Leg strip and calculation help
+    strip_legend: "The darker the colour, the faster the pace"
+    sc_how_title: "How are the times calculated?"
 
 # ── Nutrition ─────────────────────────────────────────────────────────────────
 nutrition:
@@ -1457,6 +1469,7 @@ race_nutrition:
     carry_eat: "To drink here:"
     carry_fill: "To fill:"
     carry_nothing: nothing
+    carry_for: "Scenario \"%name%\""
     flasks: "%count% flasks of %flask% ml (%what%)"
     flasks_one: "1 flask of %flask% ml (%what%)"
     # Actions

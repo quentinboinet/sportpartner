@@ -1,10 +1,12 @@
 {#
- # Plan de course : section Nutrition, sous « Temps de passage ». Incluse par race/plan.html.twig.
+ # Plan de course : section Nutrition, sous « Temps de passage », puis la carte « À emporter ». Incluse par
+ # race/plan.html.twig. Styles : assets/styles/race_plan.css.
  # Variables : race, scenarioView (ScenarioViewBuilder::buildWith()), nutritionView (RaceNutritionViewBuilder::build() :
  # scenarioId => plan, voir son docblock), nutritionConfig (RaceNutritionCatalog::config()).
  #
- # Un panneau par scénario ; le panneau affiché suit l'onglet choisi dans « Temps de passage » (événement
- # race-splits:select, ou lecture de l'onglet actif) et le choix « Scénario » de l'en-tête de la section.
+ # Un panneau par scénario dans chaque carte (data-race-nutrition-target="panel" pour la nutrition, "carry" pour la liste
+ # à emporter) ; le panneau affiché suit l'onglet choisi dans « Temps de passage » (événement race-splits:select, ou
+ # lecture de l'onglet actif) et le choix « Scénario » de l'en-tête de la section.
  # Rendu serveur = référence (RaceNutritionCalculator). Stimulus "race-nutrition" (race_nutrition_controller.js) active
  # les contrôles (désactivés sans JS), recalcule en direct avec race_nutrition_calculator.js (miroir exact) et
  # enregistre automatiquement l'état en JSON (app_race_nutrition_save). Les durées sont celles des temps de passage
@@ -17,7 +19,11 @@
 {% set _nv = nutritionView %}
 {% set _cfg = nutritionConfig %}
 {% set _names = {start: 'race_plan.start'|trans, finish: 'race_plan.finish'|trans} %}
-{% for cp in _sv.checkpoints %}{% set _names = _names|merge({('c' ~ cp.id): cp.name}) %}{% endfor %}
+{% set _kms = {} %}
+{% for cp in _sv.checkpoints %}
+    {% set _names = _names|merge({('c' ~ cp.id): cp.name}) %}
+    {% set _kms = _kms|merge({('c' ~ cp.id): cp.distanceM}) %}
+{% endfor %}
 
 {% import 'race/_nutrition_macros.html.twig' as nm %}
 
@@ -44,6 +50,15 @@
     <span class="rn-rate rn-rate--{{ status }}" data-role="{{ kind }}" title="{{ title }}">
         {%- if value is null %}-{% else %}{{ value|number_format(0, fmt.dp, fmt.ts) }} {{ unit }}{% endif -%}
         <span class="visually-hidden" data-role="{{ kind }}-status">{{ status != 'none' ? (' ' ~ ('race_nutrition.status_' ~ status)|trans) : '' }}</span>
+    </span>
+{% endmacro %}
+
+{# Jauge d'un tronçon : débit en g/h rapporté à 150 % de la cible (repère de la cible aux 2/3), purement visuelle.
+   Même calcul entier que gaugeWidth() de race_nutrition_controller.js #}
+{% macro gauge(value, status, target) %}
+    {% set _w = value is null or target <= 0 ? 0 : min(100, (value * 200) // (3 * target)) %}
+    <span class="rn-gauge" aria-hidden="true">
+        <span class="rn-gauge-fill rn-gauge-fill--{{ status }}" data-role="gauge" style="width:{{ _w }}%"></span>
     </span>
 {% endmacro %}
 
@@ -85,20 +100,24 @@
     {% set _labels = _labels|merge({drinkNames: _labels.drinkNames|merge({(key): ('race_nutrition.drink_names.' ~ key)|trans})}) %}
 {% endfor %}
 
-<section class="sp-card rn-card" id="nutrition" aria-labelledby="nutrition-title"
-         data-controller="race-nutrition"
-         data-race-nutrition-token-value="{{ csrf_token('race_nutrition') }}"
-         data-race-nutrition-config-value="{{ _cfg|json_encode }}"
-         data-race-nutrition-format-value="{{ _fmt|json_encode }}"
-         data-race-nutrition-labels-value="{{ _labels|json_encode }}">
+{# Conteneur du contrôleur : la carte Nutrition et la carte « À emporter » #}
+<div class="rn-root"
+     data-controller="race-nutrition"
+     data-race-nutrition-token-value="{{ csrf_token('race_nutrition') }}"
+     data-race-nutrition-config-value="{{ _cfg|json_encode }}"
+     data-race-nutrition-format-value="{{ _fmt|json_encode }}"
+     data-race-nutrition-labels-value="{{ _labels|json_encode }}">
 
-    <div class="rp-cp-head rn-head">
-        <div>
-            <h2 class="sp-card-title rn-title" id="nutrition-title"><i class="bi bi-egg-fried rn-title-icon" aria-hidden="true"></i> {{ 'race_nutrition.title'|trans }}</h2>
-            <div class="sp-card-sub">{{ 'race_nutrition.sub'|trans }}</div>
+<section class="sp-card rn-card" id="nutrition" data-rp-section aria-labelledby="nutrition-title">
+
+    <div class="rp-sec-head rn-head">
+        <div class="rp-sec-ico" aria-hidden="true"><i class="bi bi-cup-straw"></i></div>
+        <div class="rp-sec-titles">
+            <h2 class="rp-sec-title" id="nutrition-title">{{ 'race_nutrition.title'|trans }}</h2>
+            <p class="rp-sec-sub">{{ 'race_nutrition.sub'|trans }}</p>
         </div>
         {% if _sv.scenarios|length > 1 %}
-            <div class="rn-scenario-pick">
+            <div class="rp-sec-right rn-scenario-pick">
                 <label class="sp-form-label" for="nutrition-scenario">{{ 'race_nutrition.scenario'|trans }}</label>
                 <select id="nutrition-scenario" class="sp-form-input rn-scenario-select" data-race-nutrition-target="picker"
                         data-action="change->race-nutrition#pick" disabled>
@@ -113,9 +132,9 @@
 
     {% if _sv.scenarios is empty %}
         <div class="rn-empty" data-rn-empty>
-            <i class="bi bi-egg-fried" aria-hidden="true"></i>
+            <i class="bi bi-cup-straw" aria-hidden="true"></i>
             <p>{{ 'race_nutrition.empty_no_scenario'|trans }}</p>
-            <a href="#scenarios" class="sp-btn-ghost rp-btn-sm">{{ 'race_nutrition.empty_cta'|trans }}</a>
+            <a href="#scenarios" class="sp-btn-ghost rp-btn-sm" data-action="race-subnav#jump">{{ 'race_nutrition.empty_cta'|trans }}</a>
         </div>
     {% endif %}
 
@@ -160,49 +179,50 @@
                 </div>
             {% endif %}
 
-            {# ── Réglages ── #}
+            {# ── Cibles et répartition des glucides ── #}
             <div class="rn-settings">
                 <div class="rn-field">
                     <label class="sp-form-label" for="{{ _p }}-carbs">{{ 'race_nutrition.target_carbs'|trans }}</label>
-                    <div class="sp-input-unit"><input type="number" id="{{ _p }}-carbs" class="sp-form-input" value="{{ _set.carbsPerHour }}"
+                    <div class="sp-input-unit rn-target"><input type="number" id="{{ _p }}-carbs" class="sp-form-input" value="{{ _set.carbsPerHour }}"
                            min="0" max="{{ _cfg.maxCarbsPerHour }}" step="5" inputmode="numeric" data-setting="carbsPerHour"
                            data-action="input->race-nutrition#setting change->race-nutrition#settingDone" disabled><span>g/h</span></div>
                 </div>
                 <div class="rn-field">
                     <label class="sp-form-label" for="{{ _p }}-fluid">{{ 'race_nutrition.target_fluid'|trans }}</label>
-                    <div class="sp-input-unit"><input type="number" id="{{ _p }}-fluid" class="sp-form-input" value="{{ _set.fluidPerHour }}"
+                    <div class="sp-input-unit rn-target"><input type="number" id="{{ _p }}-fluid" class="sp-form-input" value="{{ _set.fluidPerHour }}"
                            min="0" max="{{ _cfg.maxFluidPerHour }}" step="{{ _cfg.fluidMultiple }}" inputmode="numeric" data-setting="fluidPerHour"
                            data-action="input->race-nutrition#setting change->race-nutrition#settingDone" disabled><span>ml/h</span></div>
                 </div>
                 <fieldset class="rn-field rn-mix">
                     <legend class="sp-form-label">{{ 'race_nutrition.mix'|trans }}</legend>
-                    <div class="rn-mix-fields">
-                        <label class="rn-mix-field"><span>{{ 'race_nutrition.mix_drink'|trans }}</span>
-                            <span class="sp-input-unit"><input type="number" class="sp-form-input" value="{{ _set.mixDrink }}" min="0" max="100" step="5"
-                                   inputmode="numeric" data-setting="mixDrink" aria-describedby="{{ _p }}-mix-err"
-                                   data-action="input->race-nutrition#setting change->race-nutrition#settingDone" disabled><span>%</span></span></label>
-                        <label class="rn-mix-field"><span>{{ 'race_nutrition.mix_solid'|trans }}</span>
-                            <span class="sp-input-unit"><input type="number" class="sp-form-input" value="{{ _set.mixSolid }}" min="0" max="100" step="5"
-                                   inputmode="numeric" data-setting="mixSolid" aria-describedby="{{ _p }}-mix-err"
-                                   data-action="input->race-nutrition#setting change->race-nutrition#settingDone" disabled><span>%</span></span></label>
-                        <span class="rn-mix-field rn-mix-gel"><span>{{ 'race_nutrition.mix_gel'|trans }}</span>
-                            <output class="rn-mix-out" data-role="mix-gel">{{ 'race_nutrition.mix_gel_value'|trans({'%v%': _set.mixGel}) }}</output></span>
-                    </div>
                     <div class="rn-mixbar" aria-hidden="true">
                         <span class="rn-mixbar-drink" data-role="bar-drink" style="width:{{ _set.mixDrink }}%"></span>
                         <span class="rn-mixbar-gel" data-role="bar-gel" style="width:{{ _set.mixGel }}%"></span>
                         <span class="rn-mixbar-solid" data-role="bar-solid" style="width:{{ _set.mixSolid }}%"></span>
                     </div>
+                    <div class="rn-mix-fields">
+                        <label class="rn-mix-field"><span><i class="rn-dot rn-dot--drink" aria-hidden="true"></i>{{ 'race_nutrition.mix_drink'|trans }}</span>
+                            <span class="sp-input-unit"><input type="number" class="sp-form-input" value="{{ _set.mixDrink }}" min="0" max="100" step="5"
+                                   inputmode="numeric" data-setting="mixDrink" aria-describedby="{{ _p }}-mix-err"
+                                   data-action="input->race-nutrition#setting change->race-nutrition#settingDone" disabled><span>%</span></span></label>
+                        <label class="rn-mix-field"><span><i class="rn-dot rn-dot--solid" aria-hidden="true"></i>{{ 'race_nutrition.mix_solid'|trans }}</span>
+                            <span class="sp-input-unit"><input type="number" class="sp-form-input" value="{{ _set.mixSolid }}" min="0" max="100" step="5"
+                                   inputmode="numeric" data-setting="mixSolid" aria-describedby="{{ _p }}-mix-err"
+                                   data-action="input->race-nutrition#setting change->race-nutrition#settingDone" disabled><span>%</span></span></label>
+                        <span class="rn-mix-field rn-mix-gel"><span><i class="rn-dot rn-dot--gel" aria-hidden="true"></i>{{ 'race_nutrition.mix_gel'|trans }}</span>
+                            <output class="rn-mix-out" data-role="mix-gel">{{ 'race_nutrition.mix_gel_value'|trans({'%v%': _set.mixGel}) }}</output></span>
+                    </div>
                     <div class="rp-sc-err" id="{{ _p }}-mix-err" data-role="mix-error"></div>
                 </fieldset>
                 <label class="rn-check">
                     <input type="checkbox" data-setting="solidEarly" {{ _set.solidEarly ? 'checked' }} data-action="change->race-nutrition#setting" disabled>
-                    <span>{{ 'race_nutrition.solid_early'|trans }}<small>{{ 'race_nutrition.solid_early_help'|trans }}</small></span>
+                    <span><b>{{ 'race_nutrition.solid_early'|trans }}</b><small>{{ 'race_nutrition.solid_early_help'|trans }}</small></span>
                 </label>
             </div>
 
+            {# ── Produits et flasques (repliable) ── #}
             <details class="rn-more">
-                <summary>{{ 'race_nutrition.products_title'|trans }}</summary>
+                <summary><i class="bi bi-chevron-right rn-more-chevron" aria-hidden="true"></i> {{ 'race_nutrition.products_title'|trans }}</summary>
                 <div class="rn-auto-products">
                     {% for cat in ['gel', 'solid', 'drink'] %}
                         <div class="rn-field">
@@ -279,7 +299,7 @@
                 {%- for line in _t.products %}{{ loop.first ? '' : ' · ' }}{{ nm.line_text(line, _pmap[line.key] ?? null, _fmt) }}{% else %}{{ 'race_nutrition.nothing'|trans }}{% endfor -%}
             </p>
 
-            {# ── Points et tronçons ── #}
+            {# ── Points et tronçons, en frise (rail) du départ à l'arrivée ── #}
             <ol class="rn-rows" aria-label="{{ 'race_nutrition.rows_label'|trans }}">
                 {% set _num = 0 %}
                 {% for row in _r.rows %}
@@ -289,65 +309,125 @@
                     {% set _label = _isPoint ? _name : 'race_nutrition.segment_to'|trans({'%name%': _name}) %}
                     {% if _isPoint and row.anchor != 'start' %}{% set _num = _num + 1 %}{% endif %}
                     <li class="rn-row rn-row--{{ row.place }}{{ row.manual ? ' is-manual' }}" data-row-key="{{ row.key }}" data-label="{{ _label }}">
-                        <div class="rn-row-head">
+                        <div class="rn-rail" aria-hidden="true">
                             {% if _isPoint %}
                                 {% if row.anchor == 'start' %}
-                                    <span class="rp-edge-dot rp-edge-dot--start" aria-hidden="true"></span>
+                                    <span class="rp-edge-dot rp-edge-dot--start"></span>
                                 {% else %}
-                                    <span class="rp-cp-pin rp-cp-pin--{{ _pt.type ?? 'point' }}" aria-hidden="true">{{ _num }}</span>
+                                    <span class="rp-cp-pin rp-cp-pin--{{ _pt.type ?? 'point' }}">{{ _num }}</span>
                                 {% endif %}
-                                <span class="rn-row-name">{{ _name }}</span>
-                                {% if _pt and _pt.type == 'aid_station' %}<span class="rn-tag rn-tag--aid"><i class="bi bi-cup-hot-fill" aria-hidden="true"></i> {{ 'race_nutrition.tag_aid'|trans }}</span>{% endif %}
-                                {% if _pt and _pt.assistance %}<span class="rn-tag rn-tag--assist"><i class="bi bi-bag-heart-fill" aria-hidden="true"></i> {{ 'race_nutrition.tag_assistance'|trans }}</span>{% endif %}
-                            {% else %}
-                                <i class="bi bi-arrow-down-short rn-seg-arrow" aria-hidden="true"></i>
-                                <span class="rn-row-name">{{ _label }}</span>
-                                <span class="rn-row-meta">
-                                    {%- if row.seconds is not null %}{{ row.seconds|race_duration }}{% else %}-{% endif %}
-                                    {%- if _segKm['s' ~ row.anchor] is defined %} · {{ (_segKm['s' ~ row.anchor] / 1000)|number_format(1, _fmt.dp, _fmt.ts) }} km{% endif -%}
+                            {% endif %}
+                        </div>
+                        <div class="rn-in">
+                            <div class="rn-row-head">
+                                {% if _isPoint %}
+                                    <span class="rn-row-name">{{ _name }}</span>
+                                    {% if _kms['c' ~ row.anchor] is defined %}<span class="rn-row-km">{{ (_kms['c' ~ row.anchor] / 1000)|number_format(1, _fmt.dp, _fmt.ts) }} km</span>{% endif %}
+                                    {% if _pt and _pt.type == 'aid_station' %}<span class="rn-tag rn-tag--aid"><i class="bi bi-cup-hot-fill" aria-hidden="true"></i> {{ 'race_nutrition.tag_aid'|trans }}</span>{% endif %}
+                                    {% if _pt and _pt.assistance %}<span class="rn-tag rn-tag--assist"><i class="bi bi-bag-heart-fill" aria-hidden="true"></i> {{ 'race_nutrition.tag_assistance'|trans }}</span>{% endif %}
+                                {% else %}
+                                    <i class="bi bi-arrow-down-short rn-seg-arrow" aria-hidden="true"></i>
+                                    <span class="rn-row-name">{{ _label }}</span>
+                                    <span class="rn-row-meta">
+                                        {%- if row.seconds is not null %}{{ row.seconds|race_duration }}{% else %}-{% endif %}
+                                        {%- if _segKm['s' ~ row.anchor] is defined %} · {{ (_segKm['s' ~ row.anchor] / 1000)|number_format(1, _fmt.dp, _fmt.ts) }} km{% endif -%}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            <div class="rn-row-body">
+                                <ul class="rn-items" data-role="items" aria-label="{{ 'race_nutrition.items_label'|trans({'%row%': _label}) }}">
+                                    {% for line in row.items %}
+                                        {% if _pmap[line.key] is defined %}{{ _self.item(line, _pmap[line.key], _pn[line.key], _label, _fmt, _cfg) }}{% endif %}
+                                    {% endfor %}
+                                </ul>
+                                <span class="rn-nothing" data-role="nothing" {{ row.items is empty ? '' : 'hidden' }}>{{ 'race_nutrition.nothing'|trans }}</span>
+                                <select class="rn-add" data-role="add" aria-label="{{ 'race_nutrition.add_to'|trans({'%row%': _label}) }}"
+                                        data-action="change->race-nutrition#addProduct" disabled>
+                                    <option value="">{{ 'race_nutrition.add_placeholder'|trans }}</option>
+                                    {% for kind in ['food', 'drink'] %}
+                                        <optgroup label="{{ ('race_nutrition.add_group_' ~ kind)|trans }}">
+                                            {% for p in n.products|filter(p => p.kind == kind) %}<option value="{{ p.key }}">{{ _pn[p.key] }}</option>{% endfor %}
+                                        </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="rn-row-figs">
+                                <span class="rn-row-totals">
+                                    <span class="rn-fig" data-role="carbs" data-value="{{ row.carbs }}"><strong>{{ row.carbs|number_format(0, _fmt.dp, _fmt.ts) }}</strong> g</span>
+                                    <span class="rn-fig-sep" aria-hidden="true">·</span>
+                                    <span class="rn-fig" data-role="fluid" data-value="{{ row.fluidMl }}"><strong>{{ row.fluidMl|number_format(0, _fmt.dp, _fmt.ts) }}</strong> ml</span>
                                 </span>
-                            {% endif %}
-                        </div>
-                        <div class="rn-row-body">
-                            <ul class="rn-items" data-role="items" aria-label="{{ 'race_nutrition.items_label'|trans({'%row%': _label}) }}">
-                                {% for line in row.items %}
-                                    {% if _pmap[line.key] is defined %}{{ _self.item(line, _pmap[line.key], _pn[line.key], _label, _fmt, _cfg) }}{% endif %}
-                                {% endfor %}
-                            </ul>
-                            <span class="rn-nothing" data-role="nothing" {{ row.items is empty ? '' : 'hidden' }}>{{ 'race_nutrition.nothing'|trans }}</span>
-                            <select class="rn-add" data-role="add" aria-label="{{ 'race_nutrition.add_to'|trans({'%row%': _label}) }}"
-                                    data-action="change->race-nutrition#addProduct" disabled>
-                                <option value="">{{ 'race_nutrition.add_placeholder'|trans }}</option>
-                                {% for kind in ['food', 'drink'] %}
-                                    <optgroup label="{{ ('race_nutrition.add_group_' ~ kind)|trans }}">
-                                        {% for p in n.products|filter(p => p.kind == kind) %}<option value="{{ p.key }}">{{ _pn[p.key] }}</option>{% endfor %}
-                                    </optgroup>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="rn-row-figs">
-                            <span class="rn-fig" data-role="carbs" data-value="{{ row.carbs }}"><strong>{{ row.carbs|number_format(0, _fmt.dp, _fmt.ts) }}</strong> g</span>
-                            <span class="rn-fig" data-role="fluid" data-value="{{ row.fluidMl }}"><strong>{{ row.fluidMl|number_format(0, _fmt.dp, _fmt.ts) }}</strong> ml</span>
-                            {% if not _isPoint %}
-                                {{ _self.rate(row.carbsPerHour, row.status, 'g/h', 'rate', 'race_nutrition.rate_title'|trans({'%target%': _set.carbsPerHour}), _fmt) }}
-                                {{ _self.rate(row.fluidPerHour, row.fluidStatus, 'ml/h', 'frate', 'race_nutrition.fluid_rate_title'|trans({'%target%': _set.fluidPerHour}), _fmt) }}
-                            {% endif %}
-                        </div>
-                        <div class="rn-row-state">
-                            <span class="rn-badge rn-badge--{{ row.manual ? 'manual' : 'auto' }}" data-role="badge">{{ (row.manual ? 'race_nutrition.state_manual' : 'race_nutrition.state_auto')|trans }}</span>
-                            <button type="button" class="rn-reset" data-role="reset" data-action="race-nutrition#resetRow"
-                                    aria-label="{{ 'race_nutrition.reset_row'|trans({'%row%': _label}) }}" {{ row.manual ? '' : 'hidden' }} disabled>
-                                <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> {{ 'race_nutrition.reset_short'|trans }}
-                            </button>
+                                {% if not _isPoint %}
+                                    <span class="rn-row-rates">
+                                        {{ _self.rate(row.carbsPerHour, row.status, 'g/h', 'rate', 'race_nutrition.rate_title'|trans({'%target%': _set.carbsPerHour}), _fmt) }}
+                                        {{ _self.rate(row.fluidPerHour, row.fluidStatus, 'ml/h', 'frate', 'race_nutrition.fluid_rate_title'|trans({'%target%': _set.fluidPerHour}), _fmt) }}
+                                    </span>
+                                    {{ _self.gauge(row.carbsPerHour, row.status, _set.carbsPerHour) }}
+                                {% endif %}
+                                <span class="rn-row-state">
+                                    <span class="rn-badge rn-badge--{{ row.manual ? 'manual' : 'auto' }}" data-role="badge">{{ (row.manual ? 'race_nutrition.state_manual' : 'race_nutrition.state_auto')|trans }}</span>
+                                    <button type="button" class="rn-reset" data-role="reset" data-action="race-nutrition#resetRow"
+                                            aria-label="{{ 'race_nutrition.reset_row'|trans({'%row%': _label}) }}" {{ row.manual ? '' : 'hidden' }} disabled>
+                                        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> {{ 'race_nutrition.reset_short'|trans }}
+                                    </button>
+                                </span>
+                            </div>
                         </div>
                     </li>
                 {% endfor %}
+                {# Fin de la frise : l'arrivée (aucun apport : le dernier tronçon y mène) #}
+                <li class="rn-row rn-row--end">
+                    <div class="rn-rail" aria-hidden="true"><span class="rp-edge-dot rp-edge-dot--finish"></span></div>
+                    <div class="rn-in">
+                        <div class="rn-row-head">
+                            <span class="rn-row-name">{{ 'race_plan.finish'|trans }}</span>
+                            <span class="rn-row-km">{{ (s.calc.finish.distanceM / 1000)|number_format(1, _fmt.dp, _fmt.ts) }} km</span>
+                        </div>
+                    </div>
+                </li>
             </ol>
 
-            {# ── À emporter ── #}
-            <section class="rn-carry" aria-labelledby="{{ _p }}-carry-title">
-                <h3 class="rn-h3" id="{{ _p }}-carry-title"><i class="bi bi-backpack2" aria-hidden="true"></i> {{ 'race_nutrition.carry_title'|trans }}</h3>
-                <p class="rn-help">{{ 'race_nutrition.carry_help'|trans }}</p>
+            {# ── Actions ── #}
+            <div class="rn-actions">
+                <span class="rn-save" role="status" data-role="save"></span>
+                <button type="button" class="rn-retry" data-role="retry" data-action="race-nutrition#retry" hidden>{{ 'activity_fuel.save_retry'|trans }}</button>
+                <span class="rp-sc-toolbar-sep"></span>
+                <button type="button" class="rp-btn-quiet rp-btn-sm" data-role="reset-all" data-action="race-nutrition#resetAll" disabled>
+                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ 'race_nutrition.reset_all'|trans }}
+                </button>
+                {% if _others is not empty %}
+                    <form method="post" action="{{ path('app_race_nutrition_copy', {id: race.id, sid: s.id}) }}" class="rn-copy"
+                          data-action="submit->race-nutrition#copySubmit">
+                        <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
+                        <label class="visually-hidden" for="{{ _p }}-copy-from">{{ 'race_nutrition.copy_from_label'|trans }}</label>
+                        <select id="{{ _p }}-copy-from" name="from" class="sp-form-input rn-copy-select">
+                            {% for o in _others %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+                        </select>
+                        <button type="submit" class="sp-btn-ghost rp-btn-sm"><i class="bi bi-clipboard-plus" aria-hidden="true"></i> {{ 'race_nutrition.copy_from'|trans }}</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+</section>
+
+{# ── À emporter : un panneau par scénario, affiché avec celui de la nutrition ── #}
+{% if _sv.scenarios is not empty %}
+    <section class="sp-card rn-carry-card" id="carry" data-rp-section aria-labelledby="carry-title">
+        <div class="rp-sec-head">
+            <div class="rp-sec-ico" aria-hidden="true"><i class="bi bi-backpack2"></i></div>
+            <div class="rp-sec-titles">
+                <h2 class="rp-sec-title" id="carry-title">{{ 'race_nutrition.carry_title'|trans }}</h2>
+                <p class="rp-sec-sub">{{ 'race_nutrition.carry_help'|trans }}</p>
+            </div>
+        </div>
+        {% for s in _sv.scenarios %}
+            {% set n = _nv[s.id] %}
+            {% set _set = n.settings %}
+            {% set _pmap = {} %}
+            {% for p in n.products %}{% set _pmap = _pmap|merge({(p.key): p}) %}{% endfor %}
+            <div class="rn-carry-panel" id="carry-{{ s.id }}" data-race-nutrition-target="carry" data-scenario-id="{{ s.id }}" {{ loop.first ? '' : 'hidden' }}>
+                <p class="rn-carry-for">{{ 'race_nutrition.carry_for'|trans({'%name%': s.name}) }}</p>
                 <ol class="rn-stops" data-role="carry">
                     {% for stop in n.carry %}
                         {% set _stopName = _names[stop.anchor == 'start' ? 'start' : 'c' ~ stop.anchor] ?? '' %}
@@ -372,189 +452,9 @@
                         </li>
                     {% endfor %}
                 </ol>
-            </section>
-
-            {# ── Actions ── #}
-            <div class="rn-actions">
-                <span class="rn-save" role="status" data-role="save"></span>
-                <button type="button" class="rn-retry" data-role="retry" data-action="race-nutrition#retry" hidden>{{ 'activity_fuel.save_retry'|trans }}</button>
-                <span class="rp-sc-toolbar-sep"></span>
-                <button type="button" class="sp-btn-ghost rp-btn-sm" data-role="reset-all" data-action="race-nutrition#resetAll" disabled>
-                    <i class="bi bi-magic" aria-hidden="true"></i> {{ 'race_nutrition.reset_all'|trans }}
-                </button>
-                {% if _others is not empty %}
-                    <form method="post" action="{{ path('app_race_nutrition_copy', {id: race.id, sid: s.id}) }}" class="rn-copy"
-                          data-action="submit->race-nutrition#copySubmit">
-                        <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
-                        <label class="visually-hidden" for="{{ _p }}-copy-from">{{ 'race_nutrition.copy_from_label'|trans }}</label>
-                        <select id="{{ _p }}-copy-from" name="from" class="sp-form-input rn-copy-select">
-                            {% for o in _others %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
-                        </select>
-                        <button type="submit" class="sp-btn-ghost rp-btn-sm"><i class="bi bi-clipboard-plus" aria-hidden="true"></i> {{ 'race_nutrition.copy_from'|trans }}</button>
-                    </form>
-                {% endif %}
             </div>
-        </div>
-    {% endfor %}
-</section>
+        {% endfor %}
+    </section>
+{% endif %}
 
-<style>
-.rn-card { padding: 0; overflow: hidden; margin-top: 16px; scroll-margin-top: 16px; }
-.rn-head { flex-wrap: wrap; }
-.rn-title { display: flex; align-items: center; gap: 6px; }
-.rn-title-icon { color: var(--sp-orange); }
-.rn-scenario-pick { min-width: 180px; }
-.rn-scenario-pick .sp-form-label { margin-bottom: 4px; }
-.rn-scenario-select { padding: 6px 10px; }
-.rn-flash { padding: 14px 20px 0; }
-.rn-flash:empty { display: none; }
-.rn-flash > .alert { margin: 0 0 6px !important; }
-.rn-empty { text-align: center; padding: 36px 20px; color: var(--sp-muted); }
-.rn-empty i { font-size: 30px; opacity: .45; display: block; margin-bottom: 10px; }
-.rn-empty p { font-size: 13px; margin: 0 auto 12px; max-width: 460px; }
-.rn-panel { padding: 14px 20px 18px; }
-.rn-panel[hidden] { display: none; }
-.rn-note { margin: 0 0 10px; font-size: 12px; color: var(--sp-muted); line-height: 1.45; }
-.rn-alert { margin: 0 0 12px; }
-.rn-help { margin: 6px 0 10px; font-size: 11.5px; color: var(--sp-muted); line-height: 1.45; }
-
-/* Réglages */
-.rn-settings { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2.2fr); gap: 12px 16px; align-items: start; }
-.rn-field { min-width: 0; margin: 0; }
-.rn-mix { border: 0; padding: 0; }
-.rn-mix > legend { float: none; width: auto; padding: 0; }
-.rn-mix-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.rn-mix-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; margin: 0; font-size: 11px; font-weight: 600; color: var(--sp-muted); }
-.rn-mix-out { display: block; padding: 9px 0; font-size: 13px; font-weight: 800; color: var(--sp-text); }
-.rn-mixbar { display: flex; height: 7px; margin-top: 8px; border-radius: 99px; overflow: hidden; background: #ECEAE4; }
-.rn-mixbar > span { display: block; height: 100%; transition: width .2s ease; }
-.rn-mixbar-drink { background: #0E7490; }
-.rn-mixbar-gel { background: var(--sp-orange); }
-.rn-mixbar-solid { background: #92400E; }
-.rn-check { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 13px; color: var(--sp-text); cursor: pointer; }
-.rn-check input { width: 16px; height: 16px; margin-top: 2px; accent-color: var(--sp-orange); flex-shrink: 0; }
-.rn-check small { display: block; font-size: 11px; color: var(--sp-muted); }
-.rn-panel .sp-form-input:disabled { opacity: 1; cursor: default; }
-.rn-panel .sp-form-input[aria-invalid="true"] { border-color: var(--sp-red); }
-
-/* Produits */
-.rn-more { margin: 12px 0 0; border: 1px solid var(--sp-border); border-radius: 10px; padding: 0 12px; }
-.rn-more > summary { padding: 9px 0; font-size: 12.5px; font-weight: 700; color: var(--sp-text); cursor: pointer; }
-.rn-more[open] { padding-bottom: 12px; }
-.rn-auto-products { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 12px; }
-.rn-products { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
-.rn-product { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,.05); }
-.rn-product-name { font-size: 12.5px; font-weight: 700; color: var(--sp-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rn-product-name small { font-weight: 600; color: var(--sp-muted); margin-left: 3px; }
-.rn-product-carbs { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--sp-muted); white-space: nowrap; }
-.rn-carbs-input { width: 56px; padding: 3px 6px; border: 1px solid rgba(0,0,0,.12); border-radius: 6px; background: var(--sp-bg); color: var(--sp-text); font-size: 12px; font-weight: 700; text-align: right; }
-.rn-carbs-input[aria-invalid="true"] { border-color: var(--sp-red); }
-.rn-icon-btn { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--sp-muted); cursor: pointer; }
-.rn-icon-btn:hover { background: rgba(239,68,68,.10); color: #B91C1C; }
-.rn-custom { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: #F6F5F1; }
-.rn-custom-fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
-.rn-custom-field { display: flex; flex-direction: column; gap: 3px; margin: 0; min-width: 0; flex: 1 1 110px; font-size: 11px; font-weight: 600; color: var(--sp-muted); }
-.rn-custom-field--name { flex: 2 1 160px; }
-.rn-custom-field .sp-form-input { background: #fff; padding: 7px 10px; }
-.rn-custom-submit { flex-shrink: 0; }
-
-/* Bilan */
-.rn-totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 16px 0 6px; }
-.rn-totals > div { background: var(--sp-bg); border-radius: 10px; padding: 9px 12px; min-width: 0; }
-.rn-totals dt { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--sp-muted); margin-bottom: 2px; }
-.rn-totals dd { margin: 0; font-size: 13px; font-weight: 700; color: var(--sp-muted); font-variant-numeric: tabular-nums; }
-.rn-totals dd strong { font-size: 18px; font-weight: 900; color: var(--sp-text); }
-.rn-totals .rn-rate { font-size: 16px; }
-.rn-products-total { margin: 0 0 12px; font-size: 12px; color: var(--sp-text); line-height: 1.5; }
-
-/* Lignes */
-.rn-rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--sp-border); }
-.rn-row { display: grid; grid-template-columns: minmax(150px, 1.1fr) minmax(0, 2fr) minmax(150px, auto) 92px; align-items: center; gap: 6px 12px; padding: 9px 0; border-bottom: 1px solid var(--sp-border); }
-.rn-row--point { background: rgba(22,23,42,.022); padding-left: 8px; padding-right: 8px; margin: 0 -8px; }
-.rn-row--segment .rn-row-head { padding-left: 14px; }
-.rn-row-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; }
-.rn-row-name { font-size: 13px; font-weight: 700; color: var(--sp-text); overflow-wrap: anywhere; min-width: 0; }
-.rn-row--segment .rn-row-name { font-weight: 600; }
-.rn-row-meta { flex-basis: 100%; font-size: 11px; color: var(--sp-muted); font-variant-numeric: tabular-nums; }
-.rn-seg-arrow { color: var(--sp-muted); font-size: 16px; }
-.rn-tag { display: inline-flex; align-items: center; gap: 3px; padding: 0 7px; border-radius: 20px; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
-.rn-tag--aid { background: rgba(6,182,212,.12); color: #0E7490; }
-.rn-tag--assist { background: rgba(232,64,12,.10); color: #B4340A; }
-.rn-row-body { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
-.rn-items { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.rn-items:empty { display: none; }
-.rn-item { display: inline-flex; align-items: center; gap: 5px; padding: 2px 3px 2px 4px; border: 1px solid rgba(0,0,0,.10); border-radius: 10px; background: #fff; }
-.rn-row:not(.is-manual) .rn-item { border-style: dashed; background: transparent; }
-.rn-item-ico { width: 22px; height: 22px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
-.rn-item-ico--food { background: rgba(232,64,12,.10); color: var(--sp-orange); }
-.rn-item-ico--drink { background: rgba(6,182,212,.12); color: #0E7490; }
-.rn-product .rn-item-ico { width: 26px; height: 26px; }
-.rn-item-name { font-size: 12px; font-weight: 700; color: var(--sp-text); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rn-stepper { display: inline-flex; align-items: center; }
-.rn-step { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--sp-text); font-size: 12px; cursor: pointer; }
-.rn-step:hover:not(:disabled):not([aria-disabled="true"]) { background: rgba(0,0,0,.06); }
-.rn-step:disabled, .rn-step[aria-disabled="true"] { color: rgba(0,0,0,.25); cursor: not-allowed; }
-.rn-count { min-width: 22px; text-align: center; font-size: 12.5px; font-weight: 800; color: var(--sp-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rn-nothing { font-size: 12px; color: var(--sp-muted); font-style: italic; }
-.rn-nothing[hidden] { display: none; }
-.rn-add { width: auto; max-width: 100%; padding: 3px 6px; border: 1px dashed rgba(0,0,0,.2); border-radius: 8px; background: transparent; color: var(--sp-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
-.rn-add:disabled { display: none; }
-.rn-row-figs { display: flex; align-items: baseline; justify-content: flex-end; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; color: var(--sp-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rn-fig strong { font-size: 13px; font-weight: 800; color: var(--sp-text); }
-.rn-rate { font-weight: 800; white-space: nowrap; }
-.rn-rate--within { color: #15803D; }
-.rn-rate--below, .rn-rate--above { color: #B45309; }
-.rn-rate--none { color: var(--sp-muted); font-weight: 600; }
-.rn-row-state { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
-.rn-badge { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--sp-muted); }
-.rn-badge--manual { color: var(--sp-orange); }
-.rn-reset { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border: 1px solid rgba(0,0,0,.12); border-radius: 6px; background: #fff; color: var(--sp-text); font-size: 11px; font-weight: 700; cursor: pointer; }
-.rn-reset[hidden] { display: none; }
-.rn-step:focus-visible, .rn-reset:focus-visible, .rn-add:focus-visible, .rn-icon-btn:focus-visible, .rn-retry:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: 1px; }
-
-/* À emporter */
-.rn-carry { margin-top: 16px; }
-.rn-h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 800; color: var(--sp-text); }
-.rn-h3 i { color: var(--sp-orange); }
-.rn-stops { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.rn-stop { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 10px; background: var(--sp-bg); font-size: 12.5px; color: var(--sp-text); line-height: 1.45; }
-.rn-stop-name { font-weight: 800; overflow-wrap: anywhere; }
-.rn-stop-line strong { font-weight: 700; color: var(--sp-muted); margin-right: 3px; }
-
-/* Actions */
-.rn-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.rn-save { font-size: 11.5px; font-weight: 600; color: var(--sp-muted); }
-.rn-save:empty { display: none; }
-.rn-save.is-saved { color: #15803D; }
-.rn-save.is-error, .rn-save.is-session { color: #B91C1C; }
-.rn-retry { padding: 0; border: 0; background: none; color: var(--sp-orange); font-size: 11.5px; font-weight: 700; text-decoration: underline; cursor: pointer; }
-.rn-copy { display: inline-flex; align-items: center; gap: 6px; margin: 0; max-width: 100%; }
-.rn-copy-select { width: auto; min-width: 0; max-width: 170px; padding: 5px 8px; }
-.rn-actions .sp-btn-ghost { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.rn-actions .sp-btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
-
-@media (max-width: 1199.98px) {
-    .rn-row { grid-template-columns: minmax(0, 1fr) auto; }
-    .rn-row-body { grid-column: 1 / -1; grid-row: 2; }
-    .rn-row-figs { grid-column: 1; grid-row: 3; justify-content: flex-start; }
-    .rn-row-state { grid-column: 2; grid-row: 1 / span 1; }
-}
-@media (max-width: 991.98px) {
-    .rn-settings { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .rn-mix { grid-column: 1 / -1; }
-    .rn-auto-products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .rn-products { grid-template-columns: minmax(0, 1fr); }
-    .rn-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 575.98px) {
-    .rn-panel { padding: 12px 14px 16px; }
-    .rn-flash { padding: 12px 14px 0; }
-    .rn-scenario-pick { min-width: 0; width: 100%; }
-    .rn-mix-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-    .rn-row--point { margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
-    .rn-row--segment .rn-row-head { padding-left: 4px; }
-    .rn-item-name { max-width: 96px; }
-    .rn-copy { flex-wrap: wrap; }
-    .rn-copy-select { max-width: 100%; }
-}
-</style>
+</div>

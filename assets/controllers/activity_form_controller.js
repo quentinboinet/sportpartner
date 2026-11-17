@@ -41,6 +41,22 @@ export function parseDistanceMeters(value) {
     return m ? Number(m[1]) * 1000 + Number((m[2] ?? '').padEnd(3, '0')) : NaN;
 }
 
+/** Champs entiers (D+, FC) : seulement des chiffres, au plus maxLength (frappe et collage). */
+export function sanitizeInteger(value, maxLength = 6) {
+    return String(value ?? '').replace(/\D+/g, '').slice(0, maxLength);
+}
+
+/**
+ * Distance : chiffres et un seul séparateur décimal (virgule ou point, celui tapé est gardé),
+ * 4 chiffres avant et 3 après au plus, comme parseDistanceMeters().
+ */
+export function sanitizeDecimal(value) {
+    const v = String(value ?? '').replace(/[^\d.,]+/g, '');
+    const i = v.search(/[.,]/);
+    if (i === -1) return v.slice(0, 4);
+    return v.slice(0, i).slice(0, 4) + v[i] + v.slice(i + 1).replace(/[.,]/g, '').slice(0, 3);
+}
+
 const MAX_METERS = 1000 * 1000;
 
 /**
@@ -132,6 +148,28 @@ export default class extends Controller {
                 : String(this.labelsValue.autoNone ?? '');
         }
         if (this.hasGearFieldTarget) this.gearFieldTarget.hidden = types.length === 0;
+    }
+
+    /** input sur un champ entier (D+, FC) : retire tout ce qui n'est pas un chiffre. */
+    digitsOnly(event) {
+        const input = event.target;
+        this.sanitize(input, (v) => sanitizeInteger(v, input.maxLength > 0 ? input.maxLength : 6));
+    }
+
+    /** input sur la distance : chiffres et un séparateur décimal seulement. */
+    decimalOnly(event) {
+        this.sanitize(event.target, sanitizeDecimal);
+    }
+
+    /** Remplace la valeur nettoyée en gardant le curseur à sa place (caractères retirés avant lui décomptés). */
+    sanitize(input, clean) {
+        const before = input.value;
+        const after = clean(before);
+        if (after === before) return;
+        const caret = input.selectionStart ?? before.length;
+        const kept = clean(before.slice(0, caret)).length;
+        input.value = after;
+        try { input.setSelectionRange(kept, kept); } catch { /* type sans sélection */ }
     }
 
     /** Temps en mouvement lu dans les trois champs (h, min, s), dans l'ordre du gabarit. */

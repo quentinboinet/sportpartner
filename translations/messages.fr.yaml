@@ -1088,6 +1088,13 @@ race_plan:
     page_title: "Plan de course - %name% - SportPartner"
     back: Mes courses
     eyebrow: Plan de course
+    # En-tête et sous-navigation de la page
+    hero_countdown: Jour J dans
+    hero_days: "{0,1} jour|]1,Inf[ jours"
+    hero_race_day: Jour J
+    hero_goal: Objectif
+    subnav_label: Sections du plan de course
+    legend_edges: "Départ · Arrivée"
     # Import GPX
     upload_title: Importe le parcours de la course
     upload_sub: "À partir du fichier GPX officiel, construis ton plan de course repère par repère."
@@ -1148,6 +1155,8 @@ race_plan:
     minutes_short: "%n% min"
     edit: Modifier
     delete: Supprimer
+    edit_named: "Modifier le repère %name%"
+    delete_named: "Supprimer le repère %name%"
     confirm_delete_checkpoint: "Supprimer ce repère ?"
     # Types de repère (CheckpointType::labelKey)
     type_point: Point de passage
@@ -1325,6 +1334,9 @@ race_plan:
     pacing_intensity_light: "Légère"
     pacing_intensity_medium: "Moyenne"
     pacing_intensity_strong: "Marquée"
+    # Bande des tronçons et explication du calcul
+    strip_legend: "Plus la couleur est foncée, plus l'allure est rapide"
+    sc_how_title: "Comment sont calculés les temps ?"
 
 # ── Nutrition ─────────────────────────────────────────────────────────────────
 nutrition:
@@ -1457,6 +1469,7 @@ race_nutrition:
     carry_eat: "À boire ici :"
     carry_fill: "À remplir :"
     carry_nothing: rien
+    carry_for: "Scénario « %name% »"
     flasks: "%count% flasques de %flask% ml (%what%)"
     flasks_one: "1 flasque de %flask% ml (%what%)"
     # Actions

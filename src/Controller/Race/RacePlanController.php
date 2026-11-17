@@ -98,9 +98,12 @@ final class RacePlanController extends AbstractController
         }
 
         $scenarioView = $scenarioBuilder->buildWith($race, $route, $checkpoints);
+        $date         = $race->getRaceDate();
 
         return $this->render('race/plan.html.twig', [
             'race'            => $race,
+            // En-tête : jours avant la course (même calcul que la page de la course), null sans date
+            'daysLeft'        => $date !== null ? (int) (new \DateTimeImmutable('today'))->diff($date)->format('%r%a') : null,
             'route'           => $route,
             'checkpoints'     => $checkpoints,
             'segments'        => $route !== null ? $analyzer->segments($points, $marks, $route->getDistanceM()) : [],

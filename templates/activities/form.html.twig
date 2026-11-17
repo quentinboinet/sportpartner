@@ -170,8 +170,9 @@
                 <label class="form-label" for="af-distance">{{ 'activity_form.distance'|trans }}</label>
                 <div class="input-group">
                     <input type="text" inputmode="decimal" class="form-control{{ f.cls(errors, 'distance') }}"{{ f.aria(errors, 'distance', 'af-distance-help') }} id="af-distance" name="distance"
-                           value="{{ form.distance }}" autocomplete="off"
-                           data-activity-form-target="distance" data-action="input->activity-form#refresh">
+                           value="{{ form.distance }}" autocomplete="off" maxlength="8"
+                           pattern="[0-9]{1,4}([.,][0-9]{1,3})?" title="{{ 'activity_form.distance_help'|trans({'%max%': limits.distanceMax}) }}"
+                           data-activity-form-target="distance" data-action="input->activity-form#decimalOnly input->activity-form#refresh">
                     <span class="input-group-text">km</span>
                 </div>
                 <div class="form-text" id="af-distance-help">{{ 'activity_form.distance_help'|trans({'%max%': limits.distanceMax}) }}</div>
@@ -181,7 +182,8 @@
                 <label class="form-label" for="af-elevation">{{ 'activity_form.elevation'|trans }}</label>
                 <div class="input-group">
                     <input type="text" inputmode="numeric" class="form-control{{ f.cls(errors, 'elevation') }}"{{ f.aria(errors, 'elevation') }} id="af-elevation" name="elevation"
-                           value="{{ form.elevation }}" autocomplete="off">
+                           value="{{ form.elevation }}" autocomplete="off" maxlength="{{ limits.elevationMax|length }}" pattern="[0-9]*"
+                           data-action="input->activity-form#digitsOnly">
                     <span class="input-group-text">m</span>
                 </div>
                 {{ f.error(errors, 'elevation') }}
@@ -200,7 +202,8 @@
                 <label class="form-label" for="af-hr-avg">{{ 'activity_form.hr_avg'|trans }}</label>
                 <div class="input-group">
                     <input type="text" inputmode="numeric" class="form-control{{ f.cls(errors, 'hr_avg') }}"{{ f.aria(errors, 'hr_avg') }} id="af-hr-avg" name="hr_avg"
-                           value="{{ form.hrAvg }}" autocomplete="off">
+                           value="{{ form.hrAvg }}" autocomplete="off" maxlength="3" pattern="[0-9]*"
+                           data-action="input->activity-form#digitsOnly">
                     <span class="input-group-text">bpm</span>
                 </div>
                 {{ f.error(errors, 'hr_avg') }}
@@ -209,7 +212,8 @@
                 <label class="form-label" for="af-hr-max">{{ 'activity_form.hr_max'|trans }}</label>
                 <div class="input-group">
                     <input type="text" inputmode="numeric" class="form-control{{ f.cls(errors, 'hr_max') }}"{{ f.aria(errors, 'hr_max') }} id="af-hr-max" name="hr_max"
-                           value="{{ form.hrMax }}" autocomplete="off">
+                           value="{{ form.hrMax }}" autocomplete="off" maxlength="3" pattern="[0-9]*"
+                           data-action="input->activity-form#digitsOnly">
                     <span class="input-group-text">bpm</span>
                 </div>
                 {{ f.error(errors, 'hr_max') }}

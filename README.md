@@ -96,6 +96,16 @@ Section « Objectifs hebdomadaires » de l'onglet Profil, enregistrée avec le m
 - **Par sport** (table `weeklyGoal`, `WeeklyGoal`, une ligne par utilisateur et par sport) : distance (km, au dixième), séances, durée (saisie en heures : `5`, `5,5`, `5.5`, `5:30` ou `5h30`, stockée en minutes) et D+ (m), toutes facultatives mais au moins une par sport. `CollectionType` `weeklyGoals` de `WeeklyGoalType` (`property_path` `user.weeklyGoals`, `by_reference` false, adder/remover de `User`, collection indexée par id) ; lignes ajoutées depuis le menu « Ajouter un sport » (sports sans objectif seulement) et retirées par `weekly_goals_controller.js` (gabarit `<template>`, sans `innerHTML`). Le sport d'une ligne enregistrée ne change pas ; un sport retiré puis rajouté dans la même saisie réutilise sa ligne (`WeeklyGoalReconciler`, évite le conflit avec l'index unique). Erreurs affichées sur la ligne (aucune cible, sport en double, bornes, durée illisible), saisie conservée, première erreur amenée à l'écran.
 - **Tableau de bord** : sous les anneaux de la carte « Objectifs de la semaine », une ligne par objectif (ordre des réglages) : pour chaque cible renseignée, « 18 / 30 km », « 2 / 3 séances », « 3h10 / 5h » ou « 620 / 1 000 m D+ », une barre (plafonnée à 100 %, valeurs réelles au-delà), « encore 12 km » ou « Atteint » avec une coche. `WeeklyGoalProgress` : semaine du lundi 00:00:00 au dimanche 23:59:59 (mêmes bornes que le volume hebdomadaire et le libellé de semaine), une seule requête agrégée par sport (`ActivityRepository::sumBySportBetween`) ; les activités sans sport comptent pour « Autre ».
 
+### Plan de course : la page
+
+`/courses/{id}/plan` (`RacePlanController`, styles `assets/styles/race_plan.css`, aucun script ni gestionnaire d'événement en ligne) :
+
+- **En-tête** : retour à la course, « Partager », « Temps de passage » (nombre de scénarios) ; bandeau sombre avec le statut, la date, le lieu, la distance et le D+ de la course, « Jour J dans N jours » (course à venir non faite), « Objectif » = temps visé enregistré du premier scénario, et les chiffres du GPX (distance, D+, D-, altitudes min / max).
+- **Sous-navigation** (Stimulus `race-subnav`) : Parcours, Repères, Temps de passage, Nutrition, À emporter ; collante sous la barre du haut sur grand écran, sur plusieurs lignes dans le flux sur mobile ; la section à l'écran est marquée (`aria-current`) ; un clic ou Entrée fait défiler jusqu'à la section (sans animation avec « réduire les animations ») et y place le focus.
+- **Parcours** : carte et profil côte à côte, fichier GPX sous la carte (réimporter depuis le lien, remplacer, supprimer) ; sans parcours, la carte d'import (fichier ou lien).
+- **Repères** : tableau avec, pour chaque repère, distance, D+, D- et pente moyenne depuis le repère précédent (`RouteAnalyzer::segments()`), arrêt, barrière, notes ; ajout, modification et suppression dans une fenêtre (Stimulus `race-plan`), aussi depuis un clic sur le profil ou le tracé.
+- **Temps de passage**, **Nutrition**, **À emporter** : voir ci-dessous. La bande des tronçons (sous les indicateurs du scénario) montre chaque tronçon avec une largeur proportionnelle à sa distance et une teinte selon son allure (plus foncé = plus rapide), avec l'heure de passage à chaque repère ; elle suit la saisie en direct.
+
 ### Plan de course : scénarios et temps de passage
 
 Section « Temps de passage » de `/courses/{id}/plan` (`RaceScenarioController`, CSRF `race_plan` ; chaque action revient sur `#scenario-{sid}`, ses messages sont affichés en tête de la section) :
@@ -240,6 +250,7 @@ assets/
   race_public.js           point d'entrée léger de la page publique /p/{token} (route-preview + race-public)
   controllers/index.js     enregistrement manuel des controllers Stimulus
   styles/app.css           styles de l'application (chargés par base.html.twig)
+  styles/race_plan.css     styles de la page plan de course (liés par race/plan.html.twig)
   lib/fullcalendar/        FullCalendar 6 en fichiers ESM locaux
 templates/                 Twig par domaine
 translations/              messages.fr.yaml, messages.en.yaml
@@ -286,9 +297,11 @@ Ils sont enregistrés à la main dans `assets/controllers/index.js`. `assets/con
 | `stats-compare` | statistiques, vue Comparer (cumul, barres par tranche et par sport, sélecteur d'indicateur, tableau de données) |
 | `energy-donut`, `balance-chart` | nutrition |
 | `race-calendar` | courses (vue calendrier, FullCalendar chargé à la demande par `import()`) |
+| `race-plan` | plan de course (import du GPX, fenêtre d'ajout / de modification d'un repère, confirmations des suppressions ; remplace l'ancien script en ligne de la page) |
+| `race-subnav` | plan de course, sous-navigation collante (Parcours, Repères, Temps de passage, Nutrition, À emporter : scroll-spy par `IntersectionObserver`, `aria-current`, saut doux sauf `prefers-reduced-motion`) |
 | `race-route` | plan de course (carte Leaflet, profil Chart.js, repères cliquables) |
-| `race-splits` | plan de course, section « Temps de passage » (onglets des scénarios, recalcul en direct, miroir de `SplitCalculator`) |
-| `race-nutrition` | plan de course, section « Nutrition » (suit l'onglet du scénario, steppers, recalcul en direct avec `race_nutrition_calculator.js`, enregistrement automatique) |
+| `race-splits` | plan de course, section « Temps de passage » (onglets des scénarios, recalcul en direct, miroir de `SplitCalculator`, bande des tronçons mise à jour en direct) |
+| `race-nutrition` | plan de course, sections « Nutrition » (frise des points et tronçons, jauges) et « À emporter » (suit l'onglet du scénario, steppers, recalcul en direct avec `race_nutrition_calculator.js`, enregistrement automatique) |
 | `training-calendar` | calendrier général (FullCalendar chargé à la demande, vue rapide en modale) |
 | `weekly-goals` | réglages, onglet Profil (lignes des objectifs par sport : ajout depuis le menu, retrait) |
 | `race-share` | réglages du partage du plan (copie du lien, compteurs, heures selon le scénario, confirmations) |

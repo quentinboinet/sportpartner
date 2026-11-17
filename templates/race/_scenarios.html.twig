@@ -1,6 +1,6 @@
 {#
  # Plan de course, phase 2 : scénarios (objectifs de temps) et temps de passage.
- # Inclus par race/plan.html.twig sous le tableau des repères.
+ # Inclus par race/plan.html.twig sous le tableau des repères. Styles : assets/styles/race_plan.css.
  # Variables attendues : race, scenarioView (ScenarioViewBuilder::buildWith(), voir son docblock).
  #
  # Calcul en direct pendant la saisie : Stimulus "race-splits" (assets/controllers/race_splits_controller.js),
@@ -15,6 +15,9 @@
  # toujours postée) + phrase d'explication. Formules : App\Entity\PacingStrategy. Création : stratégie proposée
  # selon le type de course (_sv.suggestedStrategy). Colonne des allures : écart avec l'allure moyenne en mouvement
  # (row.paceDeviationPct, macro dev).
+ #
+ # Bande des tronçons (macro strip, data-sc-strip) : version ENREGISTRÉE du scénario au rendu, mise à jour en direct par
+ # race-splits (renderStrip, niveaux de teinte = stripLevels() du contrôleur, même formule que la macro).
  #}
 {% set _fr  = app.request.locale == 'fr' %}
 {% set _dec = _fr ? ',' : '.' %}
@@ -87,7 +90,7 @@
 {% macro scenario_fields(prefix, name, startTime, target, pattern, required) %}
     <div class="rp-sc-fields">
         <div class="rp-sc-field rp-sc-field--name">
-            <label class="sp-form-label" for="{{ prefix }}-name">{{ 'race_plan.sc_field_name'|trans }}{% if required %} <span style="color:var(--sp-orange)">*</span>{% endif %}</label>
+            <label class="sp-form-label" for="{{ prefix }}-name">{{ 'race_plan.sc_field_name'|trans }}{% if required %} <span class="rp-required">*</span>{% endif %}</label>
             <input type="text" id="{{ prefix }}-name" name="name" class="sp-form-input" maxlength="60" autocomplete="off"
                    value="{{ name }}" {{ required ? 'required' : '' }}
                    {% if required %}aria-describedby="{{ prefix }}-name-err"{% endif %}
@@ -164,6 +167,68 @@
     {% endif %}
 {% endmacro %}
 
+{# ── Heure d'un repère sur la bande des tronçons (même texte que stripClock() en JS) : heure (+ J+n), sinon temps
+   écoulé sans heure de départ, sinon "-" ── #}
+{% macro strip_clock(row) -%}
+    {%- if row.clock -%}
+        {{- row.clock.time -}}{%- if row.clock.dayOffset > 0 %} {{ 'race_plan.sc_day'|trans({'%n%': row.clock.dayOffset}) }}{% endif -%}
+    {%- elseif row.arrivalSeconds is not null -%}
+        {{- row.arrivalSeconds|race_duration -}}
+    {%- else -%}-{%- endif -%}
+{%- endmacro %}
+
+{# ── Bande des tronçons : largeur = distance du tronçon, teinte = allure (niveaux 1 à 5, plus foncé = plus rapide ;
+   0 = sans allure), heure et nom au-dessus de chaque repère. Purement visuelle (aria-hidden) : le tableau ci-dessous
+   donne les mêmes heures et allures. Niveau = 1 + floor(t * 4 + 0.5), t = (max - allure) / (max - min), 0,5 si toutes
+   les allures sont égales : même formule que stripLevels() de race_splits_controller.js ── #}
+{% macro strip(s, sv, dec, th) %}
+    {% set calc = s.calc %}
+    {% set _finishM = calc.totals.distanceM %}
+    {% if _finishM > 0 %}
+        {% set _rows = calc.rows|merge([calc.finish]) %}
+        {% set _paces = _rows|filter(r => r.segmentPaceSecPerKm is not null)|map(r => r.segmentPaceSecPerKm) %}
+        {% set _pmin = _paces is empty ? 0 : min(_paces) %}
+        {% set _pmax = _paces is empty ? 0 : max(_paces) %}
+        <div class="rp-strip" data-sc-strip aria-hidden="true">
+            <div class="rp-strip-labels">
+                <span class="rp-strip-lab rp-strip-lab--first" data-strip-label="start">
+                    <span class="rp-strip-clock" data-strip-clock>{{ s.startTime ?? '0:00' }}</span>
+                    <span class="rp-strip-name">{{ 'race_plan.start'|trans }}</span>
+                </span>
+                {% for row in _rows %}
+                    <span class="rp-strip-lab{{ loop.last ? ' rp-strip-lab--last' }}" style="left:{{ (row.distanceM * 100 / _finishM)|number_format(3, '.', '') }}%"
+                          data-strip-label="{{ row.checkpointId ?? 'finish' }}">
+                        <span class="rp-strip-clock" data-strip-clock>{{ _self.strip_clock(row) }}</span>
+                        <span class="rp-strip-name">{{ loop.last ? 'race_plan.finish'|trans : sv.checkpoints[loop.index0].name }}</span>
+                    </span>
+                {% endfor %}
+            </div>
+            <div class="rp-strip-bar">
+                {% set _prev = 0 %}
+                {% for row in _rows %}
+                    {% set _len = row.distanceM - _prev %}
+                    {% set _pace = row.segmentPaceSecPerKm %}
+                    {% set _lvl = 0 %}
+                    {% if _pace is not null %}
+                        {% set _t = _pmax == _pmin ? 0.5 : (_pmax - _pace) / (_pmax - _pmin) %}
+                        {% set _lvl = 1 + (_t * 4 + 0.5)|round(0, 'floor') %}
+                    {% endif %}
+                    <span class="rp-strip-seg rp-strip-seg--{{ _lvl }}"
+                          style="left:{{ (_prev * 100 / _finishM)|number_format(3, '.', '') }}%;width:{{ (_len * 100 / _finishM)|number_format(3, '.', '') }}%"
+                          data-strip-seg="{{ row.checkpointId ?? 'finish' }}" data-distance="{{ _len }}" {{ _len > 0 ? '' : 'hidden' }}>
+                        <span class="rp-strip-fill"><b data-strip-pace>{{ _pace is not null ? _pace|race_pace : '-' }}</b><small>{{ 'race_plan.sc_per_km'|trans }}</small></span>
+                    </span>
+                    {% set _prev = row.distanceM %}
+                {% endfor %}
+            </div>
+            <div class="rp-strip-foot">
+                <span>{{ 'race_plan.strip_legend'|trans }}</span>
+                <span class="rp-strip-km">0 → {{ (_finishM / 1000)|number_format(1, dec, th) }} km</span>
+            </div>
+        </div>
+    {% endif %}
+{% endmacro %}
+
 {# Conteneur du contrôleur : englobe la section ET la modale d'ajout #}
 <div class="rp-sc-root"
      data-controller="race-splits"
@@ -173,13 +238,43 @@
      data-race-splits-locale-value="{{ app.request.locale }}"
      data-race-splits-labels-value="{{ _labels|json_encode }}">
 
-<section class="sp-card rp-sc-card" id="scenarios" aria-labelledby="scenarios-title">
+<section class="sp-card rp-sc-card" id="scenarios" data-rp-section aria-labelledby="scenarios-title">
 
-    <div class="rp-cp-head rp-sc-head">
-        <div>
-            <h2 class="sp-card-title" id="scenarios-title"><i class="bi bi-stopwatch rp-sc-title-icon"></i> {{ 'race_plan.sc_title'|trans }}</h2>
-            <div class="sp-card-sub">{{ 'race_plan.sc_sub'|trans }}</div>
+    <div class="rp-sec-head rp-sc-head">
+        <div class="rp-sec-ico" aria-hidden="true"><i class="bi bi-stopwatch"></i></div>
+        <div class="rp-sec-titles">
+            <h2 class="rp-sec-title" id="scenarios-title">{{ 'race_plan.sc_title'|trans }}</h2>
+            <p class="rp-sec-sub">{{ 'race_plan.sc_sub'|trans }}</p>
         </div>
+        {% if _scenarios is not empty %}
+            {# ── Onglets : un par scénario + ajout ── #}
+            <div class="rp-sec-right rp-sc-tabbar">
+                <div class="rp-sc-tabs" role="tablist" aria-label="{{ 'race_plan.sc_tablist_label'|trans }}">
+                    {% for s in _scenarios %}
+                        <button type="button" role="tab" class="rp-sc-tab"
+                                id="scenario-tab-{{ s.id }}" aria-controls="scenario-{{ s.id }}"
+                                aria-selected="{{ loop.first ? 'true' : 'false' }}" tabindex="{{ loop.first ? '0' : '-1' }}"
+                                data-race-splits-target="tab" data-scenario-id="{{ s.id }}"
+                                data-action="click->race-splits#selectTab keydown->race-splits#tabKeydown">
+                            <span class="rp-sc-tab-name" data-sc-tab-name>{{ s.name }}</span>
+                            <span class="rp-sc-tab-target" data-sc-tab-target {{ s.target ? '' : 'hidden' }}>{{ s.target }}</span>
+                            <span class="rp-sc-tab-dot" data-sc-tab-dirty title="{{ 'race_plan.sc_unsaved'|trans }}" hidden></span>
+                        </button>
+                    {% endfor %}
+                </div>
+                <div class="rp-sc-tabbar-add">
+                    <button type="button" class="rp-sc-add" id="scenario-add-btn"
+                            data-bs-toggle="modal" data-bs-target="#scenarioAddModal"
+                            title="{{ _sv.canAddScenario ? 'race_plan.sc_btn_add_title'|trans : 'race_plan.sc_limit'|trans({'%max%': _sv.maxScenarios}) }}"
+                            {{ _sv.canAddScenario ? '' : 'disabled aria-describedby=scenario-limit-hint' }}>
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'race_plan.sc_btn_add'|trans }}
+                    </button>
+                    {% if not _sv.canAddScenario %}
+                        <span class="rp-sc-limit" id="scenario-limit-hint">{{ 'race_plan.sc_limit'|trans({'%max%': _sv.maxScenarios}) }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
     </div>
 
     {# Messages flash des actions sur les scénarios : la redirection ancre la page ici (#scenario-{id}), loin du haut
@@ -193,11 +288,11 @@
             <div class="rp-sc-empty-intro">
                 <p class="rp-sc-empty-text">{{ 'race_plan.sc_empty_text'|trans }}</p>
                 <ul class="rp-features">
-                    <li><i class="bi bi-flag"></i> {{ 'race_plan.sc_feature_target'|trans }}</li>
-                    <li><i class="bi bi-clock"></i> {{ 'race_plan.sc_feature_splits'|trans }}</li>
-                    <li><i class="bi bi-hourglass-split"></i> {{ 'race_plan.sc_feature_cutoffs'|trans }}</li>
-                    <li><i class="bi bi-magic"></i> {{ 'race_plan.sc_feature_distribute'|trans }}</li>
-                    <li><i class="bi bi-speedometer2"></i> {{ 'race_plan.sc_feature_strategy'|trans }}</li>
+                    <li><i class="bi bi-flag" aria-hidden="true"></i> {{ 'race_plan.sc_feature_target'|trans }}</li>
+                    <li><i class="bi bi-clock" aria-hidden="true"></i> {{ 'race_plan.sc_feature_splits'|trans }}</li>
+                    <li><i class="bi bi-hourglass-split" aria-hidden="true"></i> {{ 'race_plan.sc_feature_cutoffs'|trans }}</li>
+                    <li><i class="bi bi-magic" aria-hidden="true"></i> {{ 'race_plan.sc_feature_distribute'|trans }}</li>
+                    <li><i class="bi bi-speedometer2" aria-hidden="true"></i> {{ 'race_plan.sc_feature_strategy'|trans }}</li>
                 </ul>
             </div>
             <form method="post" action="{{ path('app_race_scenario_add', {id: race.id}) }}" id="scenario-create-form"
@@ -207,41 +302,13 @@
                 {{ _self.strategy_fields('sc-new', _sv, _sv.suggestedStrategy, _sv.suggestedIntensity) }}
                 <div class="rp-sc-create-actions">
                     <button type="submit" class="sp-btn sp-btn-primary" data-sc-btn="create">
-                        <i class="bi bi-plus-lg"></i> {{ 'race_plan.sc_create_first'|trans }}
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'race_plan.sc_create_first'|trans }}
                     </button>
                 </div>
             </form>
         </div>
 
     {% else %}
-
-        {# ── Onglets : un par scénario + ajout ── #}
-        <div class="rp-sc-tabbar">
-            <div class="rp-sc-tabs" role="tablist" aria-label="{{ 'race_plan.sc_tablist_label'|trans }}">
-                {% for s in _scenarios %}
-                    <button type="button" role="tab" class="rp-sc-tab"
-                            id="scenario-tab-{{ s.id }}" aria-controls="scenario-{{ s.id }}"
-                            aria-selected="{{ loop.first ? 'true' : 'false' }}" tabindex="{{ loop.first ? '0' : '-1' }}"
-                            data-race-splits-target="tab" data-scenario-id="{{ s.id }}"
-                            data-action="click->race-splits#selectTab keydown->race-splits#tabKeydown">
-                        <span class="rp-sc-tab-name" data-sc-tab-name>{{ s.name }}</span>
-                        <span class="rp-sc-tab-target" data-sc-tab-target {{ s.target ? '' : 'hidden' }}>{{ s.target }}</span>
-                        <span class="rp-sc-tab-dot" data-sc-tab-dirty title="{{ 'race_plan.sc_unsaved'|trans }}" hidden></span>
-                    </button>
-                {% endfor %}
-            </div>
-            <div class="rp-sc-tabbar-add">
-                <button type="button" class="rp-sc-add" id="scenario-add-btn"
-                        data-bs-toggle="modal" data-bs-target="#scenarioAddModal"
-                        title="{{ _sv.canAddScenario ? 'race_plan.sc_btn_add_title'|trans : 'race_plan.sc_limit'|trans({'%max%': _sv.maxScenarios}) }}"
-                        {{ _sv.canAddScenario ? '' : 'disabled aria-describedby=scenario-limit-hint' }}>
-                    <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'race_plan.sc_btn_add'|trans }}
-                </button>
-                {% if not _sv.canAddScenario %}
-                    <span class="rp-sc-limit" id="scenario-limit-hint">{{ 'race_plan.sc_limit'|trans({'%max%': _sv.maxScenarios}) }}</span>
-                {% endif %}
-            </div>
-        </div>
 
         {# ── Un panneau par scénario ── #}
         {% for s in _scenarios %}
@@ -268,8 +335,10 @@
                       data-action="input->race-splits#update change->race-splits#update focusin->race-splits#selectAuto invalid->race-splits#reveal:capture submit->race-splits#submitted">
                     <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
 
-                    {{ _self.scenario_fields(_p, s.name, s.startTime, s.target, _durationPattern, true) }}
-                    {{ _self.strategy_fields(_p, _sv, s.strategy, s.intensity) }}
+                    <div class="rp-sc-formgrid">
+                        {{ _self.scenario_fields(_p, s.name, s.startTime, s.target, _durationPattern, true) }}
+                        {{ _self.strategy_fields(_p, _sv, s.strategy, s.intensity) }}
+                    </div>
 
                     {# Résumé #}
                     <dl class="rp-sc-summary">
@@ -307,54 +376,20 @@
                         </div>
                     </dl>
 
+                    {# Bande des tronçons (allure de chaque tronçon, heure de passage à chaque repère) #}
+                    {{ _self.strip(s, _sv, _dec, _th) }}
+
                     {# Alertes globales #}
                     <div class="rp-sc-alert rp-sc-alert--error" data-sc-alert="stops" role="alert" {{ _stopsExceed ? '' : 'hidden' }}>
-                        <i class="bi bi-exclamation-octagon-fill"></i> {{ 'race_plan.sc_err_stops_exceed'|trans }}
+                        <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i> {{ 'race_plan.sc_err_stops_exceed'|trans }}
                     </div>
                     <div class="rp-sc-alert rp-sc-alert--warn" data-sc-alert="errors" {{ _rowErrors > 0 ? '' : 'hidden' }}>
-                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
                         <span data-sc-alert-text>{{ (_rowErrors == 1 ? 'race_plan.sc_errors_one' : 'race_plan.sc_errors_many')|trans({'%count%': _rowErrors}) }}</span>
                     </div>
                     {% if _sv.routeDistanceM == 0 %}
-                        <div class="rp-sc-alert rp-sc-alert--info"><i class="bi bi-info-circle"></i> {{ 'race_plan.sc_no_distance'|trans }}</div>
+                        <div class="rp-sc-alert rp-sc-alert--info"><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'race_plan.sc_no_distance'|trans }}</div>
                     {% endif %}
-
-                    {# Actions #}
-                    <div class="rp-sc-toolbar">
-                        <button type="submit" class="sp-btn sp-btn-primary rp-btn-sm" data-sc-btn="save">
-                            <i class="bi bi-check-lg"></i> {{ 'race_plan.sc_save'|trans }}
-                        </button>
-                        <span class="rp-sc-dirty" data-sc-dirty role="status" hidden>
-                            <i class="bi bi-circle-fill"></i> {{ 'race_plan.sc_unsaved'|trans }}
-                        </span>
-                        <span class="rp-sc-toolbar-sep"></span>
-                        <button type="submit" form="scenario-distribute-{{ _sid }}" class="sp-btn-ghost rp-btn-sm" data-sc-btn="distribute"
-                                title="{{ 'race_plan.sc_distribute_help'|trans }}"
-                                aria-describedby="{{ _p }}-distribute-what"
-                                {{ s.targetSeconds is null ? 'disabled' : '' }}>
-                            <i class="bi bi-magic"></i> {{ 'race_plan.sc_distribute'|trans }}
-                        </button>
-                        <button type="submit" form="scenario-duplicate-{{ _sid }}" class="sp-btn-ghost rp-btn-sm" data-sc-btn="duplicate"
-                                {{ _sv.canAddScenario ? '' : 'disabled' }}
-                                title="{{ _sv.canAddScenario ? 'race_plan.sc_duplicate_title'|trans : 'race_plan.sc_limit'|trans({'%max%': _sv.maxScenarios}) }}">
-                            <i class="bi bi-copy"></i> {{ 'race_plan.sc_duplicate'|trans }}
-                        </button>
-                        {# Fiche construite depuis la base : confirmation si le scénario a des modifications non enregistrées #}
-                        <a href="{{ path('app_race_plan_print', {id: race.id, scenario: _sid}) }}" target="_blank" rel="noopener"
-                           class="sp-btn-ghost rp-btn-sm" data-sc-btn="print" title="{{ 'race_plan.sc_print_title'|trans }}"
-                           data-action="race-splits#printGuard">
-                            <i class="bi bi-printer"></i> {{ 'race_plan.sc_print'|trans }}
-                        </a>
-                        <button type="submit" form="scenario-delete-{{ _sid }}" class="sp-btn-ghost rp-btn-sm rp-btn-danger" data-sc-btn="delete">
-                            <i class="bi bi-trash3"></i> {{ 'race_plan.sc_delete'|trans }}
-                        </button>
-                    </div>
-                    {# Ce que fait "Répartir", visible (le title ne l'est ni au toucher ni pour les lecteurs d'écran) #}
-                    <p class="rp-sc-distribute-help" id="{{ _p }}-distribute-help" data-sc-help>
-                        <i class="bi bi-info-circle"></i>
-                        {{ 'race_plan.sc_pins_help'|trans }}
-                        <span id="{{ _p }}-distribute-what">{{ 'race_plan.sc_distribute_help_inline'|trans }}{% if s.targetSeconds is null %} {{ 'race_plan.sc_distribute_need_target'|trans }}{% endif %}</span>
-                    </p>
 
                     {# Tableau des temps de passage #}
                     <div class="rp-table-wrap">
@@ -420,12 +455,16 @@
                                         </td>
                                         <td class="rp-sc-time-cell">
                                             {% if _isFinish %}
-                                                <input type="text" class="sp-form-input rp-sc-time rp-sc-duration" value="{{ s.target }}"
-                                                       inputmode="text" autocomplete="off" pattern="{{ _durationPattern }}"
-                                                       placeholder="{{ 'race_plan.sc_time_placeholder'|trans }}"
-                                                       aria-label="{{ 'race_plan.sc_finish_time_label'|trans }}"
-                                                       aria-describedby="{{ _rp }}-err"
-                                                       data-sc-duration data-sc-finish-target>
+                                                {# Temps visé : jamais modifié par le calcul (cadenas) #}
+                                                <div class="rp-sc-time-wrap rp-sc-time-wrap--finish">
+                                                    <input type="text" class="sp-form-input rp-sc-time rp-sc-duration" value="{{ s.target }}"
+                                                           inputmode="text" autocomplete="off" pattern="{{ _durationPattern }}"
+                                                           placeholder="{{ 'race_plan.sc_time_placeholder'|trans }}"
+                                                           aria-label="{{ 'race_plan.sc_finish_time_label'|trans }}"
+                                                           aria-describedby="{{ _rp }}-err"
+                                                           data-sc-duration data-sc-finish-target>
+                                                    <i class="bi bi-lock-fill rp-sc-lock" aria-hidden="true"></i>
+                                                </div>
                                             {% else %}
                                                 {% set _state = _pinned ? 'pinned' : 'auto' %}
                                                 <div class="rp-sc-time-wrap">
@@ -459,7 +498,7 @@
                                         <td class="rp-nowrap" data-sc="clock">{{ _self.clock(row.clock) }}</td>
                                         <td class="rp-nowrap">
                                             {% if row.stopSeconds > 0 %}
-                                                <span class="rp-sc-stop"><i class="bi bi-pause-circle"></i> {{ 'race_plan.sc_stop'|trans({'%n%': (row.stopSeconds / 60)|round}) }}</span>
+                                                <span class="rp-sc-stop"><i class="bi bi-pause-circle" aria-hidden="true"></i> {{ 'race_plan.sc_stop'|trans({'%n%': (row.stopSeconds / 60)|round}) }}</span>
                                                 <span class="rp-sc-sub" data-sc="dep">{% if row.departureClock %}{{ 'race_plan.sc_departure'|trans({'%time%': row.departureClock.time}) }}{% endif %}</span>
                                             {% endif %}
                                         </td>
@@ -477,7 +516,7 @@
                                         </td>
                                         <td class="rp-nowrap">
                                             {% if row.cutoffSeconds is not null %}
-                                                <span class="rp-cutoff"><i class="bi bi-hourglass-split"></i> {{ row.cutoffSeconds|race_duration }}</span>
+                                                <span class="rp-cutoff"><i class="bi bi-hourglass-split" aria-hidden="true"></i> {{ row.cutoffSeconds|race_duration }}</span>
                                                 <span class="rp-sc-margin rp-sc-margin--{{ row.cutoffStatus }}" data-sc="margin"
                                                       {% if row.cutoffStatus != 'none' %}title="{{ ('race_plan.sc_status_' ~ row.cutoffStatus)|trans }}"{% endif %}>
                                                     {%- if row.cutoffStatus != 'none' -%}
@@ -493,14 +532,48 @@
                         </table>
                     </div>
 
+                    {# Actions : enregistrer (+ modifications non enregistrées), répartir, dupliquer, imprimer, supprimer #}
                     <div class="rp-sc-footer">
-                        <span class="rp-sc-dirty" data-sc-dirty hidden>
-                            <i class="bi bi-circle-fill"></i> {{ 'race_plan.sc_unsaved'|trans }}
-                        </span>
-                        <button type="submit" class="sp-btn sp-btn-primary rp-btn-sm">
-                            <i class="bi bi-check-lg"></i> {{ 'race_plan.sc_save'|trans }}
-                        </button>
+                        <div class="rp-sc-footer-main">
+                            <button type="submit" class="sp-btn sp-btn-primary rp-btn-sm" data-sc-btn="save">
+                                <i class="bi bi-check-lg" aria-hidden="true"></i> {{ 'race_plan.sc_save'|trans }}
+                            </button>
+                            <span class="rp-sc-dirty" data-sc-dirty role="status" hidden>
+                                <i class="bi bi-circle-fill" aria-hidden="true"></i> {{ 'race_plan.sc_unsaved'|trans }}
+                            </span>
+                        </div>
+                        <div class="rp-sc-actions">
+                            <button type="submit" form="scenario-distribute-{{ _sid }}" class="rp-btn-quiet rp-btn-sm" data-sc-btn="distribute"
+                                    title="{{ 'race_plan.sc_distribute_help'|trans }}"
+                                    aria-describedby="{{ _p }}-distribute-what"
+                                    {{ s.targetSeconds is null ? 'disabled' : '' }}>
+                                <i class="bi bi-magic" aria-hidden="true"></i> {{ 'race_plan.sc_distribute'|trans }}
+                            </button>
+                            <button type="submit" form="scenario-duplicate-{{ _sid }}" class="rp-btn-quiet rp-btn-sm" data-sc-btn="duplicate"
+                                    {{ _sv.canAddScenario ? '' : 'disabled' }}
+                                    title="{{ _sv.canAddScenario ? 'race_plan.sc_duplicate_title'|trans : 'race_plan.sc_limit'|trans({'%max%': _sv.maxScenarios}) }}">
+                                <i class="bi bi-copy" aria-hidden="true"></i> {{ 'race_plan.sc_duplicate'|trans }}
+                            </button>
+                            {# Fiche construite depuis la base : confirmation si le scénario a des modifications non enregistrées #}
+                            <a href="{{ path('app_race_plan_print', {id: race.id, scenario: _sid}) }}" target="_blank" rel="noopener"
+                               class="rp-btn-quiet rp-btn-sm" data-sc-btn="print" title="{{ 'race_plan.sc_print_title'|trans }}"
+                               data-action="race-splits#printGuard">
+                                <i class="bi bi-printer" aria-hidden="true"></i> {{ 'race_plan.sc_print'|trans }}
+                            </a>
+                            <button type="submit" form="scenario-delete-{{ _sid }}" class="rp-btn-quiet rp-btn-sm rp-btn-danger" data-sc-btn="delete">
+                                <i class="bi bi-trash3" aria-hidden="true"></i> {{ 'race_plan.sc_delete'|trans }}
+                            </button>
+                        </div>
                     </div>
+                    {# Ce que fait « Répartir », visible (le title ne l'est ni au toucher ni pour les lecteurs d'écran) et
+                       description du bouton (aria-describedby) ; sans temps visé, pourquoi il est indisponible #}
+                    <p class="rp-sc-distribute-what" id="{{ _p }}-distribute-what">{{ 'race_plan.sc_distribute_help_inline'|trans }}{% if s.targetSeconds is null %} {{ 'race_plan.sc_distribute_need_target'|trans }}{% endif %}</p>
+
+                    {# Calcul des temps auto (repliable) #}
+                    <details class="rp-sc-how">
+                        <summary><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'race_plan.sc_how_title'|trans }}</summary>
+                        <p class="rp-sc-distribute-help" id="{{ _p }}-distribute-help" data-sc-help>{{ 'race_plan.sc_pins_help'|trans }}</p>
+                    </details>
                 </form>
 
                 {# Formulaires des actions (hors du formulaire principal, déclenchés par les boutons form="…") #}
@@ -544,8 +617,7 @@
                     {{ _self.strategy_fields('sc-add', _sv, _sv.suggestedStrategy, _sv.suggestedIntensity) }}
                 </div>
                 <div class="modal-footer sp-modal-footer">
-                    <button type="button" class="sp-btn" style="background:transparent;color:var(--sp-muted);border:1px solid var(--sp-border)"
-                            data-bs-dismiss="modal">{{ 'race_plan.cancel'|trans }}</button>
+                    <button type="button" class="sp-btn rp-btn-cancel" data-bs-dismiss="modal">{{ 'race_plan.cancel'|trans }}</button>
                     <button type="submit" class="sp-btn sp-btn-primary" data-sc-btn="add">{{ 'race_plan.sc_modal_submit'|trans }}</button>
                 </div>
             </form>
@@ -555,191 +627,3 @@
 {% endif %}
 
 </div>
-
-<style>
-.rp-sc-card { padding: 0; overflow: hidden; margin-top: 16px; scroll-margin-top: 16px; }
-.rp-sc-head h2 { display: flex; align-items: center; gap: 6px; }
-.rp-sc-title-icon { color: var(--sp-orange); }
-
-/* État vide */
-.rp-sc-empty { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; padding: 22px 20px; align-items: start; }
-.rp-sc-empty-text { font-size: 13px; color: var(--sp-text); line-height: 1.55; margin: 0 0 14px; }
-.rp-sc-create { background: var(--sp-bg); border-radius: 12px; padding: 16px; }
-.rp-sc-create .sp-form-input, .rp-sc-create .rp-sc-seg { background: var(--sp-card); }
-.rp-sc-create .rp-sc-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.rp-sc-create .rp-sc-field--name { grid-column: 1 / -1; }
-.rp-sc-create-actions { margin-top: 14px; display: flex; justify-content: flex-end; }
-
-/* Onglets */
-.rp-sc-tabbar { display: flex; align-items: flex-end; gap: 10px; padding: 12px 20px 0; border-bottom: 1px solid var(--sp-border); }
-/* La liste recouvre la bordure de la barre (marge -1px) : l'onglet actif la masque sans déborder de la zone
-   défilante (un débordement vertical ferait apparaître une barre de défilement verticale) */
-.rp-sc-tabs { display: flex; gap: 4px; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; margin-bottom: -1px; }
-.rp-sc-tab {
-    display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; max-width: 240px;
-    padding: 9px 14px; border: 1px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0;
-    background: transparent; color: var(--sp-muted); font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.rp-sc-tab:hover { color: var(--sp-text); background: rgba(0,0,0,.03); }
-.rp-sc-tab[aria-selected="true"] { color: var(--sp-text); background: var(--sp-card); border-color: var(--sp-border); box-shadow: inset 0 3px 0 var(--sp-orange); }
-.rp-sc-tab:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: -2px; }
-.rp-sc-tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.rp-sc-tab-target { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 20px; background: rgba(22,23,42,.07); color: var(--sp-dark); font-variant-numeric: tabular-nums; }
-.rp-sc-tab-target[hidden], .rp-sc-tab-dot[hidden] { display: none; }
-.rp-sc-tab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sp-yellow); flex-shrink: 0; }
-.rp-sc-tabbar-add { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-bottom: 6px; }
-.rp-sc-add {
-    display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 8px;
-    border: 1px dashed rgba(0,0,0,.2); background: transparent; color: var(--sp-orange);
-    font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
-}
-.rp-sc-add:hover:not(:disabled) { border-color: var(--sp-orange); background: rgba(232,64,12,.05); }
-.rp-sc-add:disabled { color: var(--sp-muted); cursor: not-allowed; opacity: .7; }
-.rp-sc-limit { font-size: 11px; color: var(--sp-muted); max-width: 220px; line-height: 1.3; }
-
-/* Panneau */
-.rp-sc-panel { padding: 18px 0 0; }
-.rp-sc-panel[hidden] { display: none; }
-.rp-sc-form { margin: 0; }
-.rp-sc-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px 14px; }
-.rp-sc-panel .rp-sc-fields { padding: 0 20px; }
-.rp-sc-field { min-width: 0; }
-.rp-sc-duration, .rp-sc-start { font-variant-numeric: tabular-nums; }
-.rp-sc-err { font-size: 11px; font-weight: 600; color: var(--sp-red); line-height: 1.35; }
-.rp-sc-err:empty { display: none; }
-.rp-sc-err > span { display: block; margin-top: 4px; }
-.rp-sc-field .rp-sc-err { margin-top: 4px; }
-.sp-form-input.rp-sc-input--invalid { border-color: var(--sp-red); background: rgba(239,68,68,.04); }
-
-/* Stratégie d'allure */
-.rp-sc-strategy { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px 14px; align-items: end; margin-top: 12px; }
-.rp-sc-panel .rp-sc-strategy { padding: 0 20px; grid-template-columns: minmax(0, 2fr) minmax(0, 2fr); }
-.rp-sc-strategy-select { cursor: pointer; }
-.rp-sc-intensity { border: 0; padding: 0; margin: 0; }
-.rp-sc-intensity[hidden] { display: none; }
-.rp-sc-intensity > legend { float: none; width: auto; padding: 0; }
-.rp-sc-seg { position: relative; display: inline-flex; max-width: 100%; border: 1px solid var(--sp-border); border-radius: 8px; overflow: hidden; background: var(--sp-bg); }
-/* Radio masqué mais focalisable (clavier : flèches) ; le libellé porte l'état et le focus */
-.rp-sc-seg-input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
-.rp-sc-seg-label { margin: 0; padding: 9px 14px; font-size: 12px; font-weight: 600; line-height: 18px; color: var(--sp-muted); cursor: pointer; white-space: nowrap; text-align: center; }
-.rp-sc-seg-label:hover { color: var(--sp-text); }
-.rp-sc-seg-input + .rp-sc-seg-label ~ .rp-sc-seg-label { border-left: 1px solid var(--sp-border); }
-.rp-sc-seg-input:checked + .rp-sc-seg-label { background: var(--sp-dark); color: #fff; }
-.rp-sc-seg-input:focus-visible + .rp-sc-seg-label { outline: 2px solid var(--sp-orange); outline-offset: -2px; }
-.rp-sc-strategy-desc { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--sp-muted); line-height: 1.45; }
-.rp-sc-strategy-desc:empty { display: none; }
-
-/* Résumé */
-.rp-sc-summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 16px 20px 0; }
-.rp-sc-summary > div { background: var(--sp-bg); border-radius: 10px; padding: 10px 12px; min-width: 0; }
-.rp-sc-summary dt { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--sp-muted); margin-bottom: 3px; }
-.rp-sc-summary dd { margin: 0; font-size: 16px; font-weight: 800; color: var(--sp-text); font-variant-numeric: tabular-nums; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-height: 22px; }
-.rp-sc-summary dd small { font-size: 11px; font-weight: 600; color: var(--sp-muted); }
-.rp-sc-pill { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-/* Texte foncé : contraste >= 4,5:1 sur la teinte posée sur var(--sp-bg) (WCAG 1.4.3) */
-.rp-sc-pill--ok { background: rgba(34,197,94,.14); color: #166534; }
-.rp-sc-pill--tight { background: rgba(245,158,11,.16); color: #92400E; }
-.rp-sc-pill--missed { background: rgba(239,68,68,.12); color: #B91C1C; }
-
-/* Messages flash déplacés ici par le contrôleur (retour d'une action sur un scénario) */
-.rp-sc-flash { padding: 14px 20px 0; }
-.rp-sc-flash:empty { display: none; }
-.rp-sc-flash > .alert { margin: 0 0 6px !important; }
-
-/* Alertes */
-.rp-sc-alert { display: flex; align-items: flex-start; gap: 8px; margin: 12px 20px 0; padding: 9px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; line-height: 1.4; }
-.rp-sc-alert[hidden] { display: none; }
-.rp-sc-alert--error { background: rgba(239,68,68,.08); color: #B91C1C; }
-.rp-sc-alert--warn { background: rgba(245,158,11,.12); color: #92400E; }
-.rp-sc-alert--info { background: rgba(6,182,212,.08); color: #0E7490; }
-
-/* Barre d'actions */
-.rp-sc-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 14px 20px 0; }
-.rp-sc-toolbar .sp-btn { display: inline-flex; align-items: center; gap: 6px; }
-.rp-sc-toolbar .sp-btn-ghost { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
-.rp-sc-toolbar .sp-btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
-.rp-sc-toolbar-sep { flex: 1; }
-.rp-sc-dirty { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #B45309; }
-.rp-sc-dirty[hidden] { display: none; }
-.rp-sc-dirty i { font-size: 7px; color: var(--sp-yellow); }
-.rp-sc-distribute-help { margin: 8px 20px 14px; font-size: 11px; color: var(--sp-muted); line-height: 1.45; }
-
-/* Tableau */
-.rp-sc-table { min-width: 980px; }
-.rp-sc-table td { padding-top: 8px; padding-bottom: 8px; }
-.rp-sc-time-cell { width: 150px; }
-/* .sp-form-input (width: 100%) est redéfini plus bas dans plan.html.twig : sélecteur plus spécifique */
-.sp-form-input.rp-sc-time { width: 104px; padding: 6px 9px; font-variant-numeric: tabular-nums; font-weight: 600; }
-.rp-sc-time-wrap { display: flex; align-items: center; gap: 4px; }
-.rp-sc-time-wrap .rp-sc-time { flex-shrink: 0; }
-.sp-form-input.rp-sc-time--auto { font-style: italic; font-weight: 500; color: var(--sp-muted); border-style: dashed; background: transparent; }
-.sp-form-input.rp-sc-time--auto:focus { font-style: normal; color: var(--sp-text); }
-.rp-sc-auto { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--sp-muted); cursor: help; }
-.rp-sc-unpin {
-    display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex-shrink: 0;
-    padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--sp-orange); cursor: pointer; font-size: 13px;
-}
-.rp-sc-unpin:hover { background: rgba(232,64,12,.08); }
-.rp-sc-unpin:focus-visible { outline: 2px solid var(--sp-orange); outline-offset: 1px; }
-.rp-sc-unpin[hidden], .rp-sc-auto[hidden] { display: none; }
-.rp-sc-zero { display: inline-block; padding-left: 10px; font-weight: 600; color: var(--sp-muted); font-variant-numeric: tabular-nums; }
-.rp-sc-clock { font-weight: 700; font-variant-numeric: tabular-nums; }
-.rp-sc-day { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 20px; background: var(--sp-dark); color: #fff; font-size: 10px; font-weight: 800; vertical-align: 1px; cursor: help; }
-.rp-sc-stop { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--sp-teal); }
-.rp-sc-sub { display: block; font-size: 11px; color: var(--sp-muted); font-variant-numeric: tabular-nums; }
-.rp-sc-sub:empty { display: none; }
-.rp-sc-pace { font-weight: 700; cursor: help; }
-/* Écart avec l'allure moyenne en mouvement : texte foncé sur teinte claire (contraste >= 4,5:1) */
-.rp-sc-dev { display: inline-block; margin-left: 2px; padding: 0 5px; border-radius: 20px; font-size: 10px; font-weight: 700; line-height: 15px; white-space: nowrap; cursor: help; background: rgba(0,0,0,.05); color: #4B5563; }
-.rp-sc-dev--slow { background: rgba(245,158,11,.14); color: #92400E; }
-.rp-sc-dev--fast { background: rgba(6,182,212,.12); color: #0E7490; }
-.rp-sc-table small { font-size: 10.5px; font-weight: 600; color: var(--sp-muted); }
-.rp-sc-margin { display: block; margin-top: 2px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.rp-sc-margin:empty { display: none; }
-.rp-sc-margin--ok { color: #15803D; }
-.rp-sc-margin--tight { color: #B45309; }
-.rp-sc-margin--missed { color: #B91C1C; }
-.rp-sc-row--error td { background: rgba(239,68,68,.045); }
-.rp-sc-row--error .rp-sc-time { border-color: var(--sp-red); }
-/* Colonne "Repère" figée pendant le défilement horizontal (mobile, fenêtre étroite) : le nom du repère reste
-   visible à côté du temps saisi. Fond opaque (carte + teinte de la ligne), sinon les colonnes défilent dessous ;
-   sélecteurs plus précis que ceux de plan.html.twig (déclarés après) */
-.rp-table.rp-sc-table tr > .rp-sc-sticky {
-    position: sticky; left: 0; z-index: 1;
-    background: linear-gradient(var(--rp-sc-tint, transparent), var(--rp-sc-tint, transparent)), var(--sp-card);
-    box-shadow: inset -1px 0 0 var(--sp-border), inset 0 -1px 0 var(--sp-border);
-}
-.rp-sc-table thead tr { --rp-sc-tint: rgba(0,0,0,.015); }
-.rp-sc-table tr.rp-row-edge { --rp-sc-tint: rgba(22,23,42,.025); }
-.rp-sc-table tr.rp-sc-row--error { --rp-sc-tint: rgba(239,68,68,.045); }
-.rp-sc-table tbody tr:hover { --rp-sc-tint: rgba(0,0,0,.018); }
-.rp-sc-footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--sp-border); }
-
-.rp-sc-modal-help { font-size: 12px; color: var(--sp-muted); line-height: 1.5; margin: 0 0 14px; }
-#scenarioAddModal .rp-sc-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-#scenarioAddModal .rp-sc-field--name { grid-column: 1 / -1; }
-
-@media (max-width: 991.98px) {
-    .rp-sc-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .rp-sc-empty { grid-template-columns: minmax(0, 1fr); gap: 18px; }
-}
-@media (max-width: 575.98px) {
-    .rp-sc-tabbar { flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 14px 0; }
-    .rp-sc-tabbar-add { order: -1; padding-bottom: 0; }
-    .rp-sc-panel .rp-sc-fields { padding: 0 14px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .rp-sc-panel .rp-sc-field--name { grid-column: 1 / -1; }
-    .rp-sc-panel .rp-sc-strategy { padding: 0 14px; grid-template-columns: minmax(0, 1fr); }
-    .rp-sc-seg { display: flex; }
-    .rp-sc-seg-label { flex: 1; padding-left: 8px; padding-right: 8px; }
-    .rp-sc-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 14px 14px 0; }
-    .rp-sc-alert { margin: 10px 14px 0; }
-    .rp-sc-toolbar { margin: 12px 14px 0; }
-    .rp-sc-toolbar-sep { flex-basis: 100%; height: 0; }
-    .rp-sc-distribute-help { margin: 8px 14px 12px; }
-    .rp-sc-empty { padding: 16px 14px; }
-    .rp-sc-footer { padding: 12px 14px; }
-    .rp-sc-flash { padding: 12px 14px 0; }
-    /* Colonne "Repère" figée plus étroite : la colonne des temps tient à côté */
-    .rp-sc-table .rp-name-cell { min-width: 108px; max-width: 140px; }
-}
-</style>

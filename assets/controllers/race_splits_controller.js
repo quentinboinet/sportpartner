@@ -26,7 +26,12 @@ import { Controller } from '@hotwired/stimulus';
  *  - indicateur "modifications non enregistrées", alerte avant de quitter la page avec des modifications,
  *    confirmations des actions (répartir, dupliquer, supprimer, imprimer une version non enregistrée) ;
  *  - retour d'une action (URL #scenario-{id} ou #scenarios) : les messages flash affichés en haut de page par
- *    base.html.twig (.sp-content > .alert) sont déplacés en tête de la section, là où la page défile.
+ *    base.html.twig (.sp-content > .alert) sont déplacés en tête de la section, là où la page défile ;
+ *  - bande des tronçons (data-sc-strip, macro strip de _scenarios.html.twig, version enregistrée au rendu) : allure de
+ *    chaque tronçon, teinte (stripLevels(), même formule que la macro) et heure à chaque repère mises à jour à chaque
+ *    recalcul, à partir des lignes de compute() (aucun calcul de plus) ; les largeurs (distances) ne changent pas.
+ *    Libellés qui se chevauchent masqués (layoutStrip, à chaque recalcul et redimensionnement, ResizeObserver).
+ *    Bande décorative (aria-hidden) : le tableau donne les mêmes valeurs ;
  *
  * Valeurs :
  *  - checkpoints   : [{ id, name, type, distanceM, stopSeconds, cutoffSeconds, segmentGainM, cumulativeGainM }, …]
@@ -410,8 +415,30 @@ export function compute(checkpoints, routeDistanceM, arrivals, targetSeconds, st
     };
 }
 
+/**
+ * Niveau de teinte de chaque tronçon de la bande (0 = sans allure, 1 = le plus lent ... 5 = le plus rapide) :
+ * 1 + floor(t * 4 + 0.5), t = (max - allure) / (max - min), 0,5 si toutes les allures sont égales. Même formule que la
+ * macro strip de _scenarios.html.twig (affichage seulement, pas une règle de calcul des temps).
+ *
+ * @param {Array} rows  lignes de compute() (repères puis arrivée)
+ * @returns {number[]}
+ */
+export function stripLevels(rows) {
+    const paces = rows.map(r => r.segmentPaceSecPerKm).filter(p => p !== null);
+    if (paces.length === 0) return rows.map(() => 0);
+    const min = Math.min(...paces);
+    const max = Math.max(...paces);
+    return rows.map((r) => {
+        if (r.segmentPaceSecPerKm === null) return 0;
+        const t = max === min ? 0.5 : (max - r.segmentPaceSecPerKm) / (max - min);
+        return 1 + Math.floor(t * 4 + 0.5);
+    });
+}
+
+const STRIP_LABEL_GAP_PX = 8;
+
 // Remplace les placeholders %x% d'un libellé traduit
-const fill = (label, params) => Object.entries(params).reduce((s, [k, v]) => s.split(k).join(String(v)), String(label ?? ''));
+const fill =(label, params) => Object.entries(params).reduce((s, [k, v]) => s.split(k).join(String(v)), String(label ?? ''));
 
 function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -473,6 +500,15 @@ export default class extends Controller {
         this.onModalShown = () => this.addModal.querySelector('[data-sc-name]')?.focus();
         this.addModal?.addEventListener('shown.bs.modal', this.onModalShown);
 
+        // Bandes des tronçons : libellés recalés quand la bande prend sa taille (onglet affiché) ou en change
+        const strips = Array.from(this.element.querySelectorAll('[data-sc-strip]'));
+        if (typeof ResizeObserver !== 'undefined') {
+            this.stripObserver = new ResizeObserver(entries => entries.forEach(entry => this.layoutStrip(entry.target)));
+            strips.forEach(strip => this.stripObserver.observe(strip));
+        } else {
+            strips.forEach(strip => this.layoutStrip(strip));
+        }
+
         const hash = window.location.hash;
         const moved = (hash === '#scenarios' || SCENARIO_HASH.test(hash)) && this.moveFlashes();
         this.activateFromHash(false);
@@ -508,6 +544,7 @@ export default class extends Controller {
     }
 
     disconnect() {
+        this.stripObserver?.disconnect();
         if (this.onLoadScroll) window.removeEventListener('load', this.onLoadScroll);
         window.removeEventListener('beforeunload', this.onBeforeUnload);
         window.removeEventListener('pageshow', this.onPageShow);
@@ -819,6 +856,66 @@ export default class extends Controller {
 
         this.renderSummary(form, result, target);
         this.renderTabTarget(form, target);
+        this.renderStrip(form, result, start);
+    }
+
+    /**
+     * Bande des tronçons du scénario (même rendu que la macro strip) : allure et teinte de chaque tronçon, heure de
+     * passage à chaque repère. Données de compute() uniquement.
+     */
+    renderStrip(form, result, start) {
+        const strip = form.querySelector('[data-sc-strip]');
+        if (!strip) return;
+        const rows = [...result.rows, result.finish];
+        const levels = stripLevels(rows);
+        rows.forEach((row, i) => {
+            const key = row.checkpointId === null ? 'finish' : String(row.checkpointId);
+            const seg = strip.querySelector(`[data-strip-seg="${key}"]`);
+            if (seg) {
+                seg.classList.remove('rp-strip-seg--0', 'rp-strip-seg--1', 'rp-strip-seg--2', 'rp-strip-seg--3', 'rp-strip-seg--4', 'rp-strip-seg--5');
+                seg.classList.add(`rp-strip-seg--${levels[i]}`);
+                const pace = seg.querySelector('[data-strip-pace]');
+                if (pace) pace.textContent = row.segmentPaceSecPerKm !== null ? formatPace(row.segmentPaceSecPerKm) : '-';
+            }
+            const clock = strip.querySelector(`[data-strip-label="${key}"] [data-strip-clock]`);
+            if (clock) clock.textContent = this.stripClock(row);
+        });
+        const startClock = strip.querySelector('[data-strip-label="start"] [data-strip-clock]');
+        if (startClock) startClock.textContent = start !== null ? formatClock(start, 0).time : '0:00';
+        this.layoutStrip(strip);
+    }
+
+    /** Heure d'un repère sur la bande (macro strip_clock) : heure (+ J+n), sinon temps écoulé, sinon "-". */
+    stripClock(row) {
+        if (row.clock) {
+            return row.clock.dayOffset > 0 ? `${row.clock.time} ${fill(this.labels.day, { '%n%': row.clock.dayOffset })}` : row.clock.time;
+        }
+        return row.arrivalSeconds !== null ? formatDuration(row.arrivalSeconds) : '-';
+    }
+
+    /**
+     * Libellés de la bande : départ et arrivée toujours visibles, un repère masqué (visibility) s'il chevauche le libellé
+     * visible précédent ou celui de l'arrivée ; texte d'un tronçon trop étroit masqué. Rien à faire si la bande est
+     * masquée (onglet inactif) : le ResizeObserver relance la mise en page quand elle s'affiche.
+     */
+    layoutStrip(strip) {
+        if (!strip || strip.offsetWidth === 0) return;
+        const labels = Array.from(strip.querySelectorAll('[data-strip-label]'));
+        labels.forEach(label => label.classList.remove('is-hidden'));
+        const rects = labels.map(label => label.getBoundingClientRect());
+        const last = labels.length - 1;
+        let right = labels.length ? rects[0].right : 0;
+        for (let i = 1; i < last; i++) {
+            if (rects[i].left < right + STRIP_LABEL_GAP_PX || rects[i].right > rects[last].left - STRIP_LABEL_GAP_PX) {
+                labels[i].classList.add('is-hidden');
+            } else {
+                right = rects[i].right;
+            }
+        }
+        strip.querySelectorAll('[data-strip-seg]').forEach((seg) => {
+            const inner = seg.firstElementChild;
+            if (inner) seg.classList.toggle('is-narrow', inner.scrollWidth > inner.clientWidth + 1);
+        });
     }
 
     /**
