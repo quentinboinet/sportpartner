@@ -131,6 +131,50 @@ class Activity
         return $this->sport?->getSlug();
     }
 
+    /**
+     * Départ en UTC, quel que soit le fuseau par défaut de PHP : startDate est stocké en heure UTC (Strava,
+     * séances Santé, saisie manuelle) et relu par Doctrine dans le fuseau de PHP.
+     */
+    public function getStartDateUtc(): ?\DateTimeImmutable
+    {
+        return $this->startDate !== null
+            ? new \DateTimeImmutable($this->startDate->format('Y-m-d H:i:s'), new \DateTimeZone('UTC'))
+            : null;
+    }
+
+    /**
+     * Fuseau de l'activité : nom IANA (« Europe/Paris ») ou champ Strava « (GMT+01:00) Europe/Paris » ;
+     * fuseau de PHP s'il est absent ou inconnu.
+     */
+    public function getTimeZoneObject(): \DateTimeZone
+    {
+        return self::timeZoneFromField($this->timezone);
+    }
+
+    /** Même règle que getTimeZoneObject() pour une valeur brute de la colonne timezone (export CSV). */
+    public static function timeZoneFromField(?string $field): \DateTimeZone
+    {
+        $name = trim((string) preg_replace('/^\(.*?\)\s*/', '', (string) $field));
+        try {
+            return new \DateTimeZone($name !== '' ? $name : date_default_timezone_get());
+        } catch (\Exception) {
+            return new \DateTimeZone(date_default_timezone_get());
+        }
+    }
+
+    /**
+     * Heure de départ locale « flottante » : l'heure du fuseau de l'activité, dans un objet au fuseau de PHP,
+     * pour l'afficher telle quelle (calendrier, liste, détail, export).
+     */
+    public function getLocalStartDate(): ?\DateTimeImmutable
+    {
+        $utc = $this->getStartDateUtc();
+
+        return $utc !== null
+            ? new \DateTimeImmutable($utc->setTimezone($this->getTimeZoneObject())->format('Y-m-d H:i:s'))
+            : null;
+    }
+
     // ── Getters / Setters ──────────────────────────────────────
 
     public function getId(): ?int { return $this->id; }

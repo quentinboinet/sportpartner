@@ -2692,3 +2692,61 @@ canvas { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .sp-health *, .sp-health *::before, .sp-health *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* ===================================
+   Activité saisie à la main : badge d'origine, formulaire, actions du détail
+=================================== */
+.sp-source-badge {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 1px 8px; border-radius: 10px;
+  background: rgba(0,0,0,.06); color: var(--sp-text); font-size: 11px; font-weight: 700; white-space: nowrap; vertical-align: 1px;
+}
+.sp-source-badge--manual { background: #E0F2FE; color: #075985; }
+.sp-source-badge--health { background: #DCFCE7; color: #166534; }
+.sp-source-badge--strava { background: #FFEDD5; color: #9A3412; }
+
+.sp-act-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.sp-act-danger { color: #B91C1C; }
+.sp-act-danger:hover { color: #991B1B; border-color: #FCA5A5; }
+.sp-act-danger-fill { background: #DC2626; }
+.sp-act-danger-fill:hover { background: #B91C1C; }
+
+.sp-actform-intro { margin: 2px 0 0; color: var(--sp-muted); font-size: 13px; }
+.sp-actform { max-width: 820px; }
+.sp-actform fieldset { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
+.sp-actform > fieldset + fieldset { border-top: 1px solid var(--sp-border); padding-top: 16px; margin-top: 8px; }
+.sp-actform fieldset[hidden], .sp-actform [hidden] { display: none !important; }
+/* Légende flottante (comme le reboot Bootstrap) : même espacement au-dessus de chaque section */
+.sp-actform-h2 { float: left; width: 100%; padding: 0; font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+.sp-actform-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+.sp-actform-req { color: var(--sp-orange); }
+.sp-actform-preview {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 10px;
+  background: #FAFAF8; border: 1px solid var(--sp-border); font-size: 13.5px; font-weight: 600;
+}
+.sp-actform-preview i { color: var(--sp-orange); }
+.sp-actform-preview.is-implausible { background: #FFFBEB; border-color: #FCD34D; color: #78350F; }
+/* Durée : trois champs (h, min, s) dans un fieldset avec sa légende */
+.sp-actform-duration > legend { float: left; width: 100%; padding: 0; font-size: 1rem; font-weight: 400; margin-bottom: .5rem; }
+.sp-actform-duration-parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sp-actform-duration-parts .input-group-text { min-width: 42px; justify-content: center; }
+.sp-actform-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.sp-actform-warning {
+  margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; background: #FFFBEB; border: 1px solid #FCD34D; color: #78350F;
+  font-size: 13.5px;
+}
+.sp-actform-warning:focus { outline: 2px solid #F59E0B; outline-offset: 2px; }
+.sp-actform-warning p { margin: 0 0 6px; }
+.sp-actform-warning-title { font-weight: 700; }
+.sp-actform-warning ul { margin: 0 0 10px; padding-left: 18px; }
+.sp-actform-warning a { color: #78350F; font-weight: 700; overflow-wrap: anywhere; }
+.sp-actform-warning-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+
+@media (max-width: 768px) {
+  .sp-actform-row { grid-template-columns: 1fr; }
+  .sp-act-detail-header { flex-wrap: wrap; }
+  .sp-act-detail-actions { width: 100%; }
+  .sp-actform-actions .sp-btn, .sp-actform-warning-actions .sp-btn { flex: 1 1 auto; justify-content: center; }
+  /* Liste des activités : onglets sur toute la largeur, « Exporter » et « + Ajouter » sur la ligne suivante */
+  .sp-filter-bar--activities .sp-filter-tabs { flex: 1 1 100%; min-width: 0; }
+  .sp-filter-bar--activities .sp-filter-actions { width: 100%; justify-content: flex-end; }
+}

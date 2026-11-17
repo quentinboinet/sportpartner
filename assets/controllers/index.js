@@ -25,6 +25,7 @@ import StatsCompareController  from './stats_compare_controller.js';
 import HealthLibraryController from './health_library_controller.js';
 import HealthTrayAddController from './health_tray_add_controller.js';
 import HealthSessionController from './health_session_controller.js';
+import ActivityFormController  from './activity_form_controller.js';
 
 application.register('weekly-chart',    WeeklyChartController);
 application.register('elevation-chart', ElevationChartController);
@@ -52,3 +53,4 @@ application.register('stats-compare',   StatsCompareController);
 application.register('health-library',  HealthLibraryController);
 application.register('health-tray-add', HealthTrayAddController);
 application.register('health-session',  HealthSessionController);
+application.register('activity-form',   ActivityFormController);

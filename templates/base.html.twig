@@ -126,7 +126,7 @@
 {% for type, messages in app.flashes %}
     {% for message in messages %}
         <div class="alert alert-{{ type == 'error' ? 'danger' : type }} alert-dismissible fade show"
-             style="position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;width:400px;border-radius:10px"
+             style="position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;width:400px;max-width:calc(100vw - 32px);border-radius:10px"
              role="alert">
             {{ message|trans }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>

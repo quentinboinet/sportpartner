@@ -7,6 +7,7 @@ use App\Repository\ActivityRepository;
 use App\Service\Stats\ComparisonFormat;
 use App\Service\Stats\ComparisonPresenter;
 use App\Service\Stats\DateRange;
+use App\Service\Stats\OverviewPeriod;
 use App\Service\Stats\PeriodComparisonResolver;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,38 +24,15 @@ class StatsController extends AbstractController
     public function index(Request $request, ActivityRepository $activityRepo, TranslatorInterface $translator, #[CurrentUser] User $user): Response
     {
         $now  = new \DateTimeImmutable();
-        // Fin de journée : les activités du jour comptent (et les bornes sont celles de PeriodComparisonResolver)
-        $to   = $now->setTime(23, 59, 59);
-
-        $fromParam = $request->query->get('from');
-        $toParam   = $request->query->get('to');
-
-        // Preset period (default); overridden below when a valid custom range is given.
-        $period = $request->query->get('period', 'season');
-        $from   = match ($period) {
-            '7d'    => new \DateTimeImmutable('-7 days midnight'),
-            'month' => new \DateTimeImmutable($now->format('Y-m-01')),
-            'all'   => new \DateTimeImmutable('2000-01-01'),
-            default => new \DateTimeImmutable($now->format('Y') . '-01-01'),
-        };
-        $granularity = match ($period) {
-            '7d', 'month' => 'day',
-            default       => 'month',
-        };
-
-        if ($fromParam && $toParam) {
-            try {
-                $customFrom  = new \DateTimeImmutable($fromParam . ' midnight');
-                $customTo    = (new \DateTimeImmutable($toParam))->setTime(23, 59, 59);
-                $days        = (int) $customFrom->diff($customTo)->days;
-                $from        = $customFrom;
-                $to          = $customTo;
-                $granularity = $days <= 31 ? 'day' : ($days <= 120 ? 'week' : 'month');
-                $period      = 'custom';
-            } catch (\Throwable) {
-                $fromParam = $toParam = null;
-            }
-        }
+        // Préréglage ou période personnalisée, du premier jour 00:00:00 au dernier 23:59:59 inclus (les activités
+        // du jour comptent) : mêmes règles que l'export CSV (StatsExportController), voir OverviewPeriod
+        $range       = OverviewPeriod::fromQuery($request->query->all(), $now);
+        $period      = $range->period;
+        $from        = $range->from;
+        $to          = $range->to;
+        $granularity = $range->granularity;
+        $fromParam   = $range->customFrom;
+        $toParam     = $range->customTo;
 
         $rawVolume = match ($granularity) {
             'day'   => $activityRepo->getDailyVolumeBySport($user, $from, $to),
@@ -111,6 +89,7 @@ class StatsController extends AbstractController
             'overviewDeltas' => $overviewDeltas,
             'previousRange'  => $previousRange,
             'compareParams'  => $compareParams,
+            'exportParams'   => $range->queryParams(),
             'period'      => $period,
             'customFrom'  => $fromParam ?? null,
             'customTo'    => $toParam   ?? null,

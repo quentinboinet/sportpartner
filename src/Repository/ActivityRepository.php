@@ -3,10 +3,14 @@
 namespace App\Repository;
 
 use App\Entity\Activity;
+use App\Entity\HealthSession;
 use App\Entity\User;
+use App\Service\Activity\ActivityExportRow;
 use App\Service\Notifications\RecentActivityRow;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\ORM\AbstractQuery;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -141,6 +145,95 @@ class ActivityRepository extends ServiceEntityRepository
                AND DATE(startDate) = :today',
             ['userId' => $user->getId(), 'today' => (new \DateTimeImmutable())->format('Y-m-d')]
         );
+    }
+
+    /**
+     * Activités de l'utilisateur d'un sport donné parties entre deux instants UTC inclus (doublons probables
+     * d'une saisie manuelle, voir ActivityDuplicateRule), la plus proche du début d'abord.
+     *
+     * @return list<Activity>
+     */
+    public function findStartingBetween(User $user, string $sportSlug, \DateTimeImmutable $fromUtc, \DateTimeImmutable $toUtc): array
+    {
+        $utc = new \DateTimeZone('UTC');
+
+        return $this->createQueryBuilder('a')
+            ->addSelect('s')
+            ->join('a.sport', 's')
+            ->where('a.user = :user')
+            ->andWhere('s.slug = :slug')
+            ->andWhere('a.startDate BETWEEN :from AND :to')
+            ->setParameter('user', $user)
+            ->setParameter('slug', $sportSlug)
+            // startDate est stocké en heure UTC : bornes écrites en UTC
+            ->setParameter('from', $fromUtc->setTimezone($utc)->format('Y-m-d H:i:s'))
+            ->setParameter('to', $toUtc->setTimezone($utc)->format('Y-m-d H:i:s'))
+            ->orderBy('a.startDate', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Lignes de l'export CSV (ActivityCsvExporter), dans l'ordre chronologique, lues en flux : UNE requête avec
+     * le sport, le matériel, sa marque et la séance Santé d'origine joints, sans les flux JSON. Bornes comme les
+     * statistiques (getSeasonStats()) : startDate >= $from et <= $to, comparés à l'heure stockée.
+     *
+     * @return iterable<ActivityExportRow>
+     */
+    public function exportRows(User $user, ?\DateTimeImmutable $from, ?\DateTimeImmutable $to, ?string $sportSlug = null): iterable
+    {
+        $qb = $this->createQueryBuilder('a')
+            ->select('a.startDate, a.timezone, a.name, a.distanceMeters, a.movingTimeSeconds, a.elapsedTimeSeconds,
+                      a.totalElevationGain, a.averageSpeed, a.averageHeartrate, a.maxHeartrate, a.stravaId,
+                      s.slug AS sportSlug, g.model AS gearModel, g.nickname AS gearNickname, gb.name AS gearBrand,
+                      h.id AS healthId')
+            ->leftJoin('a.sport', 's')
+            ->leftJoin('a.gear', 'g')
+            ->leftJoin('g.brand', 'gb')
+            ->leftJoin(HealthSession::class, 'h', Join::WITH, 'h.activity = a')
+            ->where('a.user = :user')
+            ->andWhere('a.startDate IS NOT NULL')
+            ->setParameter('user', $user)
+            ->orderBy('a.startDate', 'ASC')
+            ->addOrderBy('a.id', 'ASC');
+        if ($from !== null) {
+            $qb->andWhere('a.startDate >= :from')->setParameter('from', $from->format('Y-m-d H:i:s'));
+        }
+        if ($to !== null) {
+            $qb->andWhere('a.startDate <= :to')->setParameter('to', $to->format('Y-m-d H:i:s'));
+        }
+        if ($sportSlug !== null) {
+            $qb->andWhere('s.slug = :slug')->setParameter('slug', $sportSlug);
+        }
+
+        $num = static fn (mixed $v): ?float => $v !== null ? (float) $v : null;
+        $int = static fn (mixed $v): ?int => $v !== null ? (int) $v : null;
+        $utc = new \DateTimeZone('UTC');
+
+        /** @var array<string, mixed> $row */
+        foreach ($qb->getQuery()->toIterable([], AbstractQuery::HYDRATE_ARRAY) as $row) {
+            /** @var \DateTimeInterface $start */
+            $start = $row['startDate'];
+            yield new ActivityExportRow(
+                startUtc: new \DateTimeImmutable($start->format('Y-m-d H:i:s'), $utc),
+                timezone: $row['timezone'] !== null ? (string) $row['timezone'] : null,
+                sportSlug: $row['sportSlug'] !== null ? (string) $row['sportSlug'] : null,
+                name: $row['name'] !== null ? (string) $row['name'] : null,
+                distanceMeters: $num($row['distanceMeters']),
+                movingSeconds: $int($row['movingTimeSeconds']),
+                elapsedSeconds: $int($row['elapsedTimeSeconds']),
+                elevationMeters: $num($row['totalElevationGain']),
+                averageSpeed: $num($row['averageSpeed']),
+                hrAvg: $num($row['averageHeartrate']),
+                hrMax: $num($row['maxHeartrate']),
+                gearBrand: $row['gearBrand'] !== null ? (string) $row['gearBrand'] : null,
+                gearModel: $row['gearModel'] !== null ? (string) $row['gearModel'] : null,
+                gearNickname: $row['gearNickname'] !== null ? (string) $row['gearNickname'] : null,
+                stravaId: $int($row['stravaId']),
+                fromHealthSession: $row['healthId'] !== null,
+            );
+        }
     }
 
     public function findByStravaId(int $stravaId): ?Activity

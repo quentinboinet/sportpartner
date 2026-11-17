@@ -15,7 +15,7 @@
 </div>
 
 {# ── Barre de filtres ──────────────────────────── #}
-<div class="sp-filter-bar">
+<div class="sp-filter-bar sp-filter-bar--activities">
     <div class="sp-filter-tabs">
         {# Filtre par sport #}
         <a href="{{ path('app_activities', {period: currentPeriod}) }}"
@@ -48,7 +48,12 @@
         </a>
     </div>
     <div class="sp-filter-actions">
-        <a href="#" class="sp-btn sp-btn-primary">{{ 'activities.btn_add'|trans }}</a>
+        {# Export CSV de la liste affichée (filtres sport et période, toutes les pages) #}
+        <a href="{{ path('app_activities_export', {sport: currentSport ? currentSport.slug : null, period: currentPeriod}) }}"
+           class="sp-btn sp-btn-outline" download title="{{ 'activities.export_title'|trans }}">
+            <i class="bi bi-download" aria-hidden="true"></i> {{ 'activities.btn_export'|trans }}
+        </a>
+        <a href="{{ path('app_activities_new') }}" class="sp-btn sp-btn-primary">{{ 'activities.btn_add'|trans }}</a>
     </div>
 </div>
 
@@ -91,16 +96,17 @@
             {% set _tM = ((_t % 3600) / 60)|round(0, 'floor') %}
             {% set _tS = _t % 60 %}
 
-            {# Relative date label #}
+            {# Relative date label (heure locale de l'activité, comme le calendrier) #}
+            {% set _start = activity.localStartDate %}
             {% set _today = 'now'|date('Y-m-d') %}
             {% set _yesterday = '-1 day'|date('Y-m-d') %}
-            {% set _actDay = activity.startDate ? activity.startDate|date('Y-m-d') : null %}
+            {% set _actDay = _start ? _start|date('Y-m-d') : null %}
             {% if _actDay == _today %}
                 {% set _dayLabel = 'activity.today'|trans %}
             {% elseif _actDay == _yesterday %}
                 {% set _dayLabel = 'activity.yesterday'|trans %}
             {% else %}
-                {% set _dayLabel = activity.startDate ? activity.startDate|date('D.')|capitalize : '' %}
+                {% set _dayLabel = _start ? _start|date('D.')|capitalize : '' %}
             {% endif %}
 
             {# Show speed for cycling, pace for running #}
@@ -122,8 +128,14 @@
                     </div>
                     <div class="sp-activity-sub">
                         {{ _dayLabel }}
-                        {% if activity.startDate %}
-                            · {{ activity.startDate|date('H:i') }}
+                        {% if _start %}
+                            · {{ _start|date('H:i') }}
+                        {% endif %}
+                        {% set _source = sources[activity.id] ?? null %}
+                        {% if _source and _source.value != 'strava' %}
+                            <span class="sp-source-badge sp-source-badge--{{ _source.value }}">
+                                <i class="bi {{ _source.icon }}" aria-hidden="true"></i> {{ _source.labelKey|trans }}
+                            </span>
                         {% endif %}
                         {% if activity.gear %}
                             <span class="sp-gear-chip" title="{{ 'gear.activity_label'|trans }} : {{ activity.gear.fullName }}">

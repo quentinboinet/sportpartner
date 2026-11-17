@@ -150,6 +150,11 @@
 
         {{ include('settings/_gear.html.twig') }}
 
+        {% elseif tab == 'account' %}
+
+        {# Adresse de connexion et zone de danger : suppression du compte (AccountController) #}
+        {{ include('settings/_account.html.twig') }}
+
         {% else %}
 
         <div class="sp-settings-coming-soon">

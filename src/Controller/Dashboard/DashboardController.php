@@ -57,7 +57,8 @@ class DashboardController extends AbstractController
                 'elevationGain' => $a->getTotalElevationGain(),
                 'pace'          => $a->getPaceMinPerKm(),
                 'speedKmh'      => $a->getSpeedKmh(),
-                'startDate'     => $a->getStartDate(),
+                // Date locale (fuseau de l'activité), comme la liste et le calendrier
+                'startDate'     => $a->getLocalStartDate(),
             ], $recentActivities),
             'weeklyVolume'    => $weeklyVolume,
             'stravaConnected' => $user->isStravaConnected(),

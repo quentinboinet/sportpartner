@@ -196,7 +196,7 @@ stat:
 activity:
     recent_title: Dernières activités
     see_all: Tout voir
-    empty: "Aucune activité. Connecte Strava pour importer tes courses."
+    empty: "Aucune activité. Connecte Strava pour importer tes courses, ou ajoute une séance à la main."
     run: Course
     ride: Vélo
     swim: Natation
@@ -302,6 +302,7 @@ stats:
     title: Statistiques
     sub: Tendances et records
     export: Exporter
+    export_title: "Télécharger les activités de la période affichée (CSV)"
     period_7d: 7 jours glissants
     period_custom_apply: Appliquer la période
     volume_title_day: Volume quotidien
@@ -600,6 +601,118 @@ activities:
     speed_unit: km/h
     zones_label: zones FC
     empty: "Aucune activité pour le moment."
+    btn_export: Exporter
+    export_title: "Télécharger la liste affichée (CSV, toutes les pages)"
+
+# ── Origine d'une activité (badge) ───────────────────────────────────────────
+activity_source:
+    strava: Strava
+    manual: Saisie manuelle
+    health: Séance santé
+
+# ── Saisie manuelle d'une activité ───────────────────────────────────────────
+activity_form:
+    page_title_new: "Ajouter une activité - SportPartner"
+    page_title_edit: "Modifier l'activité - SportPartner"
+    title_new: Ajouter une activité
+    title_edit: "Modifier l'activité"
+    intro: "Une séance faite sans Strava : elle compte partout (tableau de bord, objectifs, statistiques, calendrier)."
+    back_list: Retour aux activités
+    back_activity: "Retour à l'activité"
+    section_session: Séance
+    section_effort: Durée et distance
+    section_hr: Fréquence cardiaque
+    section_gear: Matériel
+    sport: Sport
+    name: Nom
+    name_help: "Facultatif : vide, l'activité s'appelle « Course du 16/11/2026 »."
+    date: Date
+    time: Heure de départ
+    moving: Temps en mouvement
+    elapsed: Temps écoulé
+    duration_help: "Un champ vide compte pour 0. Au plus %max% h."
+    elapsed_help: "Pauses comprises. Vide : égal au temps en mouvement."
+    unit_h: h
+    unit_min: min
+    unit_s: s
+    unit_hours: heures
+    unit_minutes: minutes
+    unit_seconds: secondes
+    distance: Distance
+    distance_help: "Virgule ou point, au plus %max% km."
+    elevation: "Dénivelé positif (D+)"
+    hr_avg: FC moyenne
+    hr_max: FC max
+    hr_help: "Facultatif, de %min% à %max% bpm."
+    gear: Chaussures ou vélo
+    gear_none: Aucun
+    gear_auto_named: "Par défaut : %name%"
+    gear_auto_none: "Par défaut (aucun)"
+    gear_help: "Seul le matériel en service compatible avec le sport est proposé."
+    preview_pace: "Allure : %value% /km"
+    preview_speed: "Vitesse moyenne : %value% km/h"
+    preview_empty: "L'allure (la vitesse pour le vélo) se calcule avec la distance et le temps en mouvement."
+    preview_implausible: "Inhabituel : vérifie le temps et la distance."
+    submit_new: "Ajouter l'activité"
+    submit_edit: Enregistrer
+    cancel: Annuler
+    edit: Modifier
+    delete: Supprimer
+    delete_title: "Supprimer l'activité ?"
+    delete_text: "« %name% » sera supprimée, avec le ravitaillement noté. Cette action est définitive."
+    delete_confirm: Supprimer
+    has_errors: "{1} Un champ est à corriger.|]1,Inf[ %count% champs sont à corriger."
+    duplicate_title: "Une activité du même sport existe déjà à cette heure"
+    duplicate_text: "Elle a peut-être déjà été importée de Strava. Vérifie avant d'enregistrer un doublon :"
+    confirm_anyway: Enregistrer quand même
+    warning_help: "Pour corriger la saisie, modifie les champs ci-dessous puis enregistre à nouveau."
+    plausibility:
+        title: Allure ou vitesse inhabituelle
+        text: Vérifie le temps en mouvement et la distance.
+        pace_slow: "Allure de %value% /km, plus lente que %limit% /km."
+        pace_fast: "Allure de %value% /km, plus rapide que %limit% /km."
+        speed_high: "Vitesse moyenne de %value% km/h, au-dessus de %limit% km/h."
+    default_name: "%sport% du %date%"
+    default_name_date_format: "d/m/Y"
+    flash_created: Activité ajoutée.
+    flash_updated: Activité modifiée.
+    flash_deleted: Activité supprimée.
+    flash_csrf: "La session a expiré : vérifie la saisie puis enregistre à nouveau."
+    error:
+        sport: Choisis un sport de la liste.
+        name_too_long: "%max% caractères au plus."
+        date: "Saisis une date valide (jj/mm/aaaa)."
+        date_min: "Saisis une date à partir du 1er janvier 2000."
+        time: "Saisis une heure valide (hh:mm)."
+        future: "Le départ est dans le futur : une activité se saisit une fois faite."
+        duration_required: Saisis le temps en mouvement.
+        duration_parts: "Nombres entiers : heures de 0 à %max%, minutes et secondes de 0 à 59."
+        duration_range: "Durée de plus de 0 s et d'au plus %max% h."
+        elapsed_lt_moving: Le temps écoulé ne peut pas être inférieur au temps en mouvement.
+        distance: "Distance de plus de 0 et d'au plus %max% km (par ex. 10,5)."
+        elevation: "Nombre entier de mètres, de 0 à %max%."
+        hr: "Nombre entier de %min% à %max% bpm."
+        hr_order: La FC max ne peut pas être inférieure à la FC moyenne.
+        gear: Ce matériel ne peut pas être choisi pour ce sport.
+
+# ── Export CSV des activités (statistiques et liste des activités) ───────────
+activity_export:
+    filename: sportpartner-activites
+    col_date: Date
+    col_start_time: Heure de départ
+    col_sport: Sport
+    col_name: Nom
+    col_distance: Distance (km)
+    col_moving_time: Temps en mouvement
+    col_elapsed_time: Temps écoulé
+    col_elevation: D+ (m)
+    col_pace: Allure (min/km)
+    col_speed: Vitesse (km/h)
+    col_hr_avg: FC moyenne (bpm)
+    col_hr_max: FC max (bpm)
+    col_gear: Matériel
+    col_source: Origine
+    col_strava_url: Lien Strava
 
 # ── Paramètres ───────────────────────────────────────────────────────────────
 settings:
@@ -692,6 +805,34 @@ avatar:
         no_photo: "Pas de photo sur ton profil Strava."
         download: "Impossible de récupérer ta photo Strava : réessaie plus tard."
         invalid: "Ta photo Strava n'a pas pu être utilisée : envoie une image depuis ton appareil."
+
+# ── Compte (Paramètres > Compte) : zone de danger, suppression du compte ─────
+account:
+    section_title: Compte
+    email: "Adresse e-mail"
+    danger_title: "Zone de danger"
+    delete_title: "Supprimer mon compte"
+    delete_intro: "Ton compte et toutes tes données SportPartner sont effacés :"
+    delete_item_profile: "ton profil, ta photo et tes objectifs hebdomadaires ;"
+    delete_item_activities: "tes activités, leur ravitaillement, ton matériel et tes repas ;"
+    delete_item_races: "tes courses et plans de course : tracés, repères, scénarios, nutrition et liens de partage ;"
+    delete_item_health: "tes exercices personnels et tes séances Santé."
+    delete_irreversible: "C'est irréversible : rien ne pourra être récupéré."
+    delete_strava: "Tes données Strava restent sur Strava : si ton compte Strava est relié, SportPartner lui retire seulement son accès."
+    delete_password: "Mot de passe actuel"
+    delete_confirm_label: "Je comprends que c'est définitif"
+    delete_submit: "Supprimer mon compte"
+    modal_title: "Supprimer définitivement ton compte ?"
+    modal_text: "Le compte %email% et toutes ses données seront effacés tout de suite. Il n'y aura pas de retour en arrière."
+    modal_cancel: Annuler
+    modal_confirm: "Oui, supprimer mon compte"
+    deleting: "Suppression..."
+    error_csrf: "La page a expiré : recharge-la puis recommence. Rien n'a été supprimé."
+    error_confirm: "Coche « Je comprends que c'est définitif » pour confirmer. Rien n'a été supprimé."
+    error_password: "Mot de passe incorrect. Rien n'a été supprimé."
+    error_failed: "La suppression a échoué, ton compte est intact. Réessaie dans un moment."
+    flash_deleted: "Ton compte a été supprimé."
+    flash_strava_failed: "SportPartner n'a pas pu retirer son accès à ton compte Strava : tu peux le faire sur Strava, dans Paramètres > Mes applications."
 
 # ── Matériel (Paramètres > Matériel, activités) ──────────────────────────────
 gear:

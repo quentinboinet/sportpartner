@@ -7,6 +7,9 @@ use App\Entity\User;
 use App\Repository\ActivityRepository;
 use App\Repository\GearRepository;
 use App\Repository\SportRepository;
+use App\Service\Activity\ActivityCsvExporter;
+use App\Service\Activity\ActivitySource;
+use App\Service\Activity\ActivitySourceResolver;
 use App\Service\Strava\StravaService;
 use App\Service\Weather\WeatherService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -20,7 +23,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ActivitiesController extends AbstractController
 {
     #[Route('/activities/{id}', name: 'app_activity_show', requirements: ['id' => '\d+'])]
-    public function show(int $id, Request $request, ActivityRepository $activityRepo, GearRepository $gearRepo, StravaService $strava, WeatherService $weather): Response
+    public function show(int $id, Request $request, ActivityRepository $activityRepo, GearRepository $gearRepo, StravaService $strava, WeatherService $weather, ActivitySourceResolver $sources): Response
     {
         $activity = $activityRepo->find($id);
 
@@ -88,6 +91,9 @@ class ActivitiesController extends AbstractController
             ? $gearRepo->findSelectable($user, $gearTypes, $activity->getGear())
             : [];
 
+        // Origine (Strava, saisie manuelle, séance Santé) : badge, et modifier / supprimer pour la saisie manuelle
+        $healthSession = $sources->healthSessionFor($activity);
+
         return $this->render('activities/show.html.twig', [
             'activity'    => $activity,
             'zones'       => $zones,
@@ -96,6 +102,8 @@ class ActivitiesController extends AbstractController
             'wxDisplay'   => $wxDisplay,
             'gearTypes'   => $gearTypes,
             'gearOptions' => $gearOptions,
+            'healthSession' => $healthSession,
+            'source'        => ActivitySource::forActivity($activity, $healthSession !== null),
         ]);
     }
 
@@ -121,6 +129,7 @@ class ActivitiesController extends AbstractController
         Request $request,
         ActivityRepository $activityRepo,
         SportRepository $sportRepo,
+        ActivitySourceResolver $sources,
         #[CurrentUser] User $user,
     ): Response {
         $filterSlug = $request->query->get('sport');
@@ -129,11 +138,7 @@ class ActivitiesController extends AbstractController
         $page       = max(1, (int) $request->query->get('page', '1'));
 
         $period = $request->query->get('period');
-        $since  = match ($period) {
-            '7d'  => new \DateTimeImmutable('-7 days midnight'),
-            '30d' => new \DateTimeImmutable('-30 days midnight'),
-            default => null,
-        };
+        $since  = self::listSince($period);
 
         $raw        = $activityRepo->getAggregateStats($user, $sport?->getSlug(), $since);
         $totalCount = (int) ($raw['count'] ?? 0);
@@ -156,6 +161,8 @@ class ActivitiesController extends AbstractController
 
         return $this->render('activities/index.html.twig', [
             'activities'    => $activities,
+            // Badge « Saisie manuelle » / « Séance santé » (une requête pour la page)
+            'sources'       => $sources->sourcesOf($activities),
             'sports'        => $sports,
             'currentSport'  => $sport,
             'currentPeriod' => $period,
@@ -171,5 +178,39 @@ class ActivitiesController extends AbstractController
             'dotsBefore'    => $dotsBefore,
             'dotsAfter'     => $dotsAfter,
         ]);
+    }
+
+    /**
+     * Export CSV de la liste affichée : mêmes filtres de sport et de période que la liste (toutes les pages),
+     * même format que l'export des statistiques (ActivityCsvExporter). Activités de l'utilisateur connecté seulement.
+     */
+    #[Route('/activities/export', name: 'app_activities_export', methods: ['GET'])]
+    public function export(
+        Request $request,
+        ActivityRepository $activityRepo,
+        SportRepository $sportRepo,
+        ActivityCsvExporter $exporter,
+        #[CurrentUser] User $user,
+    ): Response {
+        $filterSlug = $request->query->get('sport');
+        $sport      = $filterSlug ? $sportRepo->findBySlug((string) $filterSlug) : null;
+        $since      = self::listSince($request->query->get('period'));
+        $locale     = $request->getLocale();
+
+        return $exporter->response(
+            $activityRepo->exportRows($user, $since, null, $sport?->getSlug()),
+            $locale,
+            $exporter->filename($locale, $since, new \DateTimeImmutable(), $sport?->getSlug()),
+        );
+    }
+
+    /** Début du filtre de période de la liste (7 ou 30 derniers jours depuis minuit), null sans filtre. */
+    private static function listSince(mixed $period): ?\DateTimeImmutable
+    {
+        return match ($period) {
+            '7d'    => new \DateTimeImmutable('-7 days midnight'),
+            '30d'   => new \DateTimeImmutable('-30 days midnight'),
+            default => null,
+        };
     }
 }

@@ -1,0 +1,263 @@
+{% extends 'base.html.twig' %}
+
+{% set _edit = activity is not null %}
+{% block title %}{{ (_edit ? 'activity_form.page_title_edit' : 'activity_form.page_title_new')|trans }}{% endblock %}
+
+{#
+ # Ajout / modification d'une activité saisie à la main (ManualActivityForm). Erreurs par champ (is-invalid +
+ # aria-describedby), saisie conservée (422). Temps en mouvement et temps écoulé : trois champs numériques
+ # (heures, minutes, secondes) groupés par un fieldset, erreur sur le groupe. Allure invraisemblable et doublon
+ # probable : avertissements en tête du formulaire et bouton « Enregistrer quand même » (confirm_warnings=1).
+ # Champs masqués selon le sport (distance, D+, matériel) et aperçu de l'allure ou de la vitesse :
+ # activity_form_controller.js ; sans JavaScript, tout reste visible et le serveur ignore distance et D+ pour les
+ # sports qui n'en ont pas.
+ #}
+{% macro error(errors, field) %}
+    {% if errors[field] is defined %}
+        <div class="invalid-feedback d-block" id="err-{{ field }}">{{ errors[field].key|trans(errors[field].params) }}</div>
+    {% endif %}
+{% endmacro %}
+{% macro cls(errors, field) %}{{ errors[field] is defined ? ' is-invalid' }}{% endmacro %}
+{% macro aria(errors, field, help = null) %}{% if errors[field] is defined %} aria-invalid="true"{% endif %}{% if errors[field] is defined or help %} aria-describedby="{{ [help, errors[field] is defined ? 'err-' ~ field : null]|filter(v => v)|join(' ') }}"{% endif %}{% endmacro %}
+{# Durée en trois champs entiers (vide = 0) : fieldset + légende, un libellé par champ, erreur sur le groupe #}
+{% macro duration(errors, field, label, parts, required, help, hoursMax) %}
+    {% import _self as f %}
+    <fieldset class="mb-3 sp-actform-duration"{% if errors[field] is defined %} aria-describedby="err-{{ field }}"{% endif %}>
+        <legend class="form-label">{{ label }}{% if required %} <span class="sp-actform-req" aria-hidden="true">*</span>{% endif %}</legend>
+        <div class="sp-actform-duration-parts">
+            {% for p in [
+                {k: 'h', max: hoursMax, unit: 'activity_form.unit_h', name: 'activity_form.unit_hours'},
+                {k: 'm', max: 59, unit: 'activity_form.unit_min', name: 'activity_form.unit_minutes'},
+                {k: 's', max: 59, unit: 'activity_form.unit_s', name: 'activity_form.unit_seconds'}
+            ] %}
+                <div class="input-group">
+                    <input type="number" inputmode="numeric" min="0" max="{{ p.max }}" step="1" class="form-control{{ f.cls(errors, field) }}"{{ f.aria(errors, field, 'af-' ~ field ~ '-help') }}
+                           id="af-{{ field }}-{{ p.k }}" name="{{ field }}_{{ p.k }}" value="{{ parts[loop.index0] }}" autocomplete="off"
+                           data-activity-form-target="{{ field }}Part" data-action="input->activity-form#refresh">
+                    <label class="input-group-text" for="af-{{ field }}-{{ p.k }}"><span aria-hidden="true">{{ p.unit|trans }}</span><span class="visually-hidden">{{ p.name|trans }}</span></label>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="form-text" id="af-{{ field }}-help">{{ help }}</div>
+        {{ f.error(errors, field) }}
+    </fieldset>
+{% endmacro %}
+
+{% block body %}
+{% import _self as f %}
+{% set _sport = form.sport %}
+{% set _gearTypesForSport = gearCompat[_sport] ?? [] %}
+{% set _fr = app.request.locale starts with 'fr' %}
+
+<a href="{{ _edit ? path('app_activity_show', {id: activity.id}) : path('app_activities') }}" class="sp-back-link">
+    <i class="bi bi-arrow-left" aria-hidden="true"></i> {{ (_edit ? 'activity_form.back_activity' : 'activity_form.back_list')|trans }}
+</a>
+
+<div class="sp-page-header">
+    <div>
+        <h1 class="sp-greeting" style="font-size:24px">{{ (_edit ? 'activity_form.title_edit' : 'activity_form.title_new')|trans }}</h1>
+        <p class="sp-actform-intro">{{ 'activity_form.intro'|trans }}</p>
+    </div>
+</div>
+
+{% if csrfError %}
+    <div class="alert alert-danger" role="alert" tabindex="-1" id="act-form-alert">{{ 'activity_form.flash_csrf'|trans }}</div>
+{% elseif errors is not empty %}
+    <div class="alert alert-danger" role="alert" tabindex="-1" id="act-form-alert">
+        {{ 'activity_form.has_errors'|trans({'%count%': errors|length}) }}
+    </div>
+{% endif %}
+
+<form method="post" class="sp-card sp-actform" novalidate
+      action="{{ _edit ? path('app_activities_edit', {id: activity.id}) : path('app_activities_new') }}"
+      data-controller="activity-form"
+      data-activity-form-compat-value="{{ gearCompat|json_encode }}"
+      data-activity-form-defaults-value="{{ gearDefaults|json_encode }}"
+      data-activity-form-auto-type-value="{{ gearAutoType|json_encode }}"
+      data-activity-form-no-distance-value="{{ limits.noDistance|json_encode }}"
+      data-activity-form-no-elevation-value="{{ limits.noElevation|json_encode }}"
+      data-activity-form-fresh-value="{{ not _edit and app.request.method == 'GET' ? 'true' : 'false' }}"
+      data-activity-form-labels-value="{{ {
+          pace: 'activity_form.preview_pace'|trans, speed: 'activity_form.preview_speed'|trans,
+          empty: 'activity_form.preview_empty'|trans, implausible: 'activity_form.preview_implausible'|trans,
+          autoNamed: 'activity_form.gear_auto_named'|trans, autoNone: 'activity_form.gear_auto_none'|trans
+      }|json_encode }}"
+      data-activity-form-plausibility-value="{{ plausibility|json_encode }}"
+      data-activity-form-hours-max-value="{{ limits.hoursMax }}"
+      data-activity-form-decimal-value="{{ _fr ? ',' : '.' }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('activity_manual') }}">
+    <input type="hidden" name="timezone" value="{{ form.timezone }}" data-activity-form-target="timezone"
+           {% if not _edit %}data-from-browser="1"{% endif %}>
+
+    {# ── Avertissements (allure invraisemblable, doublon probable) : rien n'est enregistré sans confirmation ── #}
+    {% if implausible or duplicates is not empty %}
+        <div class="sp-actform-warning" role="alert" tabindex="-1" id="act-form-warning">
+            {% if implausible %}
+                <p class="sp-actform-warning-title"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {{ 'activity_form.plausibility.title'|trans }}</p>
+                <p data-warning="plausibility">{{ implausible.key|trans(implausible.params) }} {{ 'activity_form.plausibility.text'|trans }}</p>
+            {% endif %}
+            {% if duplicates is not empty %}
+            <p class="sp-actform-warning-title"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {{ 'activity_form.duplicate_title'|trans }}</p>
+            <p>{{ 'activity_form.duplicate_text'|trans }}</p>
+            <ul data-warning="duplicates">
+                {% for d in duplicates %}
+                    {% set _ds = d.localStartDate %}
+                    {% set _src = duplicateSources[d.id] ?? null %}
+                    <li>
+                        <a href="{{ path('app_activity_show', {id: d.id}) }}" target="_blank" rel="noopener">{{ d.name ?? ('sport.' ~ (d.sport ? d.sport.slug : 'other'))|trans }}</a>
+                        · {{ _ds ? _ds|date('d/m/Y H:i') : '' }}
+                        {% if d.distanceKm %} · {{ d.distanceKm|number_format(2, _fr ? ',' : '.', ' ') }} km{% endif %}
+                        {% if _src %} · {{ _src.labelKey|trans }}{% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            <div class="sp-actform-warning-actions">
+                <button type="submit" name="confirm_warnings" value="1" class="sp-btn sp-btn-primary">{{ 'activity_form.confirm_anyway'|trans }}</button>
+                <a href="{{ _edit ? path('app_activity_show', {id: activity.id}) : path('app_activities') }}" class="sp-btn sp-btn-outline">{{ 'activity_form.cancel'|trans }}</a>
+            </div>
+            <p class="form-text mb-0">{{ 'activity_form.warning_help'|trans }}</p>
+        </div>
+    {% endif %}
+
+    <fieldset>
+        <legend class="sp-actform-h2">{{ 'activity_form.section_session'|trans }}</legend>
+        <div class="sp-actform-row">
+            <div class="mb-3">
+                <label class="form-label" for="af-sport">{{ 'activity_form.sport'|trans }} <span class="sp-actform-req" aria-hidden="true">*</span></label>
+                <select class="form-select{{ f.cls(errors, 'sport') }}"{{ f.aria(errors, 'sport') }} id="af-sport" name="sport" required
+                        data-activity-form-target="sport" data-action="activity-form#sportChanged">
+                    {% for slug, s in sports %}
+                        <option value="{{ slug }}" {{ form.sport == slug ? 'selected' }}>{{ ('sport.' ~ slug)|trans }}</option>
+                    {% endfor %}
+                </select>
+                {{ f.error(errors, 'sport') }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="af-name">{{ 'activity_form.name'|trans }}</label>
+                <input type="text" class="form-control{{ f.cls(errors, 'name') }}"{{ f.aria(errors, 'name', 'af-name-help') }} id="af-name" name="name"
+                       value="{{ form.name }}" maxlength="{{ limits.nameMax }}" autocomplete="off">
+                <div class="form-text" id="af-name-help">{{ 'activity_form.name_help'|trans }}</div>
+                {{ f.error(errors, 'name') }}
+            </div>
+        </div>
+        <div class="sp-actform-row">
+            <div class="mb-3">
+                <label class="form-label" for="af-date">{{ 'activity_form.date'|trans }} <span class="sp-actform-req" aria-hidden="true">*</span></label>
+                <input type="date" class="form-control{{ f.cls(errors, 'date') }}"{{ f.aria(errors, 'date') }} id="af-date" name="date"
+                       value="{{ form.date }}" min="{{ limits.minDate }}" required data-activity-form-target="date">
+                {{ f.error(errors, 'date') }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="af-time">{{ 'activity_form.time'|trans }} <span class="sp-actform-req" aria-hidden="true">*</span></label>
+                <input type="time" class="form-control{{ f.cls(errors, 'time') }}"{{ f.aria(errors, 'time') }} id="af-time" name="time"
+                       value="{{ form.time }}" required>
+                {{ f.error(errors, 'time') }}
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend class="sp-actform-h2">{{ 'activity_form.section_effort'|trans }}</legend>
+        <div class="sp-actform-row">
+            {{ f.duration(errors, 'moving', 'activity_form.moving'|trans, [form.movingH, form.movingM, form.movingS], true,
+                'activity_form.duration_help'|trans({'%max%': limits.hoursMax}), limits.hoursMax) }}
+            {{ f.duration(errors, 'elapsed', 'activity_form.elapsed'|trans, [form.elapsedH, form.elapsedM, form.elapsedS], false,
+                'activity_form.elapsed_help'|trans, limits.hoursMax) }}
+        </div>
+        <div class="sp-actform-row">
+            <div class="mb-3" data-activity-form-target="distanceField" {{ _sport in limits.noDistance ? 'hidden' }}>
+                <label class="form-label" for="af-distance">{{ 'activity_form.distance'|trans }}</label>
+                <div class="input-group">
+                    <input type="text" inputmode="decimal" class="form-control{{ f.cls(errors, 'distance') }}"{{ f.aria(errors, 'distance', 'af-distance-help') }} id="af-distance" name="distance"
+                           value="{{ form.distance }}" autocomplete="off"
+                           data-activity-form-target="distance" data-action="input->activity-form#refresh">
+                    <span class="input-group-text">km</span>
+                </div>
+                <div class="form-text" id="af-distance-help">{{ 'activity_form.distance_help'|trans({'%max%': limits.distanceMax}) }}</div>
+                {{ f.error(errors, 'distance') }}
+            </div>
+            <div class="mb-3" data-activity-form-target="elevationField" {{ _sport in limits.noElevation ? 'hidden' }}>
+                <label class="form-label" for="af-elevation">{{ 'activity_form.elevation'|trans }}</label>
+                <div class="input-group">
+                    <input type="text" inputmode="numeric" class="form-control{{ f.cls(errors, 'elevation') }}"{{ f.aria(errors, 'elevation') }} id="af-elevation" name="elevation"
+                           value="{{ form.elevation }}" autocomplete="off">
+                    <span class="input-group-text">m</span>
+                </div>
+                {{ f.error(errors, 'elevation') }}
+            </div>
+        </div>
+        <p class="sp-actform-preview" data-activity-form-target="previewBox" {{ _sport in limits.noDistance ? 'hidden' }}>
+            <i class="bi bi-speedometer2" aria-hidden="true"></i>
+            <output for="af-moving-h af-moving-m af-moving-s af-distance" aria-live="polite" data-activity-form-target="preview">{{ 'activity_form.preview_empty'|trans }}</output>
+        </p>
+    </fieldset>
+
+    <fieldset>
+        <legend class="sp-actform-h2">{{ 'activity_form.section_hr'|trans }}</legend>
+        <div class="sp-actform-row">
+            <div class="mb-3">
+                <label class="form-label" for="af-hr-avg">{{ 'activity_form.hr_avg'|trans }}</label>
+                <div class="input-group">
+                    <input type="text" inputmode="numeric" class="form-control{{ f.cls(errors, 'hr_avg') }}"{{ f.aria(errors, 'hr_avg') }} id="af-hr-avg" name="hr_avg"
+                           value="{{ form.hrAvg }}" autocomplete="off">
+                    <span class="input-group-text">bpm</span>
+                </div>
+                {{ f.error(errors, 'hr_avg') }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="af-hr-max">{{ 'activity_form.hr_max'|trans }}</label>
+                <div class="input-group">
+                    <input type="text" inputmode="numeric" class="form-control{{ f.cls(errors, 'hr_max') }}"{{ f.aria(errors, 'hr_max') }} id="af-hr-max" name="hr_max"
+                           value="{{ form.hrMax }}" autocomplete="off">
+                    <span class="input-group-text">bpm</span>
+                </div>
+                {{ f.error(errors, 'hr_max') }}
+            </div>
+        </div>
+        <p class="form-text mt-0">{{ 'activity_form.hr_help'|trans({'%min%': limits.hrMin, '%max%': limits.hrMax}) }}</p>
+    </fieldset>
+
+    {# Matériel : proposé seulement si l'utilisateur en a ; sans matériel, la valeur envoyée est « aucun » #}
+    {% if gearOptions is not empty %}
+    <fieldset data-activity-form-target="gearField" {{ _gearTypesForSport is empty and not (form.gear matches '/^\\d+$/') ? 'hidden' }}>
+        <legend class="sp-actform-h2">{{ 'activity_form.section_gear'|trans }}</legend>
+        <div class="mb-3">
+            <label class="form-label" for="af-gear">{{ 'activity_form.gear'|trans }}</label>
+            {% set _autoType = gearAutoType[_sport] ?? null %}
+            {% set _autoName = _autoType and gearDefaults[_autoType] is defined ? gearDefaults[_autoType] : null %}
+            <select class="form-select{{ f.cls(errors, 'gear') }}"{{ f.aria(errors, 'gear', 'af-gear-help') }} id="af-gear" name="gear" data-activity-form-target="gear">
+                <option value="auto" {{ form.gear == 'auto' ? 'selected' }} data-auto="1">{{ _autoName ? 'activity_form.gear_auto_named'|trans({'%name%': _autoName}) : 'activity_form.gear_auto_none'|trans }}</option>
+                <option value="" {{ form.gear == '' ? 'selected' }}>{{ 'activity_form.gear_none'|trans }}</option>
+                {% for t in gearTypes %}
+                    {% set _ofType = gearOptions|filter(g => g.type == t) %}
+                    {% if _ofType is not empty %}
+                        <optgroup label="{{ t.groupKey|trans }}" data-type="{{ t.value }}" {{ t.value not in _gearTypesForSport ? 'hidden' }}>
+                            {% for g in _ofType %}
+                                <option value="{{ g.id }}" data-type="{{ t.value }}" {{ form.gear == g.id ~ '' ? 'selected' }} {{ t.value not in _gearTypesForSport ? 'hidden disabled' }}>{{ g.displayName }}{% if g.nickname %} ({{ g.fullName }}){% endif %}{% if g.retired %} {{ 'gear.activity_retired_suffix'|trans }}{% endif %}</option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endif %}
+                {% endfor %}
+            </select>
+            <div class="form-text" id="af-gear-help">{{ 'activity_form.gear_help'|trans }}</div>
+            {{ f.error(errors, 'gear') }}
+        </div>
+    </fieldset>
+    {% endif %}
+
+    <div class="sp-actform-actions">
+        <a href="{{ _edit ? path('app_activity_show', {id: activity.id}) : path('app_activities') }}" class="sp-btn sp-btn-outline">{{ 'activity_form.cancel'|trans }}</a>
+        <button type="submit" class="sp-btn sp-btn-primary">{{ (_edit ? 'activity_form.submit_edit' : 'activity_form.submit_new')|trans }}</button>
+    </div>
+</form>
+
+{# Après un envoi refusé : l'alerte (ou les avertissements) reçoit le focus pour être annoncée #}
+{% set _warned = implausible or duplicates is not empty %}
+{% if csrfError or errors is not empty or _warned %}
+<script type="module">
+    document.getElementById({{ (_warned and errors is empty and not csrfError ? 'act-form-warning' : 'act-form-alert')|json_encode|raw }})?.focus();
+</script>
+{% endif %}
+
+{% endblock %}

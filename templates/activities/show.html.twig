@@ -15,16 +15,20 @@
 {% set _tM = ((_t % 3600) / 60)|round(0, 'floor') %}
 {% set _tS = _t % 60 %}
 
+{# Départ à l'heure locale de l'activité (fuseau Strava, du navigateur pour une saisie manuelle) #}
+{% set _start     = activity.localStartDate %}
 {% set _today     = 'now'|date('Y-m-d') %}
 {% set _yesterday = '-1 day'|date('Y-m-d') %}
-{% set _actDay    = activity.startDate ? activity.startDate|date('Y-m-d') : null %}
+{% set _actDay    = _start ? _start|date('Y-m-d') : null %}
 {% if _actDay == _today %}
     {% set _dayLabel = 'activity.today'|trans %}
 {% elseif _actDay == _yesterday %}
     {% set _dayLabel = 'activity.yesterday'|trans %}
 {% else %}
-    {% set _dayLabel = activity.startDate ? activity.startDate|date('d/m/Y') : '' %}
+    {% set _dayLabel = _start ? _start|date('d/m/Y') : '' %}
 {% endif %}
+{# Tracé, profil et allure par km ne viennent que de Strava : cartes masquées pour les autres origines #}
+{% set _fromStrava = activity.stravaId is not null %}
 
 {# ── Fil d'Ariane ─────────────────────────────── #}
 <a href="{{ path('app_activities') }}" class="sp-back-link">
@@ -44,14 +48,50 @@
         </h1>
         <div class="sp-act-detail-sub">
             {{ _dayLabel }}
-            {% if activity.startDate %} · {{ activity.startDate|date('H:i') }}{% endif %}
+            {% if _start %} · {{ _start|date('H:i') }}{% endif %}
             {% if sport %}
                 · <span style="color:{{ color }};font-weight:600">{{ ('sport.' ~ slug)|trans }}</span>
             {% endif %}
+            <span class="sp-source-badge sp-source-badge--{{ source.value }}">
+                <i class="bi {{ source.icon }}" aria-hidden="true"></i> {{ source.labelKey|trans }}
+            </span>
         </div>
     </div>
 
+    {# Saisie manuelle : modifier / supprimer (Strava en lecture seule, séance Santé gérée depuis l'historique) #}
+    {% if source.editable %}
+    <div class="sp-act-detail-actions">
+        <a href="{{ path('app_activities_edit', {id: activity.id}) }}" class="sp-btn sp-btn-outline">
+            <i class="bi bi-pencil" aria-hidden="true"></i> {{ 'activity_form.edit'|trans }}
+        </a>
+        <button type="button" class="sp-btn sp-btn-outline sp-act-danger" data-bs-toggle="modal" data-bs-target="#act-delete-modal">
+            <i class="bi bi-trash" aria-hidden="true"></i> {{ 'activity_form.delete'|trans }}
+        </button>
+    </div>
+    {% endif %}
+
 </div>
+
+{% if source.editable %}
+<div class="modal fade" id="act-delete-modal" tabindex="-1" aria-labelledby="act-delete-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" method="post" action="{{ path('app_activities_delete', {id: activity.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('activity_manual') }}">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="act-delete-title">{{ 'activity_form.delete_title'|trans }}</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'activity_form.cancel'|trans }}"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">{{ 'activity_form.delete_text'|trans({'%name%': activity.name ?? ('sport.' ~ slug)|trans}) }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="sp-btn sp-btn-outline" data-bs-dismiss="modal">{{ 'activity_form.cancel'|trans }}</button>
+                <button type="submit" class="sp-btn sp-btn-primary sp-act-danger-fill">{{ 'activity_form.delete_confirm'|trans }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 {# ── Barre 5 statistiques ─────────────────────── #}
 <div class="sp-act-detail-statbar">
@@ -162,7 +202,7 @@
 {% endif %}
 
 {# ── Grille principale 2 colonnes ─────────────── #}
-{% set _hasMap = slug != 'weight_training' %}
+{% set _hasMap = slug != 'weight_training' and (_fromStrava or activity.summaryPolyline) %}
 <div class="sp-act-detail-grid{{ _hasMap ? '' : ' sp-act-detail-grid--single' }}">
 
     {# ── Colonne gauche : carte (masquée pour la musculation) ── #}
@@ -311,8 +351,8 @@
 
 </div>
 
-{# ── Profil altimétrique (hors musculation) ──────── #}
-{% if slug != 'weight_training' %}
+{# ── Profil altimétrique (hors musculation, activités Strava) ──────── #}
+{% if slug != 'weight_training' and (_fromStrava or activity.elevationProfile) %}
 <div class="sp-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
         <span class="sp-card-title">{{ 'activity_detail.elevation_title'|trans }}</span>
@@ -332,7 +372,7 @@
 {% endif %}
 
 {# Activité créée par une séance de l'espace Santé : lien vers la séance, pas de carte Ravitaillement #}
-{% set _healthSession = health_session_for_activity(activity) %}
+{% set _healthSession = healthSession %}
 {% if _healthSession %}
 <div class="sp-card sp-health-activity-link">
     <i class="bi bi-heart-pulse" aria-hidden="true"></i>
@@ -368,8 +408,8 @@
 </div>
 {% endif %}
 
-{# ── Allure par kilomètre (hors cyclisme) ─────── #}
-{% if slug not in ['ride', 'weight_training'] %}
+{# ── Allure par kilomètre (hors cyclisme, activités Strava) ─────── #}
+{% if slug not in ['ride', 'weight_training'] and (_fromStrava or activity.splitsMetric) %}
 <div class="sp-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <span class="sp-card-title">{{ 'activity_detail.pace_title'|trans }}</span>

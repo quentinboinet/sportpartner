@@ -1,0 +1,157 @@
+{#
+ # Paramètres > Compte : adresse de connexion et zone de danger (suppression du compte, AccountController).
+ # Sans JS : formulaire POST classique (champs requis), vérifié par le serveur, message de refus en haut de la
+ # page. Avec JS : une modale Bootstrap demande une dernière confirmation avant l'envoi, et au retour d'un refus
+ # le message passe dans la zone, sous les yeux (seul AccountController renvoie des messages sur cet onglet).
+ #}
+<div class="sp-settings-section-title">{{ 'account.section_title'|trans }}</div>
+
+<dl class="sp-account-info">
+    <dt>{{ 'account.email'|trans }}</dt>
+    <dd>{{ app.user.email }}</dd>
+</dl>
+
+<section class="sp-danger-zone" id="danger-zone" aria-labelledby="danger-zone-title">
+    <h2 class="sp-danger-zone-title" id="danger-zone-title">
+        <i class="bi bi-exclamation-octagon" aria-hidden="true"></i>
+        {{ 'account.danger_title'|trans }}
+    </h2>
+
+    <h3 class="sp-danger-zone-heading">{{ 'account.delete_title'|trans }}</h3>
+    <div id="accountDeleteDescription">
+        <p class="sp-danger-zone-text">{{ 'account.delete_intro'|trans }}</p>
+        <ul class="sp-danger-zone-list">
+            <li>{{ 'account.delete_item_profile'|trans }}</li>
+            <li>{{ 'account.delete_item_activities'|trans }}</li>
+            <li>{{ 'account.delete_item_races'|trans }}</li>
+            <li>{{ 'account.delete_item_health'|trans }}</li>
+        </ul>
+        <p class="sp-danger-zone-text sp-danger-zone-strong">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            {{ 'account.delete_irreversible'|trans }}
+        </p>
+        <p class="sp-danger-zone-text">
+            <i class="bi bi-strava" aria-hidden="true"></i>
+            {{ 'account.delete_strava'|trans }}
+        </p>
+    </div>
+
+    <div id="accountDeleteMessages"></div>
+
+    <form method="post" action="{{ path('app_account_delete') }}" id="accountDeleteForm" class="sp-danger-zone-form"
+          aria-describedby="accountDeleteDescription">
+        <input type="hidden" name="_token" value="{{ csrf_token('account_delete') }}">
+
+        <div class="sp-settings-field">
+            <label for="accountDeletePassword">{{ 'account.delete_password'|trans }}</label>
+            <input type="password" id="accountDeletePassword" name="password" class="sp-settings-input"
+                   autocomplete="current-password" required>
+        </div>
+
+        <div class="form-check sp-danger-zone-check">
+            <input class="form-check-input" type="checkbox" id="accountDeleteConfirm" name="confirm" value="1" required>
+            <label class="form-check-label" for="accountDeleteConfirm">{{ 'account.delete_confirm_label'|trans }}</label>
+        </div>
+
+        <div>
+            <button type="submit" class="sp-btn sp-danger-btn" id="accountDeleteSubmit">
+                <i class="bi bi-trash3" aria-hidden="true"></i>
+                {{ 'account.delete_submit'|trans }}
+            </button>
+        </div>
+    </form>
+</section>
+
+{# Étape de confirmation (JS) : le bouton de la modale envoie le formulaire ci-dessus #}
+<div class="modal fade" id="accountDeleteModal" tabindex="-1" aria-labelledby="accountDeleteModalTitle"
+     aria-describedby="accountDeleteModalText" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="accountDeleteModalTitle">{{ 'account.modal_title'|trans }}</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'account.modal_cancel'|trans }}"></button>
+            </div>
+            <div class="modal-body">
+                <p id="accountDeleteModalText" class="mb-0">{{ 'account.modal_text'|trans({'%email%': app.user.email}) }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="sp-btn sp-btn-outline" data-bs-dismiss="modal" id="accountDeleteCancel">
+                    {{ 'account.modal_cancel'|trans }}
+                </button>
+                <button type="button" class="sp-btn sp-danger-btn" id="accountDeleteConfirmBtn"
+                        data-busy-label="{{ 'account.deleting'|trans }}">
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true" hidden></span>
+                    <span data-label>{{ 'account.modal_confirm'|trans }}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sp-account-info { margin: 0 0 28px; }
+.sp-account-info dt { font-size: 12px; font-weight: 600; color: var(--sp-muted); text-transform: uppercase; letter-spacing: .5px; }
+.sp-account-info dd { margin: 4px 0 0; font-size: 15px; color: var(--sp-text); overflow-wrap: anywhere; }
+.sp-danger-zone { border: 1.5px solid #FCA5A5; border-radius: 14px; background: #FFF7F7; padding: 20px 22px 22px; }
+.sp-danger-zone-title { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #B91C1C; }
+.sp-danger-zone-heading { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--sp-text); }
+.sp-danger-zone-text { margin: 0 0 10px; font-size: 14px; color: var(--sp-text); line-height: 1.5; }
+.sp-danger-zone-text .bi { margin-right: 4px; }
+.sp-danger-zone-strong { font-weight: 700; color: #B91C1C; }
+.sp-danger-zone-list { margin: 0 0 12px; padding-left: 20px; font-size: 14px; line-height: 1.55; color: var(--sp-text); }
+.sp-danger-zone-form { display: flex; flex-direction: column; gap: 14px; max-width: 420px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #FECACA; }
+.sp-danger-zone-check { margin: 0; font-size: 14px; }
+.sp-danger-zone-check .form-check-input:checked { background-color: #DC2626; border-color: #DC2626; }
+.sp-danger-zone-check .form-check-input:focus { border-color: #F87171; box-shadow: 0 0 0 .2rem rgba(220,38,38,.2); }
+#accountDeleteMessages .alert { margin: 14px 0 0; }
+.sp-danger-btn { background: #DC2626; color: #fff; }
+.sp-danger-btn:hover, .sp-danger-btn:focus-visible { background: #B91C1C; color: #fff; }
+.sp-danger-btn:focus-visible { outline: 2px solid #B91C1C; outline-offset: 2px; }
+.sp-danger-btn:disabled { opacity: .7; cursor: progress; }
+@media (max-width: 768px) {
+    .sp-danger-zone { padding: 16px 14px 18px; }
+    .sp-danger-zone-form { max-width: none; }
+    .sp-danger-zone-form .sp-danger-btn { width: 100%; justify-content: center; }
+}
+</style>
+
+<script type="module">
+import { Modal } from 'bootstrap';
+
+const zone = document.getElementById('danger-zone');
+const form = document.getElementById('accountDeleteForm');
+const modalEl = document.getElementById('accountDeleteModal');
+const confirmBtn = document.getElementById('accountDeleteConfirmBtn');
+const modal = Modal.getOrCreateInstance(modalEl);
+let confirmed = false;
+
+// Retour d'un refus : le message (affiché en haut de la page) passe dans la zone de danger
+const alerts = [...document.querySelectorAll('.sp-content > .alert')];
+if (alerts.length > 0) {
+    document.getElementById('accountDeleteMessages').append(...alerts);
+    zone.scrollIntoView({ block: 'start' });
+}
+
+// Le navigateur a déjà vérifié les champs requis : on demande une dernière confirmation
+form.addEventListener('submit', (event) => {
+    if (confirmed) {
+        return;
+    }
+    event.preventDefault();
+    modal.show();
+});
+
+// Focus sur « Annuler » : Entrée ne supprime pas le compte par mégarde
+modalEl.addEventListener('shown.bs.modal', () => document.getElementById('accountDeleteCancel').focus());
+
+confirmBtn.addEventListener('click', () => {
+    confirmed = true;
+    confirmBtn.disabled = true;
+    confirmBtn.setAttribute('aria-busy', 'true');
+    confirmBtn.querySelector('.spinner-border').hidden = false;
+    confirmBtn.querySelector('[data-label]').textContent = confirmBtn.dataset.busyLabel;
+    modalEl.querySelector('.btn-close').disabled = true;
+    document.getElementById('accountDeleteCancel').disabled = true;
+    form.submit();
+});
+</script>

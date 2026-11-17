@@ -59,4 +59,32 @@ class HealthSessionRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['activity' => $activity]);
     }
+
+    /**
+     * Parmi les activités données, celles créées par une séance Santé, en une requête (badge d'origine de la
+     * liste des activités).
+     *
+     * @param list<int> $activityIds
+     *
+     * @return array<int, true> id d'activité => true
+     */
+    public function findActivityIdsAmong(array $activityIds): array
+    {
+        if ($activityIds === []) {
+            return [];
+        }
+        $rows = $this->createQueryBuilder('s')
+            ->select('IDENTITY(s.activity) AS activityId')
+            ->where('s.activity IN (:ids)')
+            ->setParameter('ids', $activityIds)
+            ->getQuery()
+            ->getScalarResult();
+
+        $ids = [];
+        foreach ($rows as $row) {
+            $ids[(int) $row['activityId']] = true;
+        }
+
+        return $ids;
+    }
 }

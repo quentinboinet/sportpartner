@@ -151,24 +151,10 @@ class CalendarController extends AbstractController
         ];
     }
 
-    /** Heure de départ dans le fuseau de l'activité (champ Strava "(GMT+01:00) Europe/Paris"). */
+    /** Heure de départ dans le fuseau de l'activité (champ Strava "(GMT+01:00) Europe/Paris"), « flottante ». */
     private function localStart(Activity $activity): ?\DateTimeImmutable
     {
-        $raw = $activity->getStartDate();
-        if ($raw === null) {
-            return null;
-        }
-        $utc = new \DateTimeImmutable($raw->format('Y-m-d H:i:s'), new \DateTimeZone('UTC'));
-
-        $tzName = trim((string) preg_replace('/^\(.*?\)\s*/', '', (string) $activity->getTimezone()));
-        try {
-            $tz = new \DateTimeZone($tzName !== '' ? $tzName : date_default_timezone_get());
-        } catch (\Exception) {
-            $tz = new \DateTimeZone(date_default_timezone_get());
-        }
-
-        // On retire le fuseau pour comparer/afficher en heure locale "flottante"
-        return new \DateTimeImmutable($utc->setTimezone($tz)->format('Y-m-d H:i:s'));
+        return $activity->getLocalStartDate();
     }
 
     /** Accepte "2026-11-01" ou un ISO complet "2026-11-01T00:00:00+01:00" (FullCalendar). */

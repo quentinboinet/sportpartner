@@ -196,7 +196,7 @@ stat:
 activity:
     recent_title: Recent Activities
     see_all: See all
-    empty: "No activities yet. Connect Strava to import your workouts."
+    empty: "No activities yet. Connect Strava to import your workouts, or add one by hand."
     run: Run
     ride: Ride
     swim: Swim
@@ -302,6 +302,7 @@ stats:
     title: Statistics
     sub: Trends and records
     export: Export
+    export_title: "Download the activities of the displayed period (CSV)"
     period_7d: Last 7 days
     period_custom_apply: Apply period
     volume_title_day: Daily volume
@@ -600,6 +601,118 @@ activities:
     speed_unit: km/h
     zones_label: HR zones
     empty: "No activities yet."
+    btn_export: Export
+    export_title: "Download the displayed list (CSV, all pages)"
+
+# ── Activity source (badge) ──────────────────────────────────────────────────
+activity_source:
+    strava: Strava
+    manual: Manual entry
+    health: Health session
+
+# ── Manual activity entry ────────────────────────────────────────────────────
+activity_form:
+    page_title_new: "Add an activity - SportPartner"
+    page_title_edit: "Edit activity - SportPartner"
+    title_new: Add an activity
+    title_edit: Edit activity
+    intro: "A workout done without Strava: it counts everywhere (dashboard, goals, statistics, calendar)."
+    back_list: Back to activities
+    back_activity: Back to the activity
+    section_session: Workout
+    section_effort: Time and distance
+    section_hr: Heart rate
+    section_gear: Gear
+    sport: Sport
+    name: Name
+    name_help: "Optional: left empty, the activity is named \"Run on Nov 16, 2026\"."
+    date: Date
+    time: Start time
+    moving: Moving time
+    elapsed: Elapsed time
+    duration_help: "An empty field counts as 0. %max% h at most."
+    elapsed_help: "Breaks included. Empty: same as the moving time."
+    unit_h: h
+    unit_min: min
+    unit_s: s
+    unit_hours: hours
+    unit_minutes: minutes
+    unit_seconds: seconds
+    distance: Distance
+    distance_help: "Decimal point or comma, %max% km at most."
+    elevation: "Elevation gain"
+    hr_avg: Average HR
+    hr_max: Max HR
+    hr_help: "Optional, from %min% to %max% bpm."
+    gear: Shoes or bike
+    gear_none: None
+    gear_auto_named: "Default: %name%"
+    gear_auto_none: "Default (none)"
+    gear_help: "Only active gear that suits the sport is offered."
+    preview_pace: "Pace: %value% /km"
+    preview_speed: "Average speed: %value% km/h"
+    preview_empty: "Pace (speed for rides) is computed from the distance and the moving time."
+    preview_implausible: "Unusual: check the time and the distance."
+    submit_new: Add the activity
+    submit_edit: Save
+    cancel: Cancel
+    edit: Edit
+    delete: Delete
+    delete_title: Delete the activity?
+    delete_text: "\"%name%\" will be deleted, along with its fueling notes. This cannot be undone."
+    delete_confirm: Delete
+    has_errors: "{1} One field needs fixing.|]1,Inf[ %count% fields need fixing."
+    duplicate_title: "An activity of the same sport already exists at this time"
+    duplicate_text: "It may already have been imported from Strava. Check before saving a duplicate:"
+    confirm_anyway: Save anyway
+    warning_help: "To fix the entry, change the fields below and save again."
+    plausibility:
+        title: Unusual pace or speed
+        text: Check the moving time and the distance.
+        pace_slow: "Pace of %value% /km, slower than %limit% /km."
+        pace_fast: "Pace of %value% /km, faster than %limit% /km."
+        speed_high: "Average speed of %value% km/h, above %limit% km/h."
+    default_name: "%sport% on %date%"
+    default_name_date_format: "M j, Y"
+    flash_created: Activity added.
+    flash_updated: Activity updated.
+    flash_deleted: Activity deleted.
+    flash_csrf: "Your session expired: check the entry and save again."
+    error:
+        sport: Pick a sport from the list.
+        name_too_long: "%max% characters at most."
+        date: "Enter a valid date."
+        date_min: "Enter a date from January 1, 2000."
+        time: "Enter a valid time (hh:mm)."
+        future: "The start is in the future: log an activity once it is done."
+        duration_required: Enter the moving time.
+        duration_parts: "Whole numbers: hours from 0 to %max%, minutes and seconds from 0 to 59."
+        duration_range: "Duration above 0 s and %max% h at most."
+        elapsed_lt_moving: The elapsed time cannot be shorter than the moving time.
+        distance: "Distance above 0 and %max% km at most (e.g. 10.5)."
+        elevation: "Whole number of meters, from 0 to %max%."
+        hr: "Whole number from %min% to %max% bpm."
+        hr_order: Max HR cannot be lower than average HR.
+        gear: This gear cannot be used for this sport.
+
+# ── CSV export of activities (statistics and activity list) ──────────────────
+activity_export:
+    filename: sportpartner-activities
+    col_date: Date
+    col_start_time: Start time
+    col_sport: Sport
+    col_name: Name
+    col_distance: Distance (km)
+    col_moving_time: Moving time
+    col_elapsed_time: Elapsed time
+    col_elevation: Elevation gain (m)
+    col_pace: Pace (min/km)
+    col_speed: Speed (km/h)
+    col_hr_avg: Average HR (bpm)
+    col_hr_max: Max HR (bpm)
+    col_gear: Gear
+    col_source: Source
+    col_strava_url: Strava link
 
 # ── Settings ─────────────────────────────────────────────────────────────────
 settings:
@@ -692,6 +805,34 @@ avatar:
         no_photo: "No photo on your Strava profile."
         download: "Your Strava photo could not be retrieved: try again later."
         invalid: "Your Strava photo could not be used: upload an image from your device instead."
+
+# ── Account (Settings > Account): danger zone, account deletion ──────────────
+account:
+    section_title: Account
+    email: "Email address"
+    danger_title: "Danger zone"
+    delete_title: "Delete my account"
+    delete_intro: "Your account and all your SportPartner data are erased:"
+    delete_item_profile: "your profile, photo and weekly goals;"
+    delete_item_activities: "your activities, their fueling, your gear and your meals;"
+    delete_item_races: "your races and race plans: routes, checkpoints, scenarios, nutrition and share links;"
+    delete_item_health: "your custom exercises and your Health sessions."
+    delete_irreversible: "This cannot be undone: nothing can be recovered."
+    delete_strava: "Your Strava data stays on Strava: if your Strava account is connected, SportPartner only removes its own access."
+    delete_password: "Current password"
+    delete_confirm_label: "I understand this is permanent"
+    delete_submit: "Delete my account"
+    modal_title: "Permanently delete your account?"
+    modal_text: "The account %email% and all its data will be erased right away. There is no going back."
+    modal_cancel: Cancel
+    modal_confirm: "Yes, delete my account"
+    deleting: "Deleting..."
+    error_csrf: "This page has expired: reload it and try again. Nothing was deleted."
+    error_confirm: "Tick \"I understand this is permanent\" to confirm. Nothing was deleted."
+    error_password: "Wrong password. Nothing was deleted."
+    error_failed: "The deletion failed, your account is intact. Please try again in a moment."
+    flash_deleted: "Your account has been deleted."
+    flash_strava_failed: "SportPartner could not remove its access to your Strava account: you can do it on Strava, in Settings > My Apps."
 
 # ── Gear (Settings > Gear, activities) ───────────────────────────────────────
 gear:
