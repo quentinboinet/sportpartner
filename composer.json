@@ -12,7 +12,7 @@
         "doctrine/doctrine-migrations-bundle": "^3.3",
         "doctrine/orm": "^3.0",
         "symfony/asset": "^7.4",
-        "symfony/asset-mapper": "^7.0",
+        "symfony/asset-mapper": "^8.1",
         "symfony/console": "^7.0",
         "symfony/dotenv": "^7.0",
         "symfony/form": "^7.4",
