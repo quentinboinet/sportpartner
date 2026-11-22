@@ -17,7 +17,7 @@
         "symfony/dotenv": "^7.0",
         "symfony/form": "^7.4",
         "symfony/framework-bundle": "^7.0",
-        "symfony/http-client": "^7.0",
+        "symfony/http-client": "^8.1",
         "symfony/mailer": "^7.0",
         "symfony/monolog-bundle": "^4.0",
         "symfony/rate-limiter": "7.4.*",
