@@ -325,7 +325,7 @@
                         <i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ 'race_plan.btn_replace'|trans }}
                     </button>
                     <form method="post" action="{{ path('app_race_route_delete', {id: race.id}) }}"
-                          data-confirm="{{ 'race_plan.confirm_delete_route'|trans }}" data-action="submit->race-plan#confirm">
+                          data-confirm="{{ 'race_plan.confirm_delete_route'|trans }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
                         <button type="submit" class="rp-btn-quiet rp-btn-sm rp-btn-danger">
                             <i class="bi bi-trash3" aria-hidden="true"></i> {{ 'race_plan.btn_delete_route'|trans }}
@@ -475,7 +475,7 @@
                                     </button>
                                     <form method="post"
                                           action="{{ path('app_race_checkpoint_delete', {id: race.id, checkpointId: cp.id}) }}"
-                                          data-confirm="{{ 'race_plan.confirm_delete_checkpoint'|trans }}" data-action="submit->race-plan#confirm">
+                                          data-confirm="{{ 'race_plan.confirm_delete_checkpoint'|trans }}">
                                         <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
                                         <button type="submit" class="rp-icon-btn rp-icon-btn--danger" title="{{ 'race_plan.delete'|trans }}"
                                                 aria-label="{{ 'race_plan.delete_named'|trans({'%name%': cp.name}) }}">
@@ -653,7 +653,7 @@
 
 {# Formulaire de suppression utilisé par la modale (hors du formulaire d'édition) #}
 <form method="post" action="" id="checkpointDeleteForm"
-      data-confirm="{{ 'race_plan.confirm_delete_checkpoint'|trans }}" data-action="submit->race-plan#confirm">
+      data-confirm="{{ 'race_plan.confirm_delete_checkpoint'|trans }}">
     <input type="hidden" name="_token" value="{{ csrf_token('race_plan') }}">
 </form>
 

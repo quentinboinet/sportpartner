@@ -307,6 +307,9 @@ body {
   padding: 8px 18px; cursor: pointer; text-decoration: none; transition: all .15s; border: none;
 }
 
+/* Formulaire POST d'un seul bouton (synchro Strava) : le bouton reste un élément de la barre d'actions */
+.sp-inline-form { display: contents; }
+
 .sp-btn-outline { background: #fff; border: 1.5px solid rgba(0,0,0,.14); color: var(--sp-text); }
 .sp-btn-outline:hover { border-color: rgba(0,0,0,.3); color: var(--sp-text); }
 .sp-btn-primary { background: var(--sp-orange); color: #fff; }
@@ -446,6 +449,7 @@ body {
 .sp-field input { width: 100%; background: #F9F9F9; border: 1.5px solid rgba(0,0,0,.10); border-radius: 10px; padding: 9px 12px; font-size: 14px; color: var(--sp-text); outline: none; transition: all .15s; }
 .sp-field input:focus { background: #fff; border-color: var(--sp-orange); box-shadow: 0 0 0 3px rgba(232,64,12,.10); }
 .sp-field input::placeholder { color: #C0BDB6; }
+.sp-field-help { font-size: 12px; color: var(--sp-muted); margin-top: 4px; }
 
 .sp-auth-submit { width: 100%; background: var(--sp-orange); color: #fff; border: none; border-radius: 10px; padding: 11px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 6px; transition: background .15s; }
 .sp-auth-submit:hover { background: var(--sp-orange-hover); }

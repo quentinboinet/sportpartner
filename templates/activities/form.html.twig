@@ -259,7 +259,7 @@
 {# Après un envoi refusé : l'alerte (ou les avertissements) reçoit le focus pour être annoncée #}
 {% set _warned = implausible or duplicates is not empty %}
 {% if csrfError or errors is not empty or _warned %}
-<script type="module">
+<script type="module" nonce="{{ csp_nonce() }}">
     document.getElementById({{ (_warned and errors is empty and not csrfError ? 'act-form-warning' : 'act-form-alert')|json_encode|raw }})?.focus();
 </script>
 {% endif %}

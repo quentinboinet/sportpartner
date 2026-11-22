@@ -18,12 +18,15 @@ use App\Service\Route\RemoteGpxException;
 use App\Service\Route\RemoteGpxFetcher;
 use App\Service\Route\RouteAnalyzer;
 use App\Service\Route\ScenarioViewBuilder;
+use App\Security\RateLimitRetry;
+use App\Service\Input\TextInput;
 use App\Service\Share\ShareSettingsParser;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -128,8 +131,12 @@ final class RacePlanController extends AbstractController
         ]);
     }
 
+    /**
+     * Import d'un parcours, fichier (champ gpx) ou lien (champ gpx_url, quand aucun fichier n'est envoyé) : 10 imports
+     * par 10 minutes et par utilisateur, fichier et lien ensemble (limiteur « gpx_import »).
+     */
     #[Route('/route', name: 'app_race_route_import', methods: ['POST'])]
-    public function importRoute(Race $race, Request $request, GpxParser $parser, RemoteGpxFetcher $fetcher): Response
+    public function importRoute(Race $race, Request $request, GpxParser $parser, RemoteGpxFetcher $fetcher, RateLimiterFactoryInterface $gpxImportLimiter): Response
     {
         $this->denyUnlessOwner($race);
 
@@ -141,15 +148,23 @@ final class RacePlanController extends AbstractController
             return $this->toPlan($race);
         }
 
-        $file = $request->files->get('gpx');
-        $url  = trim((string) $request->request->get('gpx_url', ''));
-
-        // Import par lien (champ gpx_url) quand aucun fichier n'est envoyé
-        if ((!$file instanceof UploadedFile || $file->getError() === UPLOAD_ERR_NO_FILE) && $url !== '') {
-            return $this->importFromUrl($race, $url, $parser, $fetcher);
+        $file    = $request->files->get('gpx');
+        $url     = trim(TextInput::raw($request->request->all(), 'gpx_url'));
+        $hasFile = $file instanceof UploadedFile && $file->getError() !== UPLOAD_ERR_NO_FILE;
+        if (!$hasFile && $url === '') {
+            return $this->fail($race, 'race_plan.flash_gpx_missing');
         }
 
-        if (!$file instanceof UploadedFile || $file->getError() === UPLOAD_ERR_NO_FILE) {
+        $limit = $gpxImportLimiter->create('user-'.$race->getUser()->getId())->consume();
+        if (!$limit->isAccepted()) {
+            return $this->fail($race, $this->translator->trans('race_plan.flash_gpx_rate_limited', ['%minutes%' => RateLimitRetry::minutes($limit)]));
+        }
+
+        // Import par lien (champ gpx_url) quand aucun fichier n'est envoyé
+        if (!$hasFile) {
+            return $this->importFromUrl($race, $url, $parser, $fetcher);
+        }
+        if (!$file instanceof UploadedFile) {
             return $this->fail($race, 'race_plan.flash_gpx_missing');
         }
         if (in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
@@ -179,7 +194,10 @@ final class RacePlanController extends AbstractController
         return $this->storeRoute($race, $parsed, self::sanitizeFileName($file->getClientOriginalName()), null);
     }
 
-    /** Télécharge le GPX (protection SSRF dans RemoteGpxFetcher), le parse et l'enregistre. */
+    /**
+     * Télécharge le GPX (protection SSRF dans RemoteGpxFetcher), le parse et l'enregistre. Site injoignable, erreur
+     * HTTP et port autre que 80 / 443 donnent le MÊME message : le lien ne sert pas à sonder des ports ou des serveurs.
+     */
     private function importFromUrl(Race $race, string $url, GpxParser $parser, RemoteGpxFetcher $fetcher): Response
     {
         try {
@@ -188,9 +206,9 @@ final class RacePlanController extends AbstractController
             return $this->fail($race, match ($e->getCode()) {
                 RemoteGpxException::INVALID_URL => 'race_plan.flash_url_invalid',
                 RemoteGpxException::BLOCKED     => 'race_plan.flash_url_blocked',
-                RemoteGpxException::HTTP_ERROR  => 'race_plan.flash_url_http_error',
                 RemoteGpxException::TOO_LARGE   => 'race_plan.flash_gpx_too_large',
                 RemoteGpxException::NOT_GPX     => 'race_plan.flash_url_not_gpx',
+                // UNREACHABLE, HTTP_ERROR, PORT_NOT_ALLOWED
                 default                         => 'race_plan.flash_url_unreachable',
             });
         }
@@ -361,24 +379,27 @@ final class RacePlanController extends AbstractController
     }
 
     /**
-     * Valide tout le formulaire avant de modifier le repère : en cas d'erreur, rien n'est changé.
+     * Valide tout le formulaire avant de modifier le repère : en cas d'erreur, rien n'est changé. Textes : chaîne
+     * UTF-8 valide (sinon invalide, pas d'erreur 400 ni 500), nom sur une ligne de 120 caractères au plus, notes de
+     * 5000 au plus (refusées au-delà, jamais tronquées), après normalisation (TextInput).
      */
     private function hydrateCheckpoint(RaceCheckpoint $checkpoint, Request $request, Race $race): bool
     {
         $post = $request->request;
+        $raw  = $post->all();
 
-        $name = trim((string) $post->get('name', ''));
-        if ($name === '' || mb_strlen($name) > self::MAX_NAME_LENGTH) {
+        $name = TextInput::field($raw, 'name', self::MAX_NAME_LENGTH);
+        if (!\is_string($name)) {
             return false;
         }
 
-        $typeValue = trim((string) $post->get('type', ''));
+        $typeValue = trim(TextInput::raw($raw, 'type'));
         $type      = $typeValue === '' ? CheckpointType::Point : CheckpointType::tryFrom($typeValue);
         if ($type === null) {
             return false;
         }
 
-        $km = self::parseKm((string) $post->get('distance_km', ''));
+        $km = self::parseKm(TextInput::raw($raw, 'distance_km'));
         if ($km === null) {
             return false;
         }
@@ -395,7 +416,7 @@ final class RacePlanController extends AbstractController
 
         $stopSeconds = null;
         if ($type === CheckpointType::AidStation) {
-            $stop = trim((string) $post->get('stop_minutes', ''));
+            $stop = trim(TextInput::raw($raw, 'stop_minutes'));
             if ($stop !== '') {
                 if (!ctype_digit($stop) || (int) $stop > self::MAX_STOP_MINUTES) {
                     return false;
@@ -404,13 +425,16 @@ final class RacePlanController extends AbstractController
             }
         }
 
-        $cutoffRaw = trim((string) $post->get('cutoff', ''));
+        $cutoffRaw = trim(TextInput::raw($raw, 'cutoff'));
         $cutoff    = $cutoffRaw === '' ? null : self::parseCutoff($cutoffRaw);
         if ($cutoffRaw !== '' && $cutoff === null) {
             return false;
         }
 
-        $notes = trim((string) $post->get('notes', ''));
+        $notes = TextInput::field($raw, 'notes', self::MAX_NOTES_LENGTH, true);
+        if ($notes === false) {
+            return false;
+        }
 
         // Message pour les proches (plan partagé), mêmes règles que la page Partager ; champ absent = inchangé
         $hasPublicMessage = $post->has('public_message');
@@ -437,7 +461,7 @@ final class RacePlanController extends AbstractController
             ->setDistanceM($distanceM)
             ->setStopSeconds($stopSeconds)
             ->setCutoffSeconds($cutoff)
-            ->setNotes($notes === '' ? null : mb_substr($notes, 0, self::MAX_NOTES_LENGTH));
+            ->setNotes($notes);
 
         return true;
     }

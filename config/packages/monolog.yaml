@@ -15,24 +15,30 @@ when@dev:
                 process_psr_3_messages: false
                 channels: ["!event", "!doctrine", "!console"]
 
+# Prod : fichiers journaliers (var/log/prod-AAAA-MM-JJ.log, deprecation-AAAA-MM-JJ.log), 14 jours gardés
 when@prod:
     monolog:
         handlers:
+            # Tampon vidé dans "nested" seulement en cas d'erreur ; sans les canaux bavards (événements, requêtes SQL)
+            # ni les dépréciations (journal à part)
             main:
                 type: fingers_crossed
                 action_level: error
                 handler: nested
                 excluded_http_codes: [404, 405]
                 buffer_size: 50
+                channels: ["!event", "!doctrine", "!deprecation"]
             nested:
-                type: stream
+                type: rotating_file
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
+                max_files: 14
             console:
                 type: console
                 process_psr_3_messages: false
                 channels: ["!event", "!doctrine"]
             deprecation:
-                type: stream
+                type: rotating_file
                 channels: [deprecation]
                 path: "%kernel.logs_dir%/deprecation.log"
+                max_files: 14

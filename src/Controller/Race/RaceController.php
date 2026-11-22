@@ -10,6 +10,7 @@ use App\Entity\User;
 use App\Repository\RaceCheckpointRepository;
 use App\Repository\RaceRepository;
 use App\Repository\RaceRouteRepository;
+use App\Service\Race\RaceInput;
 use App\Service\Route\RouteAnalyzer;
 use App\Service\Route\ScenarioViewBuilder;
 use Doctrine\ORM\EntityManagerInterface;
@@ -94,9 +95,10 @@ class RaceController extends AbstractController
             return $this->redirectBack($request);
         }
 
-        $race = (new Race())->setUser($user);
-        if (!$this->hydrate($race, $request)) {
-            $this->addFlash('error', 'races.flash_name_required');
+        $race  = (new Race())->setUser($user);
+        $error = $this->hydrate($race, $request);
+        if (null !== $error) {
+            $this->addFlash('error', $error);
 
             return $this->redirectBack($request);
         }
@@ -117,8 +119,9 @@ class RaceController extends AbstractController
             return $this->redirectBack($request);
         }
 
-        if (!$this->hydrate($race, $request)) {
-            $this->addFlash('error', 'races.flash_name_required');
+        $error = $this->hydrate($race, $request);
+        if (null !== $error) {
+            $this->addFlash('error', $error);
 
             return $this->redirectBack($request);
         }
@@ -252,50 +255,39 @@ class RaceController extends AbstractController
     }
 
     /**
-     * Remplit la course depuis le formulaire (ajout ou modification).
-     * Retourne false si le nom est vide (rien n'est modifié dans ce cas).
+     * Remplit la course depuis le formulaire (ajout ou modification), règles dans RaceInput.
+     * Retourne la clé du message d'erreur (rien n'est modifié dans ce cas), null si tout est valide.
      */
-    private function hydrate(Race $race, Request $request): bool
+    private function hydrate(Race $race, Request $request): ?string
     {
-        $post = $request->request;
-
-        $name = trim((string) $post->get('name', ''));
-        if ($name === '') {
-            return false;
+        $parsed = RaceInput::parse($request->request->all(), (int) date('Y'));
+        if (isset($parsed['error'])) {
+            return $parsed['error'];
         }
+        $values = $parsed['values'];
 
-        $race->setName(mb_substr($name, 0, 200));
-        $race->setLocation(mb_substr(trim((string) $post->get('location', '')), 0, 200) ?: null);
-        $race->setWebsite($this->normalizeUrl((string) $post->get('website', '')));
-        $race->setNotes(trim((string) $post->get('notes', '')) ?: null);
+        $race->setName($values['name']);
+        $race->setLocation($values['location']);
+        $race->setWebsite($values['website']);
+        $race->setNotes($values['notes']);
+        $race->setDistanceKm($values['distanceKm']);
+        $race->setElevationGain($values['elevationGain']);
 
-        $distance = trim((string) $post->get('distance_km', ''));
-        $race->setDistanceKm(is_numeric($distance) ? max(0.0, (float) $distance) : null);
-
-        $elevation = trim((string) $post->get('elevation_gain', ''));
-        $race->setElevationGain(is_numeric($elevation) ? max(0, (int) round((float) $elevation)) : null);
-
-        $intent = RaceIntent::tryFrom((string) $post->get('intent'));
-        if ($intent !== null) {
-            $race->setIntent($intent);
+        if ($values['intent'] !== null) {
+            $race->setIntent($values['intent']);
         } elseif ($race->getId() === null) {
             $race->setIntent(RaceIntent::WantToDo);
         }
 
         // Type absent ou invalide : on garde la valeur existante (null pour les anciennes courses)
-        $type = RaceType::tryFrom((string) $post->get('race_type'));
-        if ($type !== null) {
-            $race->setType($type);
+        if ($values['type'] !== null) {
+            $race->setType($values['type']);
         }
 
-        // Une date précise, si fournie, fait foi pour l'année
-        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $post->get('race_date', ''));
-        $race->setRaceDate($date ?: null);
+        $race->setRaceDate($values['raceDate']);
+        $race->setYear($values['year']);
 
-        $year = $date ? (int) $date->format('Y') : $post->getInt('year', (int) date('Y'));
-        $race->setYear(max(1900, min(2100, $year)));
-
-        return true;
+        return null;
     }
 
     /**
@@ -315,25 +307,12 @@ class RaceController extends AbstractController
             'raceDate'      => $race->getRaceDate()?->format('Y-m-d'),
             'intent'        => $race->getIntent()->value,
             'type'          => $race->getType()?->value,
-            'website'       => $race->getWebsite(),
+            // Seulement un lien http(s) (une ancienne valeur « javascript: » n'est jamais renvoyée au JS)
+            'website'       => $race->getLinkableWebsite(),
             'notes'         => $race->getNotes(),
             'isDone'        => $race->isDone(),
             'url'           => $race->getId() ? $this->generateUrl('app_races_show', ['id' => $race->getId()]) : null,
         ];
-    }
-
-    /** N'accepte que des liens http(s) - le site est rendu dans un href. */
-    private function normalizeUrl(string $url): ?string
-    {
-        $url = trim($url);
-        if ($url === '') {
-            return null;
-        }
-        if (!preg_match('#^[a-z][a-z0-9+.-]*:#i', $url)) {
-            $url = 'https://'.$url;
-        }
-
-        return preg_match('#^https?://[^\s]+$#i', $url) && mb_strlen($url) <= 500 ? $url : null;
     }
 
     private function csrfOk(Request $request): bool

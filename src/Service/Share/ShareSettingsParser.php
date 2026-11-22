@@ -3,6 +3,7 @@
 namespace App\Service\Share;
 
 use App\Entity\RaceShare;
+use App\Service\Input\TextInput;
 
 /**
  * Lecture et validation du formulaire des réglages du partage (RaceShareController::save). Calcul pur.
@@ -108,22 +109,7 @@ final class ShareSettingsParser
      */
     public static function normalize(mixed $value, bool $multiline): string|false|null
     {
-        if (null === $value) {
-            return null;
-        }
-        if (!\is_string($value) || !mb_check_encoding($value, 'UTF-8')) {
-            return false;
-        }
-
-        $value = str_replace(["\r\n", "\r"], "\n", $value);
-        $value = str_replace("\t", ' ', $value);
-        $value = (string) preg_replace($multiline ? '/[\x00-\x09\x0B-\x1F\x7F]/u' : '/[\x00-\x1F\x7F]/u', $multiline ? '' : ' ', $value);
-        if (!$multiline) {
-            $value = (string) preg_replace('/\s+/u', ' ', $value);
-        }
-        $value = trim($value);
-
-        return '' === $value ? null : $value;
+        return TextInput::normalize($value, $multiline);
     }
 
     /**

@@ -5,8 +5,17 @@ namespace App\Service\Route;
 /**
  * Lit un fichier GPX (1.0 / 1.1, avec ou sans namespace) et produit un tracé ré-échantillonné prêt à stocker.
  *
- * Sécurité : DOCTYPE/ENTITY refusés avant parsing, LIBXML_NONET, jamais LIBXML_NOENT/DTDLOAD, taille bornée
- * (MAX_BYTES) et nombre de points bruts borné (MAX_RAW_POINTS, compté côté libxml avant toute allocation PHP).
+ * Sécurité, dans l'ordre :
+ * - taille bornée (MAX_BYTES) ;
+ * - encodage compatible ASCII seulement (UTF-8, Latin-1...) : pas d'octet nul (UTF-16 / UTF-32), premier caractère
+ *   significatif « < », encodage déclaré dans la liste blanche ASCII_COMPATIBLE. Sans cela, les contrôles qui suivent
+ *   (recherche d'octets) ne verraient pas un « <!DOCTYPE » écrit en UTF-16 ;
+ * - DOCTYPE / ENTITY refusés avant le parsing (XXE, « billion laughs »), et encore vérifié après ;
+ * - nombre de balises borné (MAX_TAGS, en comptant les « < ») AVANT de construire le DOM : libxml alloue l'arbre hors
+ *   de la memory_limit de PHP, un fichier plein d'éléments vides (« <a/> ») occuperait sinon des centaines de Mo ;
+ * - LIBXML_NONET, jamais LIBXML_NOENT ni LIBXML_DTDLOAD ;
+ * - nombre de points bruts borné (MAX_RAW_POINTS), compté par XPath dans l'arbre libxml déjà construit, avant de
+ *   créer les tableaux PHP des points.
  *
  * Ré-échantillonnage : on garde des points GPS réels (pas d'interpolation, le tracé carte reste exact) :
  * premier, dernier, puis un point dès qu'on a parcouru au moins max(10 m, distance/5000) depuis le dernier
@@ -18,6 +27,14 @@ final class GpxParser
     public const MAX_BYTES = 15 * 1024 * 1024;
     /** ~55 h d'enregistrement à 1 point/s : largement au-delà d'un ultra réel. */
     public const MAX_RAW_POINTS = 200_000;
+    /**
+     * Balises (ouvrantes, fermantes, vides, commentaires, instructions : chaque « < ») au plus. Un point Garmin
+     * complet (<trkpt>, <ele>, <time>, extensions FC / cadence) compte 10 à 14 « < » : 200 000 points font environ
+     * 2,4 millions. Un fichier réel de 15 Mo reste bien en dessous (environ 1 « < » pour 16 octets au plus serré).
+     */
+    public const MAX_TAGS = 2_500_000;
+    /** Encodages déclarés acceptés (<?xml encoding="..."?>), tous compatibles ASCII ; absent = UTF-8. */
+    private const ASCII_COMPATIBLE = '/^(utf-?8|us-ascii|ascii|iso-8859-\d{1,2}|latin-?1|windows-125\d|cp125\d)$/i';
     private const EARTH_RADIUS_M = 6371008.8;
     private const MIN_STEP_M = 10.0;
     private const MAX_STORED_POINTS = 5000;
@@ -87,9 +104,21 @@ final class GpxParser
         if ('' === trim($xml)) {
             throw new InvalidGpxException('GPX file is empty.');
         }
+        // UTF-16 / UTF-32 (octets nuls), EBCDIC... : les recherches d'octets ci-dessous seraient aveugles.
+        if (str_contains($xml, "\0") || !str_starts_with(ltrim($xml, "\xEF\xBB\xBF \t\r\n"), '<')) {
+            throw new InvalidGpxException('GPX must use an ASCII-compatible encoding such as UTF-8.');
+        }
+        if (1 === preg_match('/^(?:\xEF\xBB\xBF)?\s*<\?xml[^>]*?\sencoding\s*=\s*["\']([^"\']*)["\']/', $xml, $m)
+            && 1 !== preg_match(self::ASCII_COMPATIBLE, $m[1])) {
+            throw new InvalidGpxException('GPX must use an ASCII-compatible encoding such as UTF-8.');
+        }
         // Pas de DTD : bloque XXE et « billion laughs » avant même le parsing.
         if (1 === preg_match('/<!(DOCTYPE|ENTITY)/i', $xml)) {
             throw new InvalidGpxException('GPX with DOCTYPE or ENTITY declarations is not allowed.');
+        }
+        // Bombe d'éléments : refusée avant que libxml ne construise l'arbre (substr_count : rapide, sans allocation).
+        if (substr_count($xml, '<') > self::MAX_TAGS) {
+            throw new InvalidGpxException('GPX has too many elements.', InvalidGpxException::TOO_LARGE);
         }
 
         $doc = new \DOMDocument();

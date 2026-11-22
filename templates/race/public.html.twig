@@ -27,7 +27,7 @@
     <title>{{ _name
         ? 'race_public.page_title_named'|trans({'%race%': _race.name, '%name%': _name})
         : 'race_public.page_title'|trans({'%race%': _race.name}) }}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/font/bootstrap-icons.min.css') }}">
     {% if view.map %}<link rel="stylesheet" href="{{ asset('vendor/leaflet/dist/leaflet.min.css') }}">{% endif %}
     <style>
         :root {
@@ -143,7 +143,7 @@
             .pub-map { height: 240px; }
         }
     </style>
-    {{ importmap('race_public') }}
+    {{ importmap('race_public', {nonce: csp_nonce()}) }}
 </head>
 <body>
 

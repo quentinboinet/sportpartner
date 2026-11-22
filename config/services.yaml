@@ -13,6 +13,12 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
 
+    # Essais de connexion : un seul compteur e-mail + IP (security.yaml, login_throttling ; voir CLAUDE.md)
+    App\Security\LoginRateLimiter:
+        arguments:
+            $factory: '@limiter.login'
+            $secret: '%kernel.secret%'
+
     App\Service\Strava\StravaService:
         arguments:
             $clientId: '%env(STRAVA_CLIENT_ID)%'

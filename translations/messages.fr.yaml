@@ -234,6 +234,21 @@ strava:
     connect_title: Connecte ton compte Strava
     connect_sub: Synchronise tes activités automatiquement
     connect_btn: Connecter Strava
+    # Connexion OAuth et synchro (StravaController)
+    flash_state_invalid: "Connexion Strava refusée : le lien de retour n'est pas valide ou a déjà servi. Relance la connexion depuis SportPartner."
+    flash_cancelled: "Connexion Strava annulée."
+    flash_code_missing: "Strava n'a pas renvoyé de code d'autorisation. Relance la connexion."
+    flash_connect_failed: "La connexion à Strava a échoué. Réessaie dans quelques instants."
+    flash_athlete_taken: "Ce compte Strava est déjà relié à un autre compte SportPartner : il ne peut pas être relié une seconde fois."
+    flash_connected: "Strava connecté !"
+    scope_missing_private: "Tu n'as pas autorisé l'accès à tes activités privées : seules tes activités visibles seront synchronisées. Pour tout importer, reconnecte Strava en cochant cette autorisation."
+    scope_missing_activities: "Tu n'as pas autorisé l'accès à tes activités : la synchronisation ne peut rien importer. Reconnecte Strava en cochant l'accès aux activités."
+    scope_missing_profile: "Tu n'as pas autorisé l'accès à ton profil complet : l'import du matériel (Paramètres > Matériel) ne trouvera que le matériel déjà utilisé dans une activité."
+    flash_csrf: "La page a expiré : recharge-la puis relance la synchronisation."
+    flash_not_connected: "Aucun compte Strava connecté."
+    flash_sync_cooldown: "Synchronisation déjà faite il y a peu : réessaie dans %minutes% min."
+    flash_sync_failed: "Erreur lors de la synchronisation Strava. Réessaie plus tard."
+    flash_synced: "{0} Synchronisation Strava terminée : aucune nouvelle activité.|{1} Synchronisation Strava terminée : 1 nouvelle activité.|]1,Inf[ Synchronisation Strava terminée : %count% nouvelles activités."
 
 # ── Sports (table de référence) ──────────────
 sport:
@@ -791,6 +806,7 @@ avatar:
         upload: "L'envoi de l'image a échoué, réessaie."
         empty: "Ce fichier est vide."
         too_large: "Image trop lourde : %size% Mo maximum."
+        rate_limited: "Trop de changements de photo en peu de temps : réessaie dans %minutes% min."
         type: "Format non pris en charge : choisis une image JPEG, PNG, WebP ou GIF."
         heic: "Format HEIC (iPhone) non pris en charge : enregistre la photo en JPEG puis réessaie."
         animated: "Les images animées ne sont pas acceptées : choisis une image fixe."
@@ -831,6 +847,7 @@ account:
     error_confirm: "Coche « Je comprends que c'est définitif » pour confirmer. Rien n'a été supprimé."
     error_password: "Mot de passe incorrect. Rien n'a été supprimé."
     error_failed: "La suppression a échoué, ton compte est intact. Réessaie dans un moment."
+    error_rate_limited: "Trop d'essais : réessaie dans %minutes% min. Rien n'a été supprimé."
     flash_deleted: "Ton compte a été supprimé."
     flash_strava_failed: "SportPartner n'a pas pu retirer son accès à ton compte Strava : tu peux le faire sur Strava, dans Paramètres > Mes applications."
 
@@ -912,6 +929,7 @@ gear:
     flash_invalid_type: Type de matériel invalide.
     flash_brand_required: "Choisis une marque compatible avec ce type de matériel."
     flash_model_required: Le modèle est obligatoire.
+    flash_text_invalid: "Texte invalide ou trop long : modèle 120 caractères, surnom 60, notes 2000 au maximum."
     flash_csrf: "Session expirée, merci de réessayer."
     flash_incompatible: "Ce matériel ne peut pas être rattaché à cette activité."
     flash_activity_updated: Matériel de l'activité enregistré.
@@ -944,6 +962,7 @@ gear:
     import_skipped: "{1} 1 matériel n'a pas pu être lu sur Strava : il a été ignoré.|]1,Inf[ %count% matériels n'ont pas pu être lus sur Strava : ils ont été ignorés."
     import_truncated: "Historique très long : seules tes %count% activités Strava les plus récentes ont été analysées."
     import_scope_hint: "Astuce : reconnecte Strava pour importer aussi le matériel que tu n'as encore jamais utilisé dans une activité."
+    import_cooldown: "Import déjà lancé il y a peu : réessaie dans %minutes% min."
     import_error_not_connected: "Connecte d'abord ton compte Strava pour importer ton matériel."
     import_error_auth: "Strava a refusé l'accès à ton matériel. Reconnecte ton compte Strava (« Reconnecter Strava ») puis relance l'import."
     import_error_rate_limit: "Limite de requêtes Strava atteinte. Réessaie dans 15 minutes."
@@ -983,11 +1002,24 @@ auth:
         last_name_placeholder: Dupont
         email: Email
         email_placeholder: "tu@exemple.fr"
-        password: "Mot de passe (8 caractères min.)"
+        password: "Mot de passe"
         password_placeholder: "••••••••"
+        password_help: "%min% caractères minimum, différent de ton adresse e-mail."
         submit: Créer mon compte
         have_account: "Déjà un compte ?"
         login_link: Se connecter
+        flash_created: "Compte créé ! Tu peux maintenant te connecter."
+        error_csrf: "La page a expiré : recharge-la puis réessaie."
+        error_rate_limited: "Trop d'inscriptions depuis cette connexion : réessaie dans %minutes% min."
+        error_email_required: "L'adresse e-mail est obligatoire."
+        error_email_too_long: "Adresse e-mail invalide ou trop longue (180 caractères maximum)."
+        error_email_invalid: "Adresse e-mail invalide."
+        error_email_taken: "Cette adresse e-mail est déjà utilisée. Connecte-toi ou choisis une autre adresse."
+        error_first_name: "Prénom invalide ou trop long (100 caractères maximum)."
+        error_last_name: "Nom invalide ou trop long (100 caractères maximum)."
+        error_password_too_short: "Mot de passe trop court : 10 caractères minimum."
+        error_password_too_long: "Mot de passe trop long (4096 octets maximum)."
+        error_password_is_email: "Le mot de passe ne doit pas être ton adresse e-mail."
 
 # ── Courses (liste de souhaits) ───────────────────────────────────────────────
 races:
@@ -1042,6 +1074,11 @@ races:
     flash_added: "Course ajoutée avec succès."
     flash_deleted: "Course supprimée."
     flash_name_required: "Le nom de la course est requis."
+    flash_text_invalid: "Texte invalide ou trop long : nom et lieu 200 caractères, notes 5000 au maximum. Rien n'a été enregistré."
+    flash_website_invalid: "Site web invalide : colle une adresse qui commence par http:// ou https:// (500 caractères au maximum). Rien n'a été enregistré."
+    flash_distance_invalid: "Distance invalide : un nombre entre 0 et 1000 km. Rien n'a été enregistré."
+    flash_elevation_invalid: "D+ invalide : un nombre entier entre 0 et 20 000 m. Rien n'a été enregistré."
+    flash_date_invalid: "Date invalide. Rien n'a été enregistré."
     flash_csrf: "Session expirée, merci de réessayer."
     plan_link: Plan de course
 
@@ -1193,10 +1230,10 @@ race_plan:
     flash_gpx_invalid: "Fichier GPX invalide ou illisible."
     flash_gpx_too_large: "Fichier trop volumineux (15 Mo maximum)."
     flash_gpx_missing: "Choisis un fichier GPX à importer."
+    flash_gpx_rate_limited: "Trop d'imports de parcours en peu de temps : réessaie dans %minutes% min."
     flash_url_invalid: "Lien invalide : colle une adresse complète qui commence par http:// ou https://."
     flash_url_blocked: "Ce lien pointe vers une adresse interne ou privée : il ne peut pas être importé."
-    flash_url_unreachable: "Impossible de télécharger le fichier (site injoignable ou trop lent). Réessaie plus tard."
-    flash_url_http_error: "Le site a refusé le téléchargement (page introuvable ou accès protégé)."
+    flash_url_unreachable: "Impossible de télécharger le fichier : site injoignable ou trop lent, téléchargement refusé (page introuvable, accès protégé) ou port non standard (seuls 80 et 443 sont acceptés). Vérifie le lien, ou télécharge le GPX puis importe le fichier."
     flash_url_not_gpx: "Ce lien mène à une page web, pas à un fichier GPX. Copie le lien du bouton de téléchargement du GPX."
     url_or: ou depuis un lien
     url_label: Lien vers le fichier GPX

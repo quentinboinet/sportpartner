@@ -16,7 +16,7 @@ import { Modal } from 'bootstrap';
  *    distance au-delà de l'arrivée refusée (setCustomValidity) ; « Pointer sur le tracé » masque la fenêtre, passe la
  *    carte en mode visée (race-route:start-picking) puis la rouvre avec le km choisi (race-route:picked) ou inchangé
  *    (race-route:pick-cancel) ;
- *  - confirmations des suppressions (formulaires data-confirm, action submit->race-plan#confirm).
+ * Les confirmations des suppressions (formulaires data-confirm) sont posées par l'écouteur global d'app.js.
  * Textes insérés par textContent / value uniquement.
  */
 
@@ -48,14 +48,6 @@ export default class extends Controller {
         document.removeEventListener('race-route:picked', this.onPicked);
         document.removeEventListener('race-route:pick-cancel', this.onPickCancel);
         document.removeEventListener('race-route:select', this.onSelect);
-    }
-
-    // ── Confirmations ───────────────────────────────────────────────────────
-
-    /** Formulaire de suppression : envoyé seulement après confirmation (texte dans data-confirm). */
-    confirm(event) {
-        const message = event.currentTarget.dataset.confirm;
-        if (message && !window.confirm(message)) event.preventDefault();
     }
 
     // ── Import du GPX ───────────────────────────────────────────────────────

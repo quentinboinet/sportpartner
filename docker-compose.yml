@@ -37,8 +37,9 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    # Joignable depuis la machine seulement (pas depuis le réseau local)
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
@@ -49,9 +50,10 @@ services:
 
   mailhog:
     image: mailhog/mailhog
+    # Joignable depuis la machine seulement (pas depuis le réseau local)
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Interface web → http://localhost:8025
+      - "127.0.0.1:1025:1025"   # SMTP
+      - "127.0.0.1:8025:8025"   # Interface web → http://localhost:8025
     networks:
       - sport_health
 

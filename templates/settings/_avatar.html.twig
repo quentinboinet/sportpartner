@@ -91,7 +91,7 @@
 .sp-avatar-error { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: #FEF2F2; color: #B91C1C; font-size: 13px; }
 </style>
 
-<script type="module">
+<script type="module" nonce="{{ csp_nonce() }}">
     const row = document.getElementById('avatar');
     const uploadForm = document.getElementById('avatarUploadForm');
     const input = document.getElementById('avatarInput');
@@ -160,10 +160,10 @@
         setBusy(event.submitter ?? event.currentTarget.querySelector('button'));
     });
 
+    // La question (data-confirm) est posée par l'écouteur global d'app.js, avant celui-ci : un refus n'arrive pas ici
     const deleteForm = document.getElementById('avatarDeleteForm');
     deleteForm?.addEventListener('submit', (event) => {
-        if (!window.confirm(deleteForm.dataset.confirm)) {
-            event.preventDefault();
+        if (event.defaultPrevented) {
             return;
         }
         setBusy(deleteForm.querySelector('button'));

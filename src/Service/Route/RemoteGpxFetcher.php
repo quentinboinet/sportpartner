@@ -14,7 +14,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * Sécurité (SSRF) : toutes les requêtes passent par NoPrivateNetworkHttpClient, qui refuse
  * les adresses de BLOCKED_SUBNETS (privées, locales, link-local, CGNAT, documentation,
  * multicast, réservées ; IPv4 et IPv6), y compris après résolution DNS et à chaque redirection. Seuls http et https sont acceptés, sans identifiants
- * dans l'URL. Taille plafonnée pendant le téléchargement (pas seulement via Content-Length).
+ * dans l'URL, sur le port du schéma ou les ports 80 / 443 (lien ET redirections, voir checkedParts()). Taille plafonnée
+ * pendant le téléchargement (pas seulement via Content-Length). Le contrôleur affiche le même message pour un site
+ * injoignable, une erreur HTTP et un port refusé (pas de sonde de ports ni de serveurs par ce formulaire).
  */
 final class RemoteGpxFetcher
 {
@@ -22,6 +24,8 @@ final class RemoteGpxFetcher
     private const TIMEOUT_S = 10;
     private const MAX_DURATION_S = 30;
     private const MAX_REDIRECTS = 3;
+    /** Ports acceptés quand le lien en précise un (sinon : port du schéma, 80 ou 443). */
+    public const ALLOWED_PORTS = [80, 443];
 
     /**
      * Plages refusées. Avec une liste explicite, NoPrivateNetworkHttpClient n'ajoute plus le
@@ -64,14 +68,8 @@ final class RemoteGpxFetcher
             throw new RemoteGpxException('Invalid URL.', RemoteGpxException::INVALID_URL);
         }
 
-        $parts = parse_url($url);
-        $scheme = strtolower($parts['scheme'] ?? '');
-        if (!is_array($parts) || !in_array($scheme, ['http', 'https'], true) || empty($parts['host'])
-            || isset($parts['user']) || isset($parts['pass'])) {
-            throw new RemoteGpxException('Invalid URL.', RemoteGpxException::INVALID_URL);
-        }
-
-        $host = strtolower($parts['host']);
+        $parts = self::checkedParts($url);
+        $host  = strtolower($parts['host']);
         $path = $parts['path'] ?? '';
 
         if ($host === 'www.dropbox.com' || $host === 'dropbox.com') {
@@ -94,25 +92,75 @@ final class RemoteGpxFetcher
     }
 
     /**
+     * Schéma http(s), hôte présent, sans identifiants, port absent (port du schéma) ou 80 / 443 : le lien ne doit
+     * pas servir à joindre un autre service (base de données, administration) ni à sonder des ports.
+     *
+     * @return array{scheme: string, host: string, path?: string, query?: string}
+     *
+     * @throws RemoteGpxException INVALID_URL, PORT_NOT_ALLOWED
+     */
+    private static function checkedParts(string $url): array
+    {
+        $parts  = parse_url($url);
+        $scheme = \is_array($parts) ? strtolower($parts['scheme'] ?? '') : '';
+        if (!\is_array($parts) || !\in_array($scheme, ['http', 'https'], true) || empty($parts['host'])
+            || isset($parts['user']) || isset($parts['pass'])) {
+            throw new RemoteGpxException('Invalid URL.', RemoteGpxException::INVALID_URL);
+        }
+        if (isset($parts['port']) && !\in_array($parts['port'], self::ALLOWED_PORTS, true)) {
+            throw new RemoteGpxException('Port not allowed.', RemoteGpxException::PORT_NOT_ALLOWED);
+        }
+
+        $out = ['scheme' => $scheme, 'host' => $parts['host']];
+        if (isset($parts['path'])) {
+            $out['path'] = $parts['path'];
+        }
+        if (isset($parts['query'])) {
+            $out['query'] = $parts['query'];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Redirections suivies une à une (au plus MAX_REDIRECTS) : chaque cible est revérifiée (schéma, identifiants,
+     * port) puis passe à nouveau par NoPrivateNetworkHttpClient (adresse privée refusée). Durée totale bornée par
+     * MAX_DURATION_S, redirections comprises.
+     *
      * @throws RemoteGpxException
      */
     public function fetch(string $url): RemoteGpx
     {
-        $url = $this->normalizeUrl($url);
+        $url      = $this->normalizeUrl($url);
+        $deadline = microtime(true) + self::MAX_DURATION_S;
 
         try {
-            $response = $this->client->request('GET', $url, [
-                'timeout'       => self::TIMEOUT_S,
-                'max_duration'  => self::MAX_DURATION_S,
-                'max_redirects' => self::MAX_REDIRECTS,
-                'buffer'        => false,
-                'headers'       => [
-                    'User-Agent' => 'SportPartner-GPX-Import/1.0',
-                    'Accept'     => 'application/gpx+xml, application/xml, text/xml;q=0.9, */*;q=0.5',
-                ],
-            ]);
+            $current = $url;
+            for ($hop = 0; ; ++$hop) {
+                $response = $this->client->request('GET', $current, [
+                    'timeout'       => self::TIMEOUT_S,
+                    'max_duration'  => max(1.0, $deadline - microtime(true)),
+                    'max_redirects' => 0,
+                    'buffer'        => false,
+                    'headers'       => [
+                        'User-Agent' => 'SportPartner-GPX-Import/1.0',
+                        'Accept'     => 'application/gpx+xml, application/xml, text/xml;q=0.9, */*;q=0.5',
+                    ],
+                ]);
 
-            $status = $response->getStatusCode();
+                $status = $response->getStatusCode();
+                if ($status < 300 || $status >= 400) {
+                    break;
+                }
+                $next = $response->getInfo('redirect_url');
+                $response->cancel();
+                if (!\is_string($next) || '' === $next || $hop >= self::MAX_REDIRECTS || \strlen($next) > self::MAX_URL_LENGTH) {
+                    throw new RemoteGpxException(sprintf('HTTP %d without a usable redirection.', $status), RemoteGpxException::HTTP_ERROR);
+                }
+                self::checkedParts($next);
+                $current = $next;
+            }
+
             if ($status !== 200) {
                 $response->cancel();
                 throw new RemoteGpxException(sprintf('HTTP %d.', $status), RemoteGpxException::HTTP_ERROR);

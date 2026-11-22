@@ -9,8 +9,9 @@ security:
                 property: email
 
     firewalls:
+        # Profileur et barre de debug (dev) seulement : tout le reste passe par le pare-feu principal
         dev:
-            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            pattern: ^/(_profiler|_wdt)/
             security: false
 
         main:
@@ -21,9 +22,15 @@ security:
                 check_path: app_login
                 enable_csrf: true
                 default_target_path: app_dashboard
+            # Un seul compteur par adresse e-mail + IP, sans compteur global par IP (IP du proxy possible en
+            # production) : App\Security\LoginRateLimiter, limiteur « login » de rate_limiter.yaml
+            login_throttling:
+                limiter: App\Security\LoginRateLimiter
+            # Lien du menu du compte : logout_path() ajoute le jeton ; GET /logout sans jeton ne déconnecte pas
             logout:
                 path: app_logout
                 target: app_login
+                enable_csrf: true
             remember_me:
                 secret: '%kernel.secret%'
                 lifetime: 604800
@@ -34,6 +41,8 @@ security:
         - { path: ^/reset-password, roles: PUBLIC_ACCESS }
         - { path: ^/webhooks, roles: PUBLIC_ACCESS }
         - { path: ^/oauth, roles: PUBLIC_ACCESS }
+        # Choix de la langue : aussi sur /login et /register (LocaleController ne renvoie que vers ce site)
+        - { path: ^/switch-locale/, roles: PUBLIC_ACCESS }
         # Plan de course partagé (/p/{token}, /p/{token}/calendar.ics) : public, accès par le seul jeton
         - { path: ^/p/, roles: PUBLIC_ACCESS }
         - { path: ^/, roles: ROLE_USER }

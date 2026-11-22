@@ -5,6 +5,7 @@ namespace App\Controller\Settings;
 use App\Entity\User;
 use App\Entity\UserAvatar;
 use App\Repository\UserAvatarRepository;
+use App\Security\RateLimitRetry;
 use App\Service\User\AvatarException;
 use App\Service\User\AvatarProcessor;
 use App\Service\User\ProcessedAvatar;
@@ -17,6 +18,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\EventListener\AbstractSessionListener;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -26,7 +28,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * Photo de profil (Paramètres > Profil) : envoi d'une image, reprise de la photo Strava et
  * suppression, en POST + CSRF ('avatar') avec retour sur l'onglet Profil ; affichage de la photo
  * de l'utilisateur connecté. L'image est stockée en base (UserAvatar) et User::avatarUpdatedAt
- * sert de version dans son URL (user_avatar_url() côté Twig, sans requête).
+ * sert de version dans son URL (user_avatar_url() côté Twig, sans requête). Envoi et reprise Strava : 10 par
+ * 10 minutes et par utilisateur, ensemble (limiteur « avatar ») ; la suppression n'est pas limitée.
  */
 #[Route('/settings/avatar', name: 'app_avatar_')]
 #[IsGranted('ROLE_USER')]
@@ -53,13 +56,13 @@ final class AvatarController extends AbstractController
     }
 
     #[Route('', name: 'upload', methods: ['POST'])]
-    public function upload(Request $request, AvatarProcessor $processor, #[CurrentUser] User $user): Response
+    public function upload(Request $request, AvatarProcessor $processor, RateLimiterFactoryInterface $avatarLimiter, #[CurrentUser] User $user): Response
     {
         // POST plus gros que post_max_size : PHP vide $_POST et $_FILES (le jeton CSRF est donc absent)
         if ($request->request->count() === 0 && $request->files->count() === 0 && (int) $request->server->get('CONTENT_LENGTH', 0) > 0) {
             return $this->tooLarge();
         }
-        if (!$this->csrfOk($request)) {
+        if (!$this->csrfOk($request) || !$this->limitOk($avatarLimiter, $user)) {
             return $this->back();
         }
 
@@ -96,9 +99,9 @@ final class AvatarController extends AbstractController
 
     /** Reprend la photo du profil Strava (voir StravaAvatarFetcher). Aucune erreur Strava ne donne une page d'erreur. */
     #[Route('/strava', name: 'strava', methods: ['POST'])]
-    public function fromStrava(Request $request, StravaAvatarFetcher $fetcher, LoggerInterface $logger, #[CurrentUser] User $user): Response
+    public function fromStrava(Request $request, StravaAvatarFetcher $fetcher, LoggerInterface $logger, RateLimiterFactoryInterface $avatarLimiter, #[CurrentUser] User $user): Response
     {
-        if (!$this->csrfOk($request)) {
+        if (!$this->csrfOk($request) || !$this->limitOk($avatarLimiter, $user)) {
             return $this->back();
         }
 
@@ -210,6 +213,18 @@ final class AvatarController extends AbstractController
             return true;
         }
         $this->addFlash('error', 'avatar.error.csrf');
+
+        return false;
+    }
+
+    /** Envoi ou reprise Strava : 10 par 10 minutes et par utilisateur (limiteur « avatar »), sinon message. */
+    private function limitOk(RateLimiterFactoryInterface $avatarLimiter, User $user): bool
+    {
+        $limit = $avatarLimiter->create('user-'.$user->getId())->consume();
+        if ($limit->isAccepted()) {
+            return true;
+        }
+        $this->addFlash('error', $this->translator->trans('avatar.error.rate_limited', ['%minutes%' => RateLimitRetry::minutes($limit)]));
 
         return false;
     }

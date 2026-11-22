@@ -208,9 +208,9 @@
                                     </span>
                                 {% endif %}
 
-                                {# Site web #}
-                                {% if race.website %}
-                                    <a href="{{ race.website }}" target="_blank" rel="noopener" class="sp-race-meta-item sp-race-website">
+                                {# Site web : lien seulement pour une adresse http(s) (Race::getLinkableWebsite()) #}
+                                {% if race.linkableWebsite %}
+                                    <a href="{{ race.linkableWebsite }}" target="_blank" rel="noopener noreferrer" class="sp-race-meta-item sp-race-website">
                                         <i class="bi bi-box-arrow-up-right"></i> {{ 'races.website_label'|trans }}
                                     </a>
                                 {% endif %}
@@ -230,7 +230,7 @@
                             </a>
                             {{ _self.edit_button(race, racesData, '') }}
                             <form method="post" action="{{ path('app_races_delete', {id: race.id}) }}" class="sp-race-delete-form"
-                                  onsubmit="return confirm('{{ 'races.confirm_delete'|trans|e('js') }}')">
+                                  data-confirm="{{ 'races.confirm_delete'|trans }}">
                                 <input type="hidden" name="_token" value="{{ csrf_token('race_action') }}">
                                 <button type="submit" class="sp-race-delete-btn" title="{{ 'races.delete'|trans }}">
                                     <i class="bi bi-trash3"></i>
@@ -413,7 +413,7 @@
 
 </style>
 
-<script type="module">
+<script type="module" nonce="{{ csp_nonce() }}">
 // Vue calendrier : un clic sur une course ouvre sa page (et non plus la modale d'édition)
 document.addEventListener('race-calendar:select', (e) => {
     if (e.detail && e.detail.url) window.location.href = e.detail.url;

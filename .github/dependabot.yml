@@ -1,0 +1,16 @@
+# Mises à jour proposées en pull request (jamais fusionnées seules) : dépendances PHP et actions GitHub, chaque semaine.
+# Les PR de Dependabot passent par le job "checks" du workflow (sans secrets, sans déploiement).
+# Les paquets JS d'AssetMapper (importmap.php) ne sont pas couverts : "php bin/console importmap:outdated" et
+# "importmap:audit" les vérifient.
+version: 2
+updates:
+  - package-ecosystem: composer
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

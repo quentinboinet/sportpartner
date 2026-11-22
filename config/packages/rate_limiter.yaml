@@ -1,0 +1,40 @@
+# Limiteurs de débit (symfony/rate-limiter). Stockage : pool de cache par défaut (cache.rate_limiter, enfant de
+# cache.app), sans verrou (symfony/lock absent). Clés : par utilisateur ("user-<id>") sauf l'inscription (IP) et la
+# connexion (e-mail + IP, App\Security\LoginRateLimiter). Voir CLAUDE.md, « Limiteurs de débit ».
+framework:
+    rate_limiter:
+        # Connexion (security.yaml, login_throttling) : un seul compteur par adresse e-mail + IP, jamais par IP seule
+        login:
+            policy: sliding_window
+            limit: 5
+            interval: '15 minutes'
+        # Inscription, par IP : large, car l'IP vue en production peut être celle du proxy (partagée)
+        registration:
+            policy: sliding_window
+            limit: 10
+            interval: '1 hour'
+        # Synchro Strava (/strava/sync), par utilisateur : une toutes les 5 minutes
+        strava_sync:
+            policy: fixed_window
+            limit: 1
+            interval: '5 minutes'
+        # Import du matériel Strava (Paramètres > Matériel), par utilisateur
+        strava_gear_import:
+            policy: fixed_window
+            limit: 1
+            interval: '10 minutes'
+        # Suppression du compte (essais de mot de passe), par utilisateur
+        account_delete:
+            policy: sliding_window
+            limit: 5
+            interval: '15 minutes'
+        # Import d'un parcours GPX (fichier ou lien), par utilisateur
+        gpx_import:
+            policy: sliding_window
+            limit: 10
+            interval: '10 minutes'
+        # Photo de profil (envoi ou reprise de la photo Strava), par utilisateur
+        avatar:
+            policy: sliding_window
+            limit: 10
+            interval: '10 minutes'

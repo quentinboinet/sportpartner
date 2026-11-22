@@ -137,7 +137,7 @@ class CalendarController extends AbstractController
                 'elevationGain' => $race->getElevationGain(),
                 // Vue rapide (modale)
                 'location'      => $race->getLocation(),
-                'website'       => $race->getWebsite(),   // déjà restreint à http(s) à l'enregistrement
+                'website'       => $race->getLinkableWebsite(),   // http(s) seulement, null sinon
                 'notes'         => $race->getNotes(),
                 'isDone'        => $race->isDone(),
                 'countdown'     => match (true) {

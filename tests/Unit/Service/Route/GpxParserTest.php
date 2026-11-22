@@ -283,6 +283,94 @@ final class GpxParserTest extends TestCase
         $this->assertLessThanOrEqual(4, $short);
     }
 
+    public function testElementBombIsRefusedQuicklyBeforeBuildingTheDom(): void
+    {
+        // 3 millions d'éléments vides (12 Mo, sous MAX_BYTES) : libxml construirait des centaines de Mo hors memory_limit
+        $xml = '<?xml version="1.0"?><gpx>'.str_repeat('<a/>', 3_000_000).'</gpx>';
+        $this->assertLessThan(GpxParser::MAX_BYTES, \strlen($xml));
+
+        $start = microtime(true);
+        try {
+            $this->parser->parse($xml);
+            $this->fail('InvalidGpxException expected');
+        } catch (InvalidGpxException $e) {
+            $this->assertSame(InvalidGpxException::TOO_LARGE, $e->getCode());
+            $this->assertStringContainsString('too many elements', $e->getMessage());
+        }
+        $this->assertLessThan(1.0, microtime(true) - $start, 'refused by counting, not by parsing');
+    }
+
+    public function testTagLimitLeavesRoomForAFullGarminTrackOfMaxPoints(): void
+    {
+        // Point Garmin complet : altitude, heure, extensions FC et cadence
+        $garmin = '<trkpt lat="45.9044966" lon="6.1300000"><ele>500.0</ele><time>2026-05-10T07:30:00Z</time>'
+            .'<extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>142</gpxtpx:hr><gpxtpx:cad>84</gpxtpx:cad>'
+            .'</gpxtpx:TrackPointExtension></extensions></trkpt>';
+        $perPoint = substr_count($garmin, '<');
+        $this->assertSame(14, $perPoint);
+        $this->assertGreaterThanOrEqual(12 * GpxParser::MAX_RAW_POINTS, GpxParser::MAX_TAGS);
+        // Le plus dense des GPX réels (sans heure ni extensions) dans MAX_BYTES reste sous la limite
+        $minimal = '<trkpt lat="45.904497" lon="6.130000"><ele>500</ele></trkpt>';
+        $this->assertLessThan(GpxParser::MAX_TAGS, intdiv(GpxParser::MAX_BYTES, \strlen($minimal)) * substr_count($minimal, '<'));
+
+        // Juste sous la limite : le comptage ne refuse pas (le fichier est ensuite lu normalement)
+        $pts = ['<trkpt lat="45" lon="6"/>', '<trkpt lat="45.01" lon="6"/>'];
+        $comments = str_repeat('<!---->', 1000);
+        $route = $this->parser->parse($this->gpx11($pts, $comments));
+        $this->assertSame(1112, $route->distanceM);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function nonAsciiCompatibleEncodings(): iterable
+    {
+        $pts = '<trkpt lat="45" lon="6"/><trkpt lat="45.01" lon="6"/>';
+        $xxe = '<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE gpx [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>'
+            .'<gpx><metadata><name>&xxe;</name></metadata><trk><trkseg>'.$pts.'</trkseg></trk></gpx>';
+        $plain = '<?xml version="1.0" encoding="UTF-16"?><gpx><trk><trkseg>'.$pts.'</trkseg></trk></gpx>';
+
+        // UTF-16 : « <!DOCTYPE » s'écrit « <\0!\0D\0... », invisible pour une recherche d'octets
+        yield 'UTF-16LE with BOM, DOCTYPE + ENTITY' => ["\xFF\xFE".(string) mb_convert_encoding($xxe, 'UTF-16LE', 'UTF-8')];
+        yield 'UTF-16BE with BOM, DOCTYPE + ENTITY' => ["\xFE\xFF".(string) mb_convert_encoding($xxe, 'UTF-16BE', 'UTF-8')];
+        yield 'UTF-16LE without BOM, DOCTYPE + ENTITY' => [(string) mb_convert_encoding($xxe, 'UTF-16LE', 'UTF-8')];
+        yield 'UTF-16LE without DOCTYPE' => ["\xFF\xFE".(string) mb_convert_encoding($plain, 'UTF-16LE', 'UTF-8')];
+        yield 'UTF-32LE' => ["\xFF\xFE\x00\x00".(string) mb_convert_encoding($plain, 'UTF-32LE', 'UTF-8')];
+        // Déclaré UTF-16 mais écrit en octets simples
+        yield 'declared UTF-16' => [$plain];
+        yield 'declared UCS-4' => [str_replace('UTF-16', 'UCS-4', $plain)];
+        yield 'NUL byte' => ['<?xml version="1.0"?><gpx><trk><trkseg>'.$pts."\0".'</trkseg></trk></gpx>'];
+        yield 'not starting with <' => ['xx<?xml version="1.0"?><gpx><trk><trkseg>'.$pts.'</trkseg></trk></gpx>'];
+    }
+
+    #[DataProvider('nonAsciiCompatibleEncodings')]
+    public function testOnlyAsciiCompatibleEncodingsAreParsed(string $xml): void
+    {
+        // Refusé AVANT libxml, par le contrôle d'encodage (pas seulement par le contrôle du DOCTYPE après parsing)
+        $this->expectException(InvalidGpxException::class);
+        $this->expectExceptionMessage('ASCII-compatible encoding');
+        $this->parser->parse($xml);
+    }
+
+    public function testAsciiCompatibleDeclaredEncodingsStillParse(): void
+    {
+        $pts = '<trkpt lat="45" lon="6"/><trkpt lat="45.01" lon="6"/>';
+        foreach (['UTF-8', 'utf-8', 'ISO-8859-1', 'windows-1252', 'US-ASCII'] as $encoding) {
+            $xml = "\xEF\xBB\xBF".'<?xml version="1.0" encoding="'.$encoding.'"?><gpx><trk><name>Trace</name><trkseg>'.$pts.'</trkseg></trk></gpx>';
+            if ('UTF-8' !== strtoupper($encoding)) {
+                $xml = substr($xml, 3); // pas de BOM UTF-8 pour un autre encodage
+            }
+            $this->assertSame(1112, $this->parser->parse($xml)->distanceM, $encoding);
+        }
+        // Latin-1 : « Crêt » lu correctement
+        $latin1 = '<?xml version="1.0" encoding="ISO-8859-1"?><gpx><trk><name>Cr'."\xEA".'t</name><trkseg>'.$pts.'</trkseg></trk></gpx>';
+        $this->assertSame('Crêt', $this->parser->parse($latin1)->name);
+    }
+
+    public function testExistingFixturesStillParse(): void
+    {
+        $this->assertGreaterThan(0, $this->parser->parse($this->fixture('trail_loop.gpx'))->distanceM);
+        $this->assertGreaterThan(0, $this->parser->parse($this->fixture('route_gpx10.gpx'))->distanceM);
+    }
+
     public function testLongTrackIsCappedAroundFiveThousandPoints(): void
     {
         // 100 km à 1 point / 8 m sur le plat : pas = 100000/5000 = 20 m

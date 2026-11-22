@@ -1,8 +1,13 @@
 /.env
 /.env.local
+/.env.local.php
 /.env.*.local
+/.env.prod
+/.env.dev
 /config/secrets/prod/prod.decrypt.private.php
 /public/bundles/
+# asset-map:compile (prod)
+/public/assets/
 /var/
 /vendor/
 /node_modules/

@@ -234,6 +234,21 @@ strava:
     connect_title: Connect your Strava account
     connect_sub: Sync your activities automatically
     connect_btn: Connect Strava
+    # OAuth connection and sync (StravaController)
+    flash_state_invalid: "Strava connection refused: the return link is not valid or has already been used. Start the connection again from SportPartner."
+    flash_cancelled: "Strava connection cancelled."
+    flash_code_missing: "Strava did not return an authorization code. Start the connection again."
+    flash_connect_failed: "The Strava connection failed. Try again in a moment."
+    flash_athlete_taken: "This Strava account is already linked to another SportPartner account: it cannot be linked twice."
+    flash_connected: "Strava connected!"
+    scope_missing_private: "You did not allow access to your private activities: only your visible activities will be synced. To import everything, reconnect Strava and tick this permission."
+    scope_missing_activities: "You did not allow access to your activities: the sync cannot import anything. Reconnect Strava and tick the activity access."
+    scope_missing_profile: "You did not allow access to your full profile: the gear import (Settings > Gear) will only find gear already used in an activity."
+    flash_csrf: "The page has expired: reload it and start the sync again."
+    flash_not_connected: "No Strava account connected."
+    flash_sync_cooldown: "Sync already done a moment ago: try again in %minutes% min."
+    flash_sync_failed: "Error during the Strava sync. Try again later."
+    flash_synced: "{0} Strava sync done: no new activity.|{1} Strava sync done: 1 new activity.|]1,Inf[ Strava sync done: %count% new activities."
 
 # ── Sports (reference table) ─────────────────
 sport:
@@ -791,6 +806,7 @@ avatar:
         upload: "The upload failed, please try again."
         empty: "This file is empty."
         too_large: "Image too large: %size% MB max."
+        rate_limited: "Too many photo changes in a short time: try again in %minutes% min."
         type: "Unsupported format: choose a JPEG, PNG, WebP or GIF image."
         heic: "HEIC format (iPhone) is not supported: save the photo as JPEG and try again."
         animated: "Animated images are not accepted: choose a still image."
@@ -831,6 +847,7 @@ account:
     error_confirm: "Tick \"I understand this is permanent\" to confirm. Nothing was deleted."
     error_password: "Wrong password. Nothing was deleted."
     error_failed: "The deletion failed, your account is intact. Please try again in a moment."
+    error_rate_limited: "Too many attempts: try again in %minutes% min. Nothing was deleted."
     flash_deleted: "Your account has been deleted."
     flash_strava_failed: "SportPartner could not remove its access to your Strava account: you can do it on Strava, in Settings > My Apps."
 
@@ -912,6 +929,7 @@ gear:
     flash_invalid_type: Invalid gear type.
     flash_brand_required: "Choose a brand that matches this type of gear."
     flash_model_required: The model is required.
+    flash_text_invalid: "Invalid or too long text: model 120 characters, nickname 60, notes 2000 at most."
     flash_csrf: "Session expired, please try again."
     flash_incompatible: "This gear cannot be linked to this activity."
     flash_activity_updated: Activity gear saved.
@@ -944,6 +962,7 @@ gear:
     import_skipped: "{1} 1 gear item could not be read from Strava and was skipped.|]1,Inf[ %count% gear items could not be read from Strava and were skipped."
     import_truncated: "Very long history: only your %count% most recent Strava activities were analysed."
     import_scope_hint: "Tip: reconnect Strava to also import gear you have never used in an activity."
+    import_cooldown: "Import already started a moment ago: try again in %minutes% min."
     import_error_not_connected: "Connect your Strava account first to import your gear."
     import_error_auth: 'Strava denied access to your gear. Reconnect your Strava account ("Reconnect Strava") and run the import again.'
     import_error_rate_limit: "Strava request limit reached. Please try again in 15 minutes."
@@ -983,11 +1002,24 @@ auth:
         last_name_placeholder: Doe
         email: Email
         email_placeholder: "you@example.com"
-        password: "Password (8 characters min.)"
+        password: "Password"
         password_placeholder: "••••••••"
+        password_help: "At least %min% characters, different from your email address."
         submit: Create my account
         have_account: Already have an account?
         login_link: Sign in
+        flash_created: "Account created! You can now sign in."
+        error_csrf: "The page has expired: reload it and try again."
+        error_rate_limited: "Too many sign-ups from this connection: try again in %minutes% min."
+        error_email_required: "The email address is required."
+        error_email_too_long: "Invalid or too long email address (180 characters max)."
+        error_email_invalid: "Invalid email address."
+        error_email_taken: "This email address is already in use. Sign in or choose another address."
+        error_first_name: "Invalid or too long first name (100 characters max)."
+        error_last_name: "Invalid or too long last name (100 characters max)."
+        error_password_too_short: "Password too short: at least 10 characters."
+        error_password_too_long: "Password too long (4096 bytes max)."
+        error_password_is_email: "The password must not be your email address."
 
 # ── Race wishlist ─────────────────────────────────────────────────────────────
 races:
@@ -1042,6 +1074,11 @@ races:
     flash_added: "Race added successfully."
     flash_deleted: "Race deleted."
     flash_name_required: "Race name is required."
+    flash_text_invalid: "Invalid or too long text: name and location 200 characters, notes 5000 at most. Nothing was saved."
+    flash_website_invalid: "Invalid website: paste an address starting with http:// or https:// (500 characters at most). Nothing was saved."
+    flash_distance_invalid: "Invalid distance: a number between 0 and 1000 km. Nothing was saved."
+    flash_elevation_invalid: "Invalid elevation gain: a whole number between 0 and 20,000 m. Nothing was saved."
+    flash_date_invalid: "Invalid date. Nothing was saved."
     flash_csrf: "Your session expired, please try again."
     plan_link: Race plan
 
@@ -1193,10 +1230,10 @@ race_plan:
     flash_gpx_invalid: "Invalid or unreadable GPX file."
     flash_gpx_too_large: "File too large (15 MB max)."
     flash_gpx_missing: "Choose a GPX file to import."
+    flash_gpx_rate_limited: "Too many route imports in a short time: try again in %minutes% min."
     flash_url_invalid: "Invalid link: paste a full address starting with http:// or https://."
     flash_url_blocked: "This link points to an internal or private address and cannot be imported."
-    flash_url_unreachable: "Could not download the file (site unreachable or too slow). Try again later."
-    flash_url_http_error: "The site refused the download (page not found or protected access)."
+    flash_url_unreachable: "Could not download the file: site unreachable or too slow, download refused (page not found, protected access) or non-standard port (only 80 and 443 are accepted). Check the link, or download the GPX and import the file."
     flash_url_not_gpx: "This link leads to a web page, not a GPX file. Copy the link of the GPX download button."
     url_or: or from a link
     url_label: Link to the GPX file

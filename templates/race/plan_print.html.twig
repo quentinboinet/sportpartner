@@ -39,7 +39,8 @@
 {% set _fr = app.request.locale == 'fr' %}
 {% set _dec = _fr ? ',' : '.' %}
 {% set _th = _fr ? ' ' : ',' %}
-{% set _format = app.request.query.get('format') == 'band' ? 'band' : 'sheet' %}
+{# Format lu par le contrôleur (RaceScenarioController::print), pas dans la requête ici : ?format[]=x donnerait une erreur 500 #}
+{% set _format = format == 'band' ? 'band' : 'sheet' %}
 {% set _hasRoute = route is not null %}
 {% set _planUrl = path('app_race_plan', {id: race.id, _fragment: scenario ? 'scenario-' ~ scenario.id : 'scenarios'}) %}
 {% set _raceDate = race.raceDate ? race.raceDate|date('d/m/Y') : race.year %}
@@ -52,7 +53,7 @@
     <title>{{ scenario
         ? 'race_print.page_title'|trans({'%race%': race.name, '%scenario%': scenario.name})
         : 'race_print.page_title_empty'|trans({'%race%': race.name}) }}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/font/bootstrap-icons.min.css') }}">
     <style>
         :root {
             --sp-orange: #E8400C;
@@ -671,7 +672,7 @@
 {% endif %}
 </main>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     (function () {
         var body = document.body;
         function setFormat(format) {

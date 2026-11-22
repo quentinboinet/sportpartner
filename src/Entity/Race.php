@@ -2,6 +2,7 @@
 namespace App\Entity;
 
 use App\Repository\RaceRepository;
+use App\Service\Race\RaceInput;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -94,6 +95,15 @@ class Race
 
     public function getWebsite(): ?string { return $this->website; }
     public function setWebsite(?string $w): static { $this->website = $w; return $this; }
+
+    /**
+     * Site à rendre en lien : seulement une adresse http(s) (RaceInput::isLinkable()), null sinon. Les templates
+     * passent par ici, jamais par getWebsite(), pour un href : une ancienne valeur « javascript: » n'est pas un lien.
+     */
+    public function getLinkableWebsite(): ?string
+    {
+        return RaceInput::isLinkable($this->website) ? $this->website : null;
+    }
 
     public function isDone(): bool { return $this->isDone; }
     public function setIsDone(bool $d): static { $this->isDone = $d; return $this; }

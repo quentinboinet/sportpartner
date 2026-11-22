@@ -173,7 +173,7 @@
             </select>
             <button type="submit" class="sp-act-gear-submit" data-gear-submit>{{ 'gear.activity_submit'|trans }}</button>
         </form>
-        <script type="module">
+        <script type="module" nonce="{{ csp_nonce() }}">
             // Enregistrement au changement ; le bouton reste le repli sans JavaScript
             document.querySelectorAll('form[data-gear-autosubmit]').forEach((form) => {
                 form.querySelector('[data-gear-submit]').hidden = true;

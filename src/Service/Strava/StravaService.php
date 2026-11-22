@@ -27,6 +27,39 @@ class StravaService
      */
     public const SCOPE = 'read,activity:read_all,profile:read_all';
 
+    /**
+     * Autorisations de SCOPE absentes de celles accordées (paramètre `scope` du retour OAuth, séparé par des
+     * virgules) : l'utilisateur peut décocher des cases sur l'écran de Strava. Sans activity:read_all, seules les
+     * activités visibles sont synchronisées (activity:read) ou aucune ; sans profile:read_all, l'import du
+     * matériel ne trouve que le matériel déjà utilisé dans une activité.
+     *
+     * @return list<string>
+     */
+    public static function missingScopes(string $granted): array
+    {
+        return array_values(array_diff(explode(',', self::SCOPE), self::grantedScopes($granted)));
+    }
+
+    /** Lecture des activités accordée (toutes ou seulement les visibles) : la synchro peut importer quelque chose. */
+    public static function grantsActivities(string $granted): bool
+    {
+        return [] !== array_intersect(['activity:read', 'activity:read_all'], self::grantedScopes($granted));
+    }
+
+    /** @return list<string> */
+    private static function grantedScopes(string $granted): array
+    {
+        return array_values(array_filter(array_map('trim', explode(',', strtolower($granted))), static fn (string $s): bool => '' !== $s));
+    }
+
+    /** Identifiant de l'athlète Strava dans la réponse du jeton, null s'il est absent ou invalide. */
+    public static function athleteId(mixed $tokenData): ?int
+    {
+        $id = \is_array($tokenData) && \is_array($tokenData['athlete'] ?? null) ? ($tokenData['athlete']['id'] ?? null) : null;
+
+        return \is_int($id) && $id > 0 ? $id : null;
+    }
+
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly EntityManagerInterface $em,
@@ -94,7 +127,7 @@ class StravaService
     /** @param array<string, mixed> $tokenData */
     public function connectUser(User $user, array $tokenData): void
     {
-        $user->setStravaAthleteId($tokenData['athlete']['id'] ?? null);
+        $user->setStravaAthleteId(self::athleteId($tokenData));
         $user->setStravaAccessToken($tokenData['access_token']);
         $user->setStravaRefreshToken($tokenData['refresh_token']);
         $user->setStravaTokenExpiresAt(new \DateTimeImmutable('@'.$tokenData['expires_at']));

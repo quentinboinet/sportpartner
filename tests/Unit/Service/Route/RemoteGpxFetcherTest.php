@@ -70,7 +70,7 @@ class RemoteGpxFetcherTest extends TestCase
     public static function privateUrls(): iterable
     {
         yield 'loopback' => ['http://127.0.0.1/trace.gpx'];
-        yield 'loopback port' => ['http://127.0.0.1:8080/trace.gpx'];
+        yield 'loopback port 80' => ['http://127.0.0.1:80/trace.gpx'];
         yield 'private 10/8' => ['http://10.1.2.3/trace.gpx'];
         yield 'private 192.168' => ['http://192.168.1.10/trace.gpx'];
         yield 'private 172.16' => ['http://172.16.5.5/trace.gpx'];
@@ -221,6 +221,91 @@ class RemoteGpxFetcherTest extends TestCase
         })();
         $fetcher = $this->fetcher(new MockResponse($chunks), 1000);
         $this->assertFails(RemoteGpxException::TOO_LARGE, fn () => $fetcher->fetch('https://93.184.215.14/stream.gpx'));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function nonStandardPorts(): iterable
+    {
+        yield 'http 8080' => ['http://93.184.215.14:8080/trace.gpx'];
+        yield 'https 8443' => ['https://93.184.215.14:8443/trace.gpx'];
+        yield 'ssh' => ['http://93.184.215.14:22/'];
+        yield 'mysql' => ['http://93.184.215.14:3306/'];
+        yield 'redis on loopback' => ['http://127.0.0.1:6379/'];
+        yield 'port 0' => ['http://93.184.215.14:0/trace.gpx'];
+        yield 'dropbox with port' => ['https://www.dropbox.com:8443/s/abc/trace.gpx?dl=0'];
+    }
+
+    #[DataProvider('nonStandardPorts')]
+    public function testNonStandardPortsAreRefusedWithoutRequest(string $url): void
+    {
+        $fetcher = $this->fetcher(new MockResponse(self::GPX));
+        try {
+            $fetcher->fetch($url);
+            $this->fail('RemoteGpxException expected');
+        } catch (RemoteGpxException $e) {
+            // parse_url() refuse lui-même le port 0 (lien invalide) : refusé aussi, sans requête
+            $this->assertContains($e->getCode(), [RemoteGpxException::PORT_NOT_ALLOWED, RemoteGpxException::INVALID_URL], $e->getMessage());
+        }
+        $this->assertSame(0, $this->calls);
+    }
+
+    public function testPortsOfTheSchemesAreAccepted(): void
+    {
+        foreach (['http://93.184.215.14:80/a.gpx', 'https://93.184.215.14:443/a.gpx', 'http://93.184.215.14:443/a.gpx', 'https://93.184.215.14/a.gpx'] as $url) {
+            $fetcher = $this->fetcher(new MockResponse(self::GPX));
+            $this->assertSame(self::GPX, $fetcher->fetch($url)->content, $url);
+            $this->assertSame(1, $this->calls, $url);
+        }
+    }
+
+    public function testRedirectIsFollowedAndChecked(): void
+    {
+        $fetcher = $this->fetcher([
+            new MockResponse('', ['http_code' => 302, 'redirect_url' => 'https://93.184.215.15/files/real.gpx']),
+            new MockResponse(self::GPX),
+        ]);
+        $gpx = $fetcher->fetch('https://93.184.215.14/share/abc');
+        $this->assertSame(self::GPX, $gpx->content);
+        $this->assertSame(2, $this->calls);
+    }
+
+    public function testRedirectToNonStandardPortIsRefused(): void
+    {
+        $fetcher = $this->fetcher([
+            new MockResponse('', ['http_code' => 301, 'redirect_url' => 'http://93.184.215.15:8080/admin']),
+            new MockResponse(self::GPX),
+        ]);
+        $this->assertFails(RemoteGpxException::PORT_NOT_ALLOWED, fn () => $fetcher->fetch('https://93.184.215.14/trace.gpx'));
+        $this->assertSame(1, $this->calls, 'the redirect target is never requested');
+    }
+
+    public function testRedirectToOtherSchemeOrCredentialsIsRefused(): void
+    {
+        foreach (['ftp://93.184.215.15/trace.gpx', 'https://user:pass@93.184.215.15/trace.gpx'] as $target) {
+            $fetcher = $this->fetcher([
+                new MockResponse('', ['http_code' => 302, 'redirect_url' => $target]),
+                new MockResponse(self::GPX),
+            ]);
+            $this->assertFails(RemoteGpxException::INVALID_URL, fn () => $fetcher->fetch('https://93.184.215.14/trace.gpx'));
+            $this->assertSame(1, $this->calls, $target);
+        }
+    }
+
+    public function testTooManyRedirectsIsAnHttpError(): void
+    {
+        $loop = [];
+        for ($i = 0; $i < 6; ++$i) {
+            $loop[] = new MockResponse('', ['http_code' => 302, 'redirect_url' => 'https://93.184.215.14/hop'.$i]);
+        }
+        $fetcher = $this->fetcher($loop);
+        $this->assertFails(RemoteGpxException::HTTP_ERROR, fn () => $fetcher->fetch('https://93.184.215.14/trace.gpx'));
+        $this->assertSame(4, $this->calls, 'first request + 3 redirections');
+    }
+
+    public function testRedirectWithoutLocationIsAnHttpError(): void
+    {
+        $fetcher = $this->fetcher(new MockResponse('', ['http_code' => 302]));
+        $this->assertFails(RemoteGpxException::HTTP_ERROR, fn () => $fetcher->fetch('https://93.184.215.14/trace.gpx'));
     }
 
     public function testNetworkErrorIsUnreachable(): void

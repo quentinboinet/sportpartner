@@ -79,4 +79,11 @@ return [
     'preact/hooks' => [
         'version' => '10.12.1',
     ],
+    // Bootstrap Icons, servi en local (CSS + polices woff2/woff dans assets/vendor/bootstrap-icons/font/) : lié par
+    // <link href="{{ asset('vendor/bootstrap-icons/font/bootstrap-icons.min.css') }}">, jamais importé depuis le JS.
+    // La CSP n'autorise aucune police externe (font-src 'self' data:).
+    'bootstrap-icons/font/bootstrap-icons.min.css' => [
+        'version' => '1.13.2',
+        'type' => 'css',
+    ],
 ];

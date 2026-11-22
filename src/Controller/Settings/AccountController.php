@@ -3,6 +3,7 @@
 namespace App\Controller\Settings;
 
 use App\Entity\User;
+use App\Security\RateLimitRetry;
 use App\Service\Strava\StravaDeauthorizer;
 use App\Service\User\AccountDeleter;
 use Psr\Log\LoggerInterface;
@@ -11,9 +12,11 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Suppression du compte (Paramètres > Compte, zone de danger), droit à l'effacement du RGPD.
@@ -25,7 +28,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * suppression en une transaction (AccountDeleter), déconnexion sans second jeton CSRF (session
  * invalidée, cookie remember-me effacé) et retour sur la page de connexion avec un message.
  *
- * Pas de limitation des essais de mot de passe : symfony/rate-limiter n'est pas installé.
+ * Essais limités : 5 par 15 minutes par utilisateur (limiteur « account_delete », compté après le jeton CSRF et la
+ * case, avant la vérification du mot de passe) ; au-delà, message sur l'onglet Compte, mot de passe non vérifié.
  */
 #[IsGranted('ROLE_USER')]
 final class AccountController extends AbstractController
@@ -40,6 +44,8 @@ final class AccountController extends AbstractController
         AccountDeleter $deleter,
         Security $security,
         LoggerInterface $logger,
+        RateLimiterFactoryInterface $accountDeleteLimiter,
+        TranslatorInterface $translator,
         #[CurrentUser] User $user,
     ): Response {
         if (!$this->isCsrfTokenValid(self::CSRF_ID, (string) $request->request->get('_token', ''))) {
@@ -47,6 +53,12 @@ final class AccountController extends AbstractController
         }
         if ($request->request->get('confirm') !== '1') {
             return $this->fail('account.error_confirm');
+        }
+        $limit = $accountDeleteLimiter->create('user-'.$user->getId())->consume();
+        if (!$limit->isAccepted()) {
+            $logger->notice('Account deletion refused: too many attempts', ['user_id' => $user->getId()]);
+
+            return $this->fail($translator->trans('account.error_rate_limited', ['%minutes%' => RateLimitRetry::minutes($limit)]));
         }
         $password = (string) $request->request->get('password', '');
         if ($password === '' || !$hasher->isPasswordValid($user, $password)) {

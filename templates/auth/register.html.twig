@@ -26,10 +26,10 @@
             <p class="sp-auth-sub">{{ 'auth.register.sub'|trans }}</p>
 
             {% if errors is defined and errors %}
-                <div class="alert alert-danger" style="border-radius:8px;font-size:13px">
+                <div class="alert alert-danger" role="alert" style="border-radius:8px;font-size:13px">
                     <ul class="mb-0 ps-3">
                         {% for error in errors %}
-                            <li>{{ error }}</li>
+                            <li>{{ error|trans }}</li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -41,13 +41,15 @@
                     <div class="sp-field" style="margin-bottom:0">
                         <label for="firstName">{{ 'auth.register.first_name'|trans }}</label>
                         <input type="text" id="firstName" name="firstName"
-                               value="{{ firstName ?? '' }}"
+                               value="{{ firstName ?? '' }}" maxlength="{{ constant('App\\Service\\User\\RegistrationForm::NAME_MAX') }}"
+                               autocomplete="given-name"
                                placeholder="{{ 'auth.register.first_name_placeholder'|trans }}">
                     </div>
                     <div class="sp-field" style="margin-bottom:0">
                         <label for="lastName">{{ 'auth.register.last_name'|trans }}</label>
                         <input type="text" id="lastName" name="lastName"
-                               value="{{ lastName ?? '' }}"
+                               value="{{ lastName ?? '' }}" maxlength="{{ constant('App\\Service\\User\\RegistrationForm::NAME_MAX') }}"
+                               autocomplete="family-name"
                                placeholder="{{ 'auth.register.last_name_placeholder'|trans }}">
                     </div>
                 </div>
@@ -56,7 +58,8 @@
                 <div class="sp-field">
                     <label for="email">{{ 'auth.register.email'|trans }}</label>
                     <input type="email" id="email" name="email"
-                           value="{{ email ?? '' }}"
+                           value="{{ email ?? '' }}" maxlength="{{ constant('App\\Service\\User\\RegistrationForm::EMAIL_MAX') }}"
+                           autocomplete="email"
                            placeholder="{{ 'auth.register.email_placeholder'|trans }}"
                            required>
                 </div>
@@ -65,10 +68,12 @@
                     <label for="password">{{ 'auth.register.password'|trans }}</label>
                     <input type="password" id="password" name="password"
                            placeholder="{{ 'auth.register.password_placeholder'|trans }}"
-                           minlength="8" required>
+                           minlength="{{ constant('App\\Service\\User\\RegistrationForm::PASSWORD_MIN') }}" maxlength="4096"
+                           autocomplete="new-password" aria-describedby="password-help" required>
+                    <div id="password-help" class="sp-field-help">{{ 'auth.register.password_help'|trans({'%min%': constant('App\\Service\\User\\RegistrationForm::PASSWORD_MIN')}) }}</div>
                 </div>
 
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('register') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token(constant('App\\Controller\\Auth\\RegisterController::CSRF_ID')) }}">
 
                 <button type="submit" class="sp-auth-submit">
                     {{ 'auth.register.submit'|trans }}

@@ -21,6 +21,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\RequestContext;
@@ -32,6 +34,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Yaml\Yaml;
 use Symfony\Contracts\HttpClient\ResponseInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Règles de AccountController::delete() avec de vrais AccountDeleter et StravaDeauthorizer branchés sur une
@@ -55,6 +58,8 @@ final class AccountControllerTest extends TestCase
     private array $stravaResponses = [];
 
     private bool $logoutCalled = false;
+
+    private ?InMemoryStorage $limiterStorage = null;
 
     private static function user(bool $strava = false): User
     {
@@ -141,7 +146,13 @@ final class AccountControllerTest extends TestCase
         $controller = new AccountController();
         $controller->setContainer($container);
 
-        return $controller->delete($request, $hasher, $strava, $deleter, $security, new NullLogger(), $user);
+        // Même stockage d'un appel à l'autre dans un test : le compteur d'essais continue
+        $this->limiterStorage ??= new InMemoryStorage();
+        $limiter = new RateLimiterFactory(['id' => 'account_delete', 'policy' => 'sliding_window', 'limit' => 5, 'interval' => '15 minutes'], $this->limiterStorage);
+        $translator = $this->createStub(TranslatorInterface::class);
+        $translator->method('trans')->willReturnCallback(static fn (string $id, array $params = []): string => $id.' '.json_encode($params));
+
+        return $controller->delete($request, $hasher, $strava, $deleter, $security, new NullLogger(), $limiter, $translator, $user);
     }
 
     /** @return array<string, list<string>> */
@@ -206,6 +217,33 @@ final class AccountControllerTest extends TestCase
     {
         $this->assertRefused($this->post(['password' => ''] + self::valid()), 'account.error_password');
         $this->assertSame([], $this->calls);
+    }
+
+    public function testPasswordAttemptsAreLimitedPerUser(): void
+    {
+        for ($i = 0; $i < 5; ++$i) {
+            $this->assertRefused($this->post(['password' => 'wrong-'.$i] + self::valid()), 'account.error_password');
+        }
+
+        // 6e essai dans les 15 minutes : refusé sans vérifier le mot de passe, même le bon
+        $response = $this->post(self::valid());
+        $this->assertInstanceOf(RedirectResponse::class, $response);
+        $this->assertSame(self::BACK, $response->getTargetUrl());
+        $flashes = $this->flashes();
+        $this->assertCount(1, $flashes['error'] ?? []);
+        $this->assertStringStartsWith('account.error_rate_limited {"%minutes%":', $flashes['error'][0]);
+        $this->assertSame([], $this->calls, 'password not checked, nothing deleted');
+        $this->assertFalse($this->logoutCalled);
+    }
+
+    public function testCsrfAndBoxFailuresDoNotUseAttempts(): void
+    {
+        for ($i = 0; $i < 8; ++$i) {
+            $this->assertRefused($this->post(['_token' => 'forged'] + self::valid()), 'account.error_csrf');
+            $this->assertRefused($this->post(['confirm' => 'on'] + self::valid()), 'account.error_confirm');
+        }
+        $this->post(self::valid());
+        $this->assertTrue($this->logoutCalled);
     }
 
     public function testWrongPasswordDoesNotTouchStrava(): void

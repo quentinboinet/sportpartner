@@ -6,11 +6,18 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: the jobs only read the repository (the deploy uses its own SSH secrets).
+permissions:
+  contents: read
+
 # One run per ref at a time. Outdated PR runs are cancelled; runs on main are
 # never cancelled mid-way (migrations, cache...), they queue instead.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Every action is pinned to a full commit SHA (the version is in the comment).
+# Dependabot (.github/dependabot.yml) proposes the updates.
 
 jobs:
   checks:
@@ -19,10 +26,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: '8.3'
           extensions: intl, pdo_mysql, ctype, iconv
@@ -34,7 +41,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer packages
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
@@ -56,6 +63,10 @@ jobs:
 
       - name: Composer install
         run: composer install --no-interaction --prefer-dist
+
+      # Known vulnerabilities (and abandoned packages) in composer.lock fail the build, so nothing vulnerable deploys
+      - name: Composer audit
+        run: composer audit --no-interaction
 
       - name: Warm up dev cache (container XML for PHPStan)
         run: php bin/console cache:warmup --env=dev
@@ -90,17 +101,27 @@ jobs:
 
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
+        env:
+          # The exact commit that passed "checks" (not whatever main is when the deploy starts)
+          DEPLOY_SHA: ${{ github.sha }}
         with:
           host: ${{ secrets.ALWAYSDATA_SSH_HOST }}
           username: ${{ secrets.ALWAYSDATA_SSH_USER }}
           password: ${{ secrets.ALWAYSDATA_SSH_PASSWORD }}
+          # SSH key migration (README, "Déploiement"): with v1.0.3 (drone-ssh 1.7.3, easyssh-proxy 1.5.0) an empty
+          # key is ignored (password still used) and an empty fingerprint skips the host key check, as today.
+          # Once both secrets exist, delete ALWAYSDATA_SSH_PASSWORD: the key alone is then used.
+          key: ${{ secrets.ALWAYSDATA_SSH_KEY }}
+          fingerprint: ${{ secrets.ALWAYSDATA_SSH_FINGERPRINT }}
+          envs: DEPLOY_SHA
           script: |
             set -e
             cd ~/www/sportpartner
 
-            echo "==> Pull"
-            git pull origin main
+            echo "==> Update to $DEPLOY_SHA"
+            git fetch origin main
+            git merge --ff-only "$DEPLOY_SHA"
 
             echo "==> Var directories"
             mkdir -p var/log var/cache

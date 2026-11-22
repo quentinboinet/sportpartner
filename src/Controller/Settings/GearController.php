@@ -7,12 +7,15 @@ use App\Entity\GearType;
 use App\Entity\User;
 use App\Repository\GearBrandRepository;
 use App\Repository\GearRepository;
+use App\Security\RateLimitRetry;
 use App\Service\Gear\StravaGearImporter;
+use App\Service\Input\TextInput;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -21,13 +24,19 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /**
  * Matériel de l'utilisateur (Paramètres > Matériel) : ajout, modification, retraite,
  * suppression, rattachement du matériel par défaut aux activités sans matériel et import Strava.
- * Tout est en POST + CSRF ('gear') et revient sur l'onglet Matériel des paramètres.
+ * Tout est en POST + CSRF ('gear') et revient sur l'onglet Matériel des paramètres. Textes (modèle 120, surnom 60,
+ * notes 2000 caractères) : UTF-8 valide et longueur vérifiés, un texte trop long est refusé (jamais tronqué).
+ * Import Strava : une fois toutes les 10 minutes par utilisateur (limiteur « strava_gear_import »).
  */
 #[Route('/settings/gear', name: 'app_gear_')]
 #[IsGranted('ROLE_USER')]
 class GearController extends AbstractController
 {
     public const CSRF_ID = 'gear';
+
+    public const MODEL_MAX    = 120;
+    public const NICKNAME_MAX = 60;
+    public const NOTES_MAX    = 2000;
 
     /** Bornes de saisie, en km. */
     private const MAX_INITIAL_KM  = 100_000;
@@ -175,6 +184,7 @@ class GearController extends AbstractController
         StravaGearImporter $importer,
         TranslatorInterface $translator,
         LoggerInterface $logger,
+        RateLimiterFactoryInterface $stravaGearImportLimiter,
         #[CurrentUser] User $user,
     ): Response {
         if (!$this->csrfOk($request)) {
@@ -182,6 +192,12 @@ class GearController extends AbstractController
         }
         if (!$user->isStravaConnected() || $user->getStravaAccessToken() === null) {
             $this->addFlash('error', 'gear.import_error_not_connected');
+
+            return $this->back();
+        }
+        $limit = $stravaGearImportLimiter->create('user-'.$user->getId())->consume();
+        if (!$limit->isAccepted()) {
+            $this->addFlash('info', $translator->trans('gear.import_cooldown', ['%minutes%' => RateLimitRetry::minutes($limit)]));
 
             return $this->back();
         }
@@ -240,18 +256,23 @@ class GearController extends AbstractController
             return false;
         }
 
-        $model = mb_substr(trim((string) $in->get('model', '')), 0, 120);
-        if ($model === '') {
+        $post  = $in->all();
+        $model = TextInput::field($post, 'model', self::MODEL_MAX);
+        if ($model === null) {
             $this->addFlash('error', 'gear.flash_model_required');
 
             return false;
         }
+        $nickname = TextInput::field($post, 'nickname', self::NICKNAME_MAX);
+        $notes    = TextInput::field($post, 'notes', self::NOTES_MAX, true);
+        if ($model === false || $nickname === false || $notes === false) {
+            $this->addFlash('error', 'gear.flash_text_invalid');
 
-        $nickname = mb_substr(trim((string) $in->get('nickname', '')), 0, 60);
-        $notes    = mb_substr(trim((string) $in->get('notes', '')), 0, 2000);
+            return false;
+        }
 
         $purchasedAt = null;
-        $rawDate     = trim((string) $in->get('purchased_at', ''));
+        $rawDate     = trim(TextInput::raw($post, 'purchased_at'));
         if ($rawDate !== '') {
             $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $rawDate);
             if ($date !== false && $date->format('Y-m-d') === $rawDate) {
@@ -259,13 +280,13 @@ class GearController extends AbstractController
             }
         }
 
-        $initialKm = $this->parseKm((string) $in->get('initial_km', ''));
-        $maxKm     = $this->parseKm((string) $in->get('max_km', ''));
+        $initialKm = $this->parseKm(TextInput::raw($post, 'initial_km'));
+        $maxKm     = $this->parseKm(TextInput::raw($post, 'max_km'));
 
         $gear->setBrand($brand)
             ->setModel($model)
-            ->setNickname($nickname !== '' ? $nickname : null)
-            ->setNotes($notes !== '' ? $notes : null)
+            ->setNickname($nickname)
+            ->setNotes($notes)
             ->setPurchasedAt($purchasedAt)
             ->setInitialDistanceM((int) round(min($initialKm ?? 0.0, self::MAX_INITIAL_KM) * 1000))
             ->setMaxDistanceM($maxKm !== null && $maxKm > 0 ? (int) round(min($maxKm, self::MAX_LIFESPAN_KM) * 1000) : null)

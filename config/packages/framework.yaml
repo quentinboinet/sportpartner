@@ -17,3 +17,15 @@ framework:
     asset_mapper:
         paths:
             - assets/
+        # Pas de polyfill es-module-shims : tous les navigateurs visés gèrent les import maps, et la CSP
+        # (script-src 'self' + nonce) bloquerait de toute façon la copie de ga.jspm.io
+        importmap_polyfill: false
+
+when@prod:
+    framework:
+        # Seul l'hôte exact d'APP_URL est accepté (Host forgé = 400). regex_quote (App\Env\RegexQuoteEnvVarProcessor)
+        # échappe les points ; en dev et en test, aucune restriction (localhost, 127.0.0.1, tous ports)
+        trusted_hosts: ['^%env(regex_quote:key:host:url:APP_URL)%$']
+        session:
+            # Cookie de session (et de remember-me, qui en hérite) jamais envoyé en clair
+            cookie_secure: true

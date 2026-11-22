@@ -237,15 +237,20 @@ final class RaceScenarioController extends AbstractController
         return $this->toPlan($race);
     }
 
-    /** Fiche imprimable d'un scénario (?scenario={sid}, par défaut le premier). */
+    /**
+     * Fiche imprimable d'un scénario (?scenario={sid}, par défaut le premier ; ?format=band = bracelet, sinon fiche A4).
+     * Paramètres lus avec all() : une valeur en tableau (?format[]=x, ?scenario[]=x) est ignorée, sans erreur.
+     */
     #[Route('/plan/print', name: 'app_race_plan_print', methods: ['GET'])]
     public function print(Race $race, Request $request, RaceNutritionViewBuilder $nutritionBuilder): Response
     {
         $this->denyUnlessOwner($race);
         $view = $this->builder->build($race);
 
-        $selected = $view['scenarios'][0] ?? null;
-        $requested = trim((string) $request->query->get('scenario', ''));
+        $query     = $request->query->all();
+        $format    = ($query['format'] ?? null) === 'band' ? 'band' : 'sheet';
+        $selected  = $view['scenarios'][0] ?? null;
+        $requested = \is_string($query['scenario'] ?? null) ? trim($query['scenario']) : '';
         if ($requested !== '') {
             $selected = null;
             foreach ($view['scenarios'] as $candidate) {
@@ -260,6 +265,7 @@ final class RaceScenarioController extends AbstractController
 
         return $this->render('race/plan_print.html.twig', [
             'race' => $race,
+            'format' => $format,
             'route' => $view['route'],
             'scenario' => $selected['scenario'] ?? null,
             'scenarioView' => $selected,

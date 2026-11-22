@@ -2,6 +2,14 @@ import { Controller } from '@hotwired/stimulus';
 import { Modal } from 'bootstrap';
 import { WMO_ICONS, WMO_LABELS, DAY_NAMES } from './weather_constants.js';
 
+/** Élément avec sa classe et, au besoin, son texte (textContent : jamais interprété comme du HTML). */
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
 export default class extends Controller {
   static targets = ['loading', 'error', 'errorMsg', 'content', 'icon', 'temp', 'desc', 'wind', 'city'];
   static values  = { locale: { type: String, default: 'fr' } };
@@ -76,7 +84,8 @@ export default class extends Controller {
     const days   = DAY_NAMES[locale]  ?? DAY_NAMES.fr;
     const labels = WMO_LABELS[locale] ?? WMO_LABELS.fr;
 
-    forecastEl.innerHTML = daily.time.map((d, i) => {
+    // Construit avec le DOM (textContent) : aucune valeur de l'API n'est interprétée comme du HTML
+    forecastEl.replaceChildren(...daily.time.map((d, i) => {
       const day  = days[new Date(d).getDay()];
       const icon = WMO_ICONS[daily.weather_code[i]] ?? 'bi-cloud';
       const max  = Math.round(daily.temperature_2m_max[i]);
@@ -84,14 +93,22 @@ export default class extends Controller {
       const rain = daily.precipitation_sum[i];
       const desc = labels[daily.weather_code[i]] ?? '';
 
-      return `<div class="sp-forecast-row">
-        <span class="sp-forecast-day">${day}</span>
-        <i class="bi ${icon} sp-forecast-icon"></i>
-        <span class="sp-forecast-desc">${desc}</span>
-        <span class="sp-forecast-temp">${max}°&nbsp;<span class="sp-forecast-min">${min}°</span></span>
-        ${rain > 0 ? `<span class="sp-forecast-rain"><i class="bi bi-droplet-fill"></i> ${rain}mm</span>` : ''}
-      </div>`;
-    }).join('');
+      const row  = el('div', 'sp-forecast-row');
+      const temp = el('span', 'sp-forecast-temp', `${max}° `);
+      temp.append(el('span', 'sp-forecast-min', `${min}°`));
+      row.append(
+        el('span', 'sp-forecast-day', day),
+        el('i', `bi ${icon} sp-forecast-icon`),
+        el('span', 'sp-forecast-desc', desc),
+        temp,
+      );
+      if (rain > 0) {
+        const rainEl = el('span', 'sp-forecast-rain');
+        rainEl.append(el('i', 'bi bi-droplet-fill'), ` ${rain}mm`);
+        row.append(rainEl);
+      }
+      return row;
+    }));
   }
 
   #renderPrecip(hourly, locale) {
@@ -111,29 +128,35 @@ export default class extends Controller {
     const titleLabel  = locale === 'fr' ? 'Précipitations 24h' : '24h Precipitation';
     const noRainLabel = locale === 'fr' ? 'Aucune précipitation prévue' : 'No precipitation expected';
 
+    // Construit avec le DOM : hauteur des barres par le CSSOM (style.height), textes par textContent
     const bars = items.map(({ time, mm }, i) => {
       const h         = time.getHours();
       const showLabel = i === 0 || h % 6 === 0;
       const pct       = mm > 0 ? Math.max((mm / maxMm) * 100, 5) : 0;
-      const title     = mm > 0 ? `${h}h - ${mm.toFixed(1)} mm` : `${h}h`;
-      return `<div class="sp-precip-col" title="${title}">
-        <div class="sp-precip-bar-wrap">
-          <div class="sp-precip-bar" style="height:${pct}%"></div>
-        </div>
-        <span class="sp-precip-lbl">${showLabel ? h + 'h' : ''}</span>
-      </div>`;
-    }).join('');
+      const col       = el('div', 'sp-precip-col');
+      col.title = mm > 0 ? `${h}h - ${mm.toFixed(1)} mm` : `${h}h`;
+      const wrap = el('div', 'sp-precip-bar-wrap');
+      const bar  = el('div', 'sp-precip-bar');
+      bar.style.height = `${pct}%`;
+      wrap.append(bar);
+      col.append(wrap, el('span', 'sp-precip-lbl', showLabel ? h + 'h' : ''));
+      return col;
+    });
 
-    precipEl.innerHTML = `
-      <div class="sp-precip-header">
-        <span class="sp-precip-title"><i class="bi bi-droplet-half"></i> ${titleLabel}</span>
-        ${total > 0 ? `<span class="sp-precip-total">${total.toFixed(1)} mm</span>` : ''}
-      </div>
-      ${total > 0
-        ? `<div class="sp-precip-chart">${bars}</div>`
-        : `<p class="sp-precip-none">${noRainLabel}</p>`
-      }
-    `;
+    const header = el('div', 'sp-precip-header');
+    const title  = el('span', 'sp-precip-title');
+    title.append(el('i', 'bi bi-droplet-half'), ` ${titleLabel}`);
+    header.append(title);
+    if (total > 0) header.append(el('span', 'sp-precip-total', `${total.toFixed(1)} mm`));
+
+    let body;
+    if (total > 0) {
+      body = el('div', 'sp-precip-chart');
+      body.append(...bars);
+    } else {
+      body = el('p', 'sp-precip-none', noRainLabel);
+    }
+    precipEl.replaceChildren(header, body);
   }
 
 

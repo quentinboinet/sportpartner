@@ -112,7 +112,7 @@
             </button>
         </form>
         <form method="post" action="{{ path('app_gear_delete', {id: gear.id}) }}"
-              onsubmit="return confirm('{{ 'gear.confirm_delete'|trans|e('js') }}')">
+              data-confirm="{{ 'gear.confirm_delete'|trans }}">
             <input type="hidden" name="_token" value="{{ _token }}">
             <button type="submit" class="sp-gear-action sp-gear-action--danger">
                 <i class="bi bi-trash" aria-hidden="true"></i> {{ 'gear.delete'|trans }}

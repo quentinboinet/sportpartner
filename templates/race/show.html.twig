@@ -113,7 +113,7 @@
             <i class="bi bi-pencil"></i> {{ 'races.edit'|trans }}
         </button>
         <form method="post" action="{{ path('app_races_delete', {id: race.id}) }}"
-              onsubmit="return confirm('{{ 'races.confirm_delete'|trans|e('js') }}')">
+              data-confirm="{{ 'races.confirm_delete'|trans }}">
             <input type="hidden" name="_token" value="{{ csrf_token('race_action') }}">
             <button type="submit" class="sp-btn rs-btn-ghost rs-btn-danger" title="{{ 'races.delete'|trans }}"
                     aria-label="{{ 'races.delete'|trans }}">
@@ -202,15 +202,16 @@
             {% if race.elevationGain %}
                 <div><dt><i class="bi bi-graph-up-arrow"></i> {{ 'race_show.elevation'|trans }}</dt><dd>{{ race.elevationGain|number_format(0, _dec, _th) }} m</dd></div>
             {% endif %}
-            {% if race.website %}
+            {# Lien seulement pour une adresse http(s) (Race::getLinkableWebsite()) #}
+            {% if race.linkableWebsite %}
                 <div>
                     <dt><i class="bi bi-box-arrow-up-right"></i> {{ 'race_show.website'|trans }}</dt>
-                    {% set _site = race.website|replace({'https://': '', 'http://': ''}) %}
-                    <dd><a href="{{ race.website }}" target="_blank" rel="noopener noreferrer" class="rs-link">{{ _site|length > 40 ? _site|slice(0, 40) ~ '…' : _site }}</a></dd>
+                    {% set _site = race.linkableWebsite|replace({'https://': '', 'http://': ''}) %}
+                    <dd><a href="{{ race.linkableWebsite }}" target="_blank" rel="noopener noreferrer" class="rs-link">{{ _site|length > 40 ? _site|slice(0, 40) ~ '…' : _site }}</a></dd>
                 </div>
             {% endif %}
         </dl>
-        {% if not race.location and not race.distanceKm and not race.website %}
+        {% if not race.location and not race.distanceKm and not race.linkableWebsite %}
             <p class="rs-empty-hint">{{ 'race_show.info_empty'|trans }}</p>
         {% endif %}
     </section>

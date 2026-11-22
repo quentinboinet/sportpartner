@@ -1135,7 +1135,7 @@ export default class extends Controller {
                 if (ownDirty || othersDirty) questions.push(this.labels.confirmDirty);
                 break;
             case 'delete':
-                questions.push(form.dataset.confirm);
+                // La question de data-confirm est déjà posée (et acceptée) par l'écouteur global d'app.js
                 if (othersDirty) questions.push(this.labels.confirmDirty);
                 break;
             default:

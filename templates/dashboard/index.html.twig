@@ -105,10 +105,21 @@
                 </span>
             </a>
         {% endif %}
-        <a href="{{ app.user.stravaAccessToken ? path('app_strava_sync') : path('app_oauth_strava') }}" class="sp-btn sp-btn-outline">
-            <i class="bi bi-arrow-repeat"></i>
-            {{ 'dashboard.sync'|trans }}
-        </a>
+        {# Synchro : POST + CSRF (une toutes les 5 min) ; sans Strava, lien vers la connexion #}
+        {% if app.user.stravaAccessToken %}
+            <form method="post" action="{{ path('app_strava_sync') }}" class="sp-inline-form">
+                <input type="hidden" name="_token" value="{{ csrf_token('strava_sync') }}">
+                <button type="submit" class="sp-btn sp-btn-outline">
+                    <i class="bi bi-arrow-repeat"></i>
+                    {{ 'dashboard.sync'|trans }}
+                </button>
+            </form>
+        {% else %}
+            <a href="{{ path('app_oauth_strava') }}" class="sp-btn sp-btn-outline">
+                <i class="bi bi-arrow-repeat"></i>
+                {{ 'dashboard.sync'|trans }}
+            </a>
+        {% endif %}
         <a href="{{ path('app_activities_new') }}" class="sp-btn sp-btn-primary">{{ 'dashboard.add_activity'|trans }}</a>
     </div>
 </div>
@@ -151,7 +162,7 @@
         </div>
         <button type="button" class="btn-close sp-gear-alert-close" aria-label="{{ 'gear.alert_dismiss'|trans }}"></button>
     </div>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     (() => {
         const box = document.getElementById('gearAlert');
         if (!box) return;
